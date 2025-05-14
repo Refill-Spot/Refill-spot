@@ -9,8 +9,18 @@ import Header from "@/components/header";
 import ViewToggle from "@/components/view-toggle";
 import { getStores, getNearbyStores, Store } from "@/lib/stores";
 
-export default function Home() {
+// 필터 타입 정의
+interface FilterOptions {
+  categories?: string[];
+  maxDistance?: number;
+  minRating?: number;
+  latitude?: number;
+  longitude?: number;
+}
+
+export default function SearchPage() {
   const [view, setView] = useState<"map" | "list">("map");
+  // 명시적으로 Store[] 타입을 지정
   const [stores, setStores] = useState<Store[]>([]);
   const [loading, setLoading] = useState(true);
   const [userLocation, setUserLocation] = useState<{
@@ -55,13 +65,22 @@ export default function Home() {
   }, []);
 
   // 필터 적용
-  const handleApplyFilters = async (filters: any) => {
+  const handleApplyFilters = async (filters: FilterOptions) => {
     setLoading(true);
     try {
-      let filteredStores;
+      let filteredStores: Store[] = [];
 
-      if (userLocation) {
+      if (userLocation && (filters.latitude || filters.longitude)) {
         // 위치 기반 필터링
+        const lat = filters.latitude || userLocation.lat;
+        const lng = filters.longitude || userLocation.lng;
+        filteredStores = await getNearbyStores(
+          lat,
+          lng,
+          filters.maxDistance ? filters.maxDistance * 1000 : 5000
+        );
+      } else if (userLocation) {
+        // 사용자 위치 기반 필터링
         filteredStores = await getNearbyStores(
           userLocation.lat,
           userLocation.lng,
@@ -75,14 +94,14 @@ export default function Home() {
       // 카테고리 필터
       if (filters.categories && filters.categories.length > 0) {
         filteredStores = filteredStores.filter((store) =>
-          store.categories.some((cat) => filters.categories.includes(cat))
+          store.categories.some((cat) => filters.categories?.includes(cat))
         );
       }
 
       // 평점 필터
-      if (filters.minRating > 0) {
+      if (filters.minRating && filters.minRating > 0) {
         filteredStores = filteredStores.filter(
-          (store) => store.rating.naver >= filters.minRating
+          (store) => store.rating.naver >= (filters.minRating || 0)
         );
       }
 

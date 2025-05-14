@@ -25,6 +25,32 @@ export type Store = {
   price?: string | null; // null 가능성 명시
 };
 
+// 카테고리 아이템 타입 정의
+interface CategoryItem {
+  category: {
+    name: string;
+  };
+}
+
+// 데이터베이스에서 가져온 가게 데이터 타입
+interface DbStore {
+  id: number;
+  name: string;
+  address: string;
+  distance?: string | null;
+  naver_rating: number | null;
+  kakao_rating: number | null;
+  position_lat: number;
+  position_lng: number;
+  position_x: number;
+  position_y: number;
+  refill_items: string[] | null;
+  description: string | null;
+  open_hours: string | null;
+  price: string | null;
+  categories: CategoryItem[];
+}
+
 // 가게 목록 조회
 export async function getStores(): Promise<Store[]> {
   const { data, error } = await supabase
@@ -45,8 +71,11 @@ export async function getStores(): Promise<Store[]> {
   }
 
   // 응답 데이터 가공
-  return data.map((store) => {
-    const categories = store.categories.map((item) => item.category.name);
+  return data.map((store: DbStore) => {
+    // item 파라미터의 타입을 명시적으로 지정
+    const categories = store.categories.map(
+      (item: CategoryItem) => item.category.name
+    );
 
     return {
       id: store.id,
@@ -96,8 +125,11 @@ export async function getNearbyStores(
   }
 
   // 응답 데이터 가공
-  return data.map((store) => {
-    const categories = store.categories.map((item) => item.category.name);
+  return data.map((store: DbStore) => {
+    // item 파라미터의 타입을 명시적으로 지정
+    const categories = store.categories.map(
+      (item: CategoryItem) => item.category.name
+    );
 
     return {
       id: store.id,
@@ -144,7 +176,9 @@ export async function getStoreById(id: number): Promise<Store | null> {
   }
 
   // 카테고리 배열 추출
-  const categories = data.categories.map((item) => item.category.name);
+  const categories = data.categories.map(
+    (item: CategoryItem) => item.category.name
+  );
 
   // 응답 데이터 가공
   return {

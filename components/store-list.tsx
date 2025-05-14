@@ -1,14 +1,19 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
-import { ScrollArea } from "@/components/ui/scroll-area"
-import { MapPin, Navigation, Clock, Utensils } from "lucide-react"
+import { useState } from "react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { MapPin, Navigation, Clock, Utensils } from "lucide-react";
+import { Store } from "@/lib/stores";
 
-export default function StoreList({ stores = [] }) {
-  const [selectedStore, setSelectedStore] = useState(null)
+interface StoreListProps {
+  stores: Store[];
+}
+
+export default function StoreList({ stores = [] }: StoreListProps) {
+  const [selectedStore, setSelectedStore] = useState<Store | null>(null);
 
   return (
     <div className="h-full bg-[#F5F5F5] p-4">
@@ -34,8 +39,13 @@ export default function StoreList({ stores = [] }) {
                   ></div>
                   <CardContent className="p-4 flex-1">
                     <div className="flex justify-between items-start">
-                      <h3 className="font-bold text-[#333333] text-lg">{store.name}</h3>
-                      <Badge variant="outline" className="bg-[#FF5722]/10 text-[#FF5722] border-[#FF5722]/20">
+                      <h3 className="font-bold text-[#333333] text-lg">
+                        {store.name}
+                      </h3>
+                      <Badge
+                        variant="outline"
+                        className="bg-[#FF5722]/10 text-[#FF5722] border-[#FF5722]/20"
+                      >
                         {store.price}
                       </Badge>
                     </div>
@@ -64,7 +74,11 @@ export default function StoreList({ stores = [] }) {
 
                     <div className="flex flex-wrap gap-2 mt-3">
                       {store.categories.map((category, index) => (
-                        <Badge key={index} variant="secondary" className="bg-[#FFA726]/10 text-[#FFA726] border-none">
+                        <Badge
+                          key={index}
+                          variant="secondary"
+                          className="bg-[#FFA726]/10 text-[#FFA726] border-none"
+                        >
                           {category}
                         </Badge>
                       ))}
@@ -81,7 +95,10 @@ export default function StoreList({ stores = [] }) {
                     )}
 
                     <div className="mt-4 flex gap-2">
-                      <Button size="sm" className="bg-[#FF5722] hover:bg-[#E64A19] flex-1">
+                      <Button
+                        size="sm"
+                        className="bg-[#FF5722] hover:bg-[#E64A19] flex-1"
+                      >
                         상세 보기
                       </Button>
                       <Button size="sm" variant="outline" className="flex-1">
@@ -96,11 +113,13 @@ export default function StoreList({ stores = [] }) {
           ) : (
             <div className="text-center py-12">
               <p className="text-gray-500">검색 결과가 없습니다</p>
-              <p className="text-sm text-gray-400 mt-2">다른 검색어나 필터 조건을 시도해보세요</p>
+              <p className="text-sm text-gray-400 mt-2">
+                다른 검색어나 필터 조건을 시도해보세요
+              </p>
             </div>
           )}
         </div>
       </ScrollArea>
     </div>
-  )
+  );
 }

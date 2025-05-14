@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
+import Link from "next/link";
 import { getStoreById } from "@/lib/stores";
 import { ArrowLeft, Navigation, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -11,11 +12,12 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/lib/supabase";
 import { toast } from "@/components/ui/use-toast";
+import { Store } from "@/lib/stores";
 
 export default function StorePage() {
   const params = useParams();
   const router = useRouter();
-  const [store, setStore] = useState<any>(null);
+  const [store, setStore] = useState<Store | null>(null);
   const [reviews, setReviews] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [userReview, setUserReview] = useState({ rating: 0, content: "" });
@@ -131,6 +133,14 @@ export default function StorePage() {
       return;
     }
 
+    if (!store) {
+      toast({
+        title: "오류",
+        description: "가게 정보를 불러올 수 없습니다.",
+      });
+      return;
+    }
+
     try {
       if (isFavorite) {
         // 즐겨찾기 삭제
@@ -138,7 +148,7 @@ export default function StorePage() {
           .from("favorites")
           .delete()
           .eq("user_id", user.id)
-          .eq("store_id", store.id);
+          .eq("store_id", store!.id);
 
         if (error) throw error;
 
@@ -151,7 +161,7 @@ export default function StorePage() {
         // 즐겨찾기 추가
         const { error } = await supabase.from("favorites").insert({
           user_id: user.id,
-          store_id: store.id,
+          store_id: store!.id,
         });
 
         if (error) throw error;
@@ -173,7 +183,7 @@ export default function StorePage() {
   };
 
   // 리뷰 제출
-  const submitReview = async (e) => {
+  const submitReview = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!user) {
@@ -182,6 +192,14 @@ export default function StorePage() {
         description: "리뷰를 작성하려면 로그인해주세요.",
       });
       router.push("/login");
+      return;
+    }
+
+    if (!store) {
+      toast({
+        title: "오류",
+        description: "가게 정보를 불러올 수 없습니다.",
+      });
       return;
     }
 
@@ -209,7 +227,7 @@ export default function StorePage() {
         .from("reviews")
         .select("id")
         .eq("user_id", user.id)
-        .eq("store_id", store.id)
+        .eq("store_id", store!.id)
         .maybeSingle();
 
       if (existingReview) {
@@ -247,7 +265,7 @@ export default function StorePage() {
           .from("reviews")
           .insert({
             user_id: user.id,
-            store_id: store.id,
+            store_id: store!.id,
             rating: userReview.rating,
             content: userReview.content,
           })
@@ -306,7 +324,7 @@ export default function StorePage() {
       : 0;
 
   // 별점 렌더링 도우미 함수
-  const renderStars = (rating, maxStars = 5) => {
+  const renderStars = (rating: number, maxStars = 5) => {
     return Array.from({ length: maxStars }).map((_, i) => (
       <Star
         key={i}
@@ -321,6 +339,9 @@ export default function StorePage() {
     ));
   };
 
+  // store는 여기서 확실히 null이 아님
+  const storeData = store as Store;
+
   return (
     <div className="bg-white min-h-screen">
       <div className="sticky top-0 z-10 bg-white p-4 flex items-center gap-2 border-b">
@@ -328,7 +349,7 @@ export default function StorePage() {
           <ArrowLeft className="h-5 w-5" />
           <span className="sr-only">뒤로 가기</span>
         </Button>
-        <h2 className="text-lg font-bold">{store.name}</h2>
+        <h2 className="text-lg font-bold">{storeData.name}</h2>
       </div>
 
       {/* 가게 이미지 (플레이스 홀더) */}
@@ -348,16 +369,16 @@ export default function StorePage() {
             <div className="flex justify-between items-start gap-2">
               <div>
                 <h3 className="text-xl md:text-2xl font-bold text-[#333333]">
-                  {store.name}
+                  {storeData.name}
                 </h3>
                 <div className="flex items-center gap-2 mt-1">
                   <div className="flex items-center">
-                    {renderStars(store.rating.naver)}
+                    {renderStars(storeData.rating.naver)}
                     <span className="ml-2 text-sm text-gray-500">(네이버)</span>
                   </div>
                   <span className="mx-1">|</span>
                   <div className="flex items-center">
-                    {renderStars(store.rating.kakao)}
+                    {renderStars(storeData.rating.kakao)}
                     <span className="ml-2 text-sm text-gray-500">(카카오)</span>
                   </div>
                 </div>
@@ -374,7 +395,7 @@ export default function StorePage() {
 
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
               <p className="text-sm md:text-base text-gray-600">
-                {store.address}
+                {storeData.address}
               </p>
               <div className="flex gap-2">
                 <Button
@@ -384,16 +405,16 @@ export default function StorePage() {
                   onClick={() => {
                     // 네이버 지도 앱으로 연결
                     const naverMapUrl = `nmap://place?lat=${
-                      store.position.lat
-                    }&lng=${store.position.lng}&name=${encodeURIComponent(
-                      store.name
+                      storeData.position.lat
+                    }&lng=${storeData.position.lng}&name=${encodeURIComponent(
+                      storeData.name
                     )}&appname=com.example.myapp`;
                     window.location.href = naverMapUrl;
 
                     // 앱이 설치되어 있지 않은 경우를 위한 대체 URL (1초 후)
                     setTimeout(() => {
                       window.location.href = `https://map.naver.com/v5/search/${encodeURIComponent(
-                        store.name
+                        storeData.name
                       )}`;
                     }, 1000);
                   }}
@@ -407,14 +428,14 @@ export default function StorePage() {
                   className="gap-1"
                   onClick={() => {
                     // 카카오 지도 앱으로 연결
-                    const kakaoMapUrl = `kakaomap://look?p=${store.position.lat},${store.position.lng}`;
+                    const kakaoMapUrl = `kakaomap://look?p=${storeData.position.lat},${storeData.position.lng}`;
                     window.location.href = kakaoMapUrl;
 
                     // 앱이 설치되어 있지 않은 경우를 위한 대체 URL (1초 후)
                     setTimeout(() => {
                       window.location.href = `https://map.kakao.com/link/to/${encodeURIComponent(
-                        store.name
-                      )},${store.position.lat},${store.position.lng}`;
+                        storeData.name
+                      )},${storeData.position.lat},${storeData.position.lng}`;
                     }, 1000);
                   }}
                 >
@@ -429,7 +450,7 @@ export default function StorePage() {
             <div>
               <h4 className="font-medium mb-2">카테고리</h4>
               <div className="flex flex-wrap gap-2">
-                {store.categories.map((category, index) => (
+                {storeData.categories.map((category: string, index: number) => (
                   <Badge key={index} variant="secondary" className="px-2 py-1">
                     {category}
                   </Badge>
@@ -442,7 +463,7 @@ export default function StorePage() {
             <div>
               <h4 className="font-medium mb-2">운영 시간</h4>
               <p className="text-sm text-gray-600">
-                {store.openHours || "운영 시간 정보가 없습니다."}
+                {storeData.openHours || "운영 시간 정보가 없습니다."}
               </p>
             </div>
 
@@ -451,8 +472,8 @@ export default function StorePage() {
             <div>
               <h4 className="font-medium mb-2">무한리필 메뉴</h4>
               <div className="text-sm text-gray-600 space-y-1">
-                {store.refillItems && store.refillItems.length > 0 ? (
-                  store.refillItems.map((item, index) => (
+                {storeData.refillItems && storeData.refillItems.length > 0 ? (
+                  storeData.refillItems.map((item: string, index: number) => (
                     <p key={index}>- {item}</p>
                   ))
                 ) : (
@@ -466,16 +487,18 @@ export default function StorePage() {
             <div>
               <h4 className="font-medium mb-2">가격</h4>
               <p className="text-sm text-gray-600 font-semibold">
-                {store.price || "가격 정보가 없습니다."}
+                {storeData.price || "가격 정보가 없습니다."}
               </p>
             </div>
 
-            {store.description && (
+            {storeData.description && (
               <>
                 <Separator />
                 <div>
                   <h4 className="font-medium mb-2">매장 설명</h4>
-                  <p className="text-sm text-gray-600">{store.description}</p>
+                  <p className="text-sm text-gray-600">
+                    {storeData.description}
+                  </p>
                 </div>
               </>
             )}
@@ -519,6 +542,16 @@ export default function StorePage() {
               ) : (
                 <div className="text-center py-8">
                   <p className="text-gray-500">아직 작성된 리뷰가 없습니다.</p>
+                  {/* 평균 평점 표시 */}
+                  {avgRating > 0 && (
+                    <div className="mt-2 flex justify-center items-center gap-2">
+                      <span className="text-sm text-gray-600">평균 평점:</span>
+                      <div className="flex">{renderStars(avgRating)}</div>
+                      <span className="text-sm font-medium">
+                        ({avgRating.toFixed(1)})
+                      </span>
+                    </div>
+                  )}
                 </div>
               )}
             </TabsContent>
@@ -596,7 +629,7 @@ export default function StorePage() {
             onClick={() =>
               window.open(
                 `https://search.naver.com/search.naver?query=${encodeURIComponent(
-                  store.name + " " + store.address
+                  storeData.name + " " + storeData.address
                 )}`,
                 "_blank"
               )
@@ -615,7 +648,7 @@ export default function StorePage() {
             onClick={() =>
               window.open(
                 `https://search.daum.net/search?q=${encodeURIComponent(
-                  store.name + " " + store.address
+                  storeData.name + " " + storeData.address
                 )}`,
                 "_blank"
               )

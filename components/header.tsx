@@ -17,6 +17,15 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
+// 필터 타입 정의
+interface FilterOptions {
+  categories?: string[];
+  maxDistance?: number;
+  minRating?: number;
+  latitude?: number;
+  longitude?: number;
+}
+
 interface HeaderProps {
   initialSearchValue?: string;
 }
@@ -87,7 +96,8 @@ export default function Header({ initialSearchValue = "" }: HeaderProps) {
     };
   }, []);
 
-  const handleSearch = (e) => {
+  // e 파라미터의 타입을 명시적으로 지정
+  const handleSearch = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (searchQuery.trim()) {
       router.push(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
@@ -111,6 +121,32 @@ export default function Header({ initialSearchValue = "" }: HeaderProps) {
     );
   };
 
+  // Sidebar에 필요한 onApplyFilters 함수 구현
+  const handleApplyFilters = (filters: FilterOptions) => {
+    // 필터를 적용하고 검색 페이지로 이동
+    const queryParams = new URLSearchParams();
+
+    if (filters.categories && filters.categories.length > 0) {
+      queryParams.set("categories", filters.categories.join(","));
+    }
+
+    if (filters.maxDistance) {
+      queryParams.set("distance", filters.maxDistance.toString());
+    }
+
+    if (filters.minRating) {
+      queryParams.set("rating", filters.minRating.toString());
+    }
+
+    if (filters.latitude && filters.longitude) {
+      queryParams.set("lat", filters.latitude.toString());
+      queryParams.set("lng", filters.longitude.toString());
+    }
+
+    const queryString = queryParams.toString();
+    router.push(`/search?${queryString}`);
+  };
+
   return (
     <header className="sticky top-0 z-10 bg-white border-b border-gray-200 px-4 py-3 flex items-center gap-3">
       <div className="flex items-center gap-3 md:gap-6">
@@ -122,7 +158,8 @@ export default function Header({ initialSearchValue = "" }: HeaderProps) {
             </Button>
           </SheetTrigger>
           <SheetContent side="left" className="p-0 w-80">
-            <Sidebar />
+            {/* onApplyFilters props 전달 */}
+            <Sidebar onApplyFilters={handleApplyFilters} />
           </SheetContent>
         </Sheet>
 
@@ -169,10 +206,11 @@ export default function Header({ initialSearchValue = "" }: HeaderProps) {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem as="a" href="/profile">
+                {/* 'as'와 'href' 속성 대신 onClick 핸들러 사용 */}
+                <DropdownMenuItem onClick={() => router.push("/profile")}>
                   내 프로필
                 </DropdownMenuItem>
-                <DropdownMenuItem as="a" href="/favorites">
+                <DropdownMenuItem onClick={() => router.push("/favorites")}>
                   즐겨찾기
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />

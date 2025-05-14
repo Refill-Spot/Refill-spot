@@ -213,7 +213,9 @@ export default function NaverMap({ stores = [], userLocation }: NaverMapProps) {
       {/* 네이버 지도 스크립트 */}
       <Script
         strategy="beforeInteractive"
-        src={`https://openapi.map.naver.com/openapi/v3/maps.js?ncpClientId=${process.env.NEXT_PUBLIC_NAVER_MAP_CLIENT_ID}`}
+        src={`https://openapi.map.naver.com/openapi/v3/maps.js?ncpClientId=${
+          process.env.NEXT_PUBLIC_NAVER_MAP_CLIENT_ID || ""
+        }`}
         onLoad={handleNaverMapLoaded}
       />
 

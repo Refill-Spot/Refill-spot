@@ -1,26 +1,38 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import Link from "next/link"
-import { useRouter } from "next/navigation"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Label } from "@/components/ui/label"
-import { Checkbox } from "@/components/ui/checkbox"
-import { Utensils, Pizza } from "lucide-react"
+import { useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Utensils, Pizza, Github, Mail } from "lucide-react";
+import { FcGoogle } from "react-icons/fc";
+import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "@/components/ui/use-toast";
 
 export default function AuthPage() {
-  const router = useRouter()
-  const [isLoading, setIsLoading] = useState(false)
+  const router = useRouter();
+  const { signIn, signUp, signInWithGoogle, signInWithGithub, loading } =
+    useAuth();
+  const [error, setError] = useState<string | null>(null);
 
   // 로그인 폼 상태
   const [loginForm, setLoginForm] = useState({
     email: "",
     password: "",
     remember: false,
-  })
+  });
 
   // 회원가입 폼 상태
   const [registerForm, setRegisterForm] = useState({
@@ -29,49 +41,86 @@ export default function AuthPage() {
     password: "",
     confirmPassword: "",
     agreeTerms: false,
-  })
+  });
 
   // 로그인 폼 핸들러
-  const handleLoginChange = (e) => {
-    const { name, value, type, checked } = e.target
+  const handleLoginChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value, type, checked } = e.target;
     setLoginForm({
       ...loginForm,
       [name]: type === "checkbox" ? checked : value,
-    })
-  }
+    });
+  };
 
   // 회원가입 폼 핸들러
-  const handleRegisterChange = (e) => {
-    const { name, value, type, checked } = e.target
+  const handleRegisterChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value, type, checked } = e.target;
     setRegisterForm({
       ...registerForm,
       [name]: type === "checkbox" ? checked : value,
-    })
-  }
+    });
+  };
 
   // 로그인 제출
-  const handleLoginSubmit = (e) => {
-    e.preventDefault()
-    setIsLoading(true)
+  const handleLoginSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setError(null);
 
-    // 실제 구현에서는 API 호출
-    setTimeout(() => {
-      setIsLoading(false)
-      router.push("/")
-    }, 1500)
-  }
+    const { error } = await signIn(loginForm.email, loginForm.password);
+
+    if (error) {
+      setError(error.message);
+    } else {
+      toast({
+        title: "로그인 성공",
+        description: "환영합니다!",
+      });
+      router.push("/");
+    }
+  };
 
   // 회원가입 제출
-  const handleRegisterSubmit = (e) => {
-    e.preventDefault()
-    setIsLoading(true)
+  const handleRegisterSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setError(null);
 
-    // 실제 구현에서는 API 호출
-    setTimeout(() => {
-      setIsLoading(false)
-      router.push("/")
-    }, 1500)
-  }
+    // 비밀번호 확인 검증
+    if (registerForm.password !== registerForm.confirmPassword) {
+      setError("비밀번호가 일치하지 않습니다.");
+      return;
+    }
+
+    const { error } = await signUp(registerForm.email, registerForm.password, {
+      username: registerForm.username,
+    });
+
+    if (error) {
+      setError(error.message);
+    } else {
+      toast({
+        title: "회원가입 성공",
+        description: "이메일을 확인하여 계정을 인증해주세요.",
+      });
+      router.push("/login");
+    }
+  };
+
+  // 소셜 로그인 핸들러
+  const handleGoogleSignIn = async () => {
+    try {
+      await signInWithGoogle();
+    } catch (error) {
+      setError("구글 로그인 중 오류가 발생했습니다.");
+    }
+  };
+
+  const handleGithubSignIn = async () => {
+    try {
+      await signInWithGithub();
+    } catch (error) {
+      setError("깃허브 로그인 중 오류가 발생했습니다.");
+    }
+  };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#F5F5F5] px-4">
@@ -86,6 +135,12 @@ export default function AuthPage() {
           <p className="text-gray-500 mt-1">무한리필 식당을 찾아보세요</p>
         </div>
 
+        {error && (
+          <div className="mb-4 p-3 bg-red-100 text-red-800 rounded-md text-sm">
+            {error}
+          </div>
+        )}
+
         <Tabs defaultValue="login" className="w-full">
           <TabsList className="grid w-full grid-cols-2 mb-4">
             <TabsTrigger value="login">로그인</TabsTrigger>
@@ -97,7 +152,9 @@ export default function AuthPage() {
               <form onSubmit={handleLoginSubmit}>
                 <CardHeader>
                   <CardTitle>로그인</CardTitle>
-                  <CardDescription>계정 정보를 입력하여 로그인하세요</CardDescription>
+                  <CardDescription>
+                    계정 정보를 입력하여 로그인하세요
+                  </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="space-y-2">
@@ -115,7 +172,10 @@ export default function AuthPage() {
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
                       <Label htmlFor="password">비밀번호</Label>
-                      <Link href="/forgot-password" className="text-sm text-[#2196F3] hover:underline">
+                      <Link
+                        href="/forgot-password"
+                        className="text-sm text-[#2196F3] hover:underline"
+                      >
                         비밀번호 찾기
                       </Link>
                     </div>
@@ -134,16 +194,56 @@ export default function AuthPage() {
                       id="remember"
                       name="remember"
                       checked={loginForm.remember}
-                      onCheckedChange={(checked) => setLoginForm({ ...loginForm, remember: !!checked })}
+                      onCheckedChange={(checked) =>
+                        setLoginForm({ ...loginForm, remember: !!checked })
+                      }
                     />
                     <Label htmlFor="remember" className="text-sm">
                       로그인 상태 유지
                     </Label>
                   </div>
+
+                  {/* 소셜 로그인 버튼 */}
+                  <div className="space-y-2 pt-2">
+                    <div className="relative">
+                      <div className="absolute inset-0 flex items-center">
+                        <span className="w-full border-t border-gray-300"></span>
+                      </div>
+                      <div className="relative flex justify-center text-xs uppercase">
+                        <span className="bg-white px-2 text-gray-500">
+                          소셜 계정으로 로그인
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="w-full"
+                        onClick={handleGoogleSignIn}
+                      >
+                        <FcGoogle className="h-5 w-5 mr-2" />
+                        Google
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="w-full"
+                        onClick={handleGithubSignIn}
+                      >
+                        <Github className="h-5 w-5 mr-2" />
+                        Github
+                      </Button>
+                    </div>
+                  </div>
                 </CardContent>
                 <CardFooter>
-                  <Button type="submit" className="w-full bg-[#FF5722] hover:bg-[#E64A19]" disabled={isLoading}>
-                    {isLoading ? "로그인 중..." : "로그인"}
+                  <Button
+                    type="submit"
+                    className="w-full bg-[#FF5722] hover:bg-[#E64A19]"
+                    disabled={loading}
+                  >
+                    {loading ? "로그인 중..." : "로그인"}
                   </Button>
                 </CardFooter>
               </form>
@@ -155,7 +255,9 @@ export default function AuthPage() {
               <form onSubmit={handleRegisterSubmit}>
                 <CardHeader>
                   <CardTitle>회원가입</CardTitle>
-                  <CardDescription>새 계정을 만들어 무한리필 식당을 찾아보세요</CardDescription>
+                  <CardDescription>
+                    새 계정을 만들어 무한리필 식당을 찾아보세요
+                  </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="space-y-2">
@@ -210,25 +312,67 @@ export default function AuthPage() {
                       id="terms"
                       name="agreeTerms"
                       checked={registerForm.agreeTerms}
-                      onCheckedChange={(checked) => setRegisterForm({ ...registerForm, agreeTerms: !!checked })}
+                      onCheckedChange={(checked) =>
+                        setRegisterForm({
+                          ...registerForm,
+                          agreeTerms: !!checked,
+                        })
+                      }
                       required
                     />
                     <Label htmlFor="terms" className="text-sm">
                       <span>이용약관 및 </span>
-                      <Link href="/privacy" className="text-[#2196F3] hover:underline">
+                      <Link
+                        href="/privacy"
+                        className="text-[#2196F3] hover:underline"
+                      >
                         개인정보 처리방침
                       </Link>
                       <span>에 동의합니다</span>
                     </Label>
+                  </div>
+
+                  {/* 소셜 회원가입 버튼 */}
+                  <div className="space-y-2 pt-2">
+                    <div className="relative">
+                      <div className="absolute inset-0 flex items-center">
+                        <span className="w-full border-t border-gray-300"></span>
+                      </div>
+                      <div className="relative flex justify-center text-xs uppercase">
+                        <span className="bg-white px-2 text-gray-500">
+                          소셜 계정으로 가입
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="w-full"
+                        onClick={handleGoogleSignIn}
+                      >
+                        <FcGoogle className="h-5 w-5 mr-2" />
+                        Google
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="w-full"
+                        onClick={handleGithubSignIn}
+                      >
+                        <Github className="h-5 w-5 mr-2" />
+                        Github
+                      </Button>
+                    </div>
                   </div>
                 </CardContent>
                 <CardFooter>
                   <Button
                     type="submit"
                     className="w-full bg-[#FF5722] hover:bg-[#E64A19]"
-                    disabled={isLoading || !registerForm.agreeTerms}
+                    disabled={loading || !registerForm.agreeTerms}
                   >
-                    {isLoading ? "가입 중..." : "회원가입"}
+                    {loading ? "가입 중..." : "회원가입"}
                   </Button>
                 </CardFooter>
               </form>
@@ -244,5 +388,5 @@ export default function AuthPage() {
         </div>
       </div>
     </div>
-  )
+  );
 }

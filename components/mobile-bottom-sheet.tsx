@@ -26,7 +26,7 @@ export default function MobileBottomSheet() {
       </div>
 
       <div className="px-4 py-2">
-        <h2 className="text-lg font-bold text-[#333333]">주변 리필 스팟</h2>
+        <h2 className="text-lg font-bold text-[#333333]">주변 무한리필 식당</h2>
         <p className="text-sm text-gray-500">총 {storeData.length}개의 장소를 찾았습니다</p>
       </div>
 
@@ -45,7 +45,10 @@ export default function MobileBottomSheet() {
                 }}
               ></div>
               <div className="flex-1">
-                <h3 className="font-bold text-[#333333]">{store.name}</h3>
+                <div className="flex justify-between">
+                  <h3 className="font-bold text-[#333333]">{store.name}</h3>
+                  <span className="text-xs text-[#FF5722] font-medium">{store.price}</span>
+                </div>
                 <div className="flex items-center gap-1 text-sm">
                   <span className="text-[#FFA726]">★</span>
                   <span>{store.rating.naver}</span>

@@ -6,15 +6,20 @@ import { Slider } from "@/components/ui/slider"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
+import { Button } from "@/components/ui/button"
 
-export default function Sidebar() {
+interface SearchFiltersProps {
+  onApplyFilters: (filters: any) => void
+}
+
+export default function SearchFilters({ onApplyFilters }: SearchFiltersProps) {
   const [radius, setRadius] = useState([3])
   const [minRating, setMinRating] = useState(0)
   const [categories, setCategories] = useState({
-    meat: true,
-    seafood: false,
-    western: true,
-    korean: false,
+    고기: false,
+    해산물: false,
+    양식: false,
+    한식: false,
   })
 
   const handleCategoryChange = (category) => {
@@ -24,9 +29,48 @@ export default function Sidebar() {
     })
   }
 
+  const handleApplyFilters = () => {
+    const selectedCategories = Object.entries(categories)
+      .filter(([_, isSelected]) => isSelected)
+      .map(([category]) => category)
+
+    onApplyFilters({
+      categories: selectedCategories,
+      maxDistance: radius[0],
+      minRating: minRating,
+    })
+  }
+
+  const handleResetFilters = () => {
+    setRadius([3])
+    setMinRating(0)
+    setCategories({
+      고기: false,
+      해산물: false,
+      양식: false,
+      한식: false,
+    })
+
+    onApplyFilters({
+      categories: [],
+      maxDistance: 5,
+      minRating: 0,
+    })
+  }
+
   return (
     <div className="p-4 h-full bg-white">
-      <h2 className="text-lg font-bold mb-4 text-[#333333]">필터</h2>
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-lg font-bold text-[#333333]">필터</h2>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={handleResetFilters}
+          className="text-[#2196F3] hover:text-[#1976d2] hover:bg-[#2196F3]/10"
+        >
+          초기화
+        </Button>
+      </div>
 
       <div className="space-y-6">
         {/* Category filter */}
@@ -34,7 +78,7 @@ export default function Sidebar() {
           <h3 className="font-medium mb-3 text-[#333333]">카테고리</h3>
           <div className="space-y-2">
             <div className="flex items-center space-x-2">
-              <Checkbox id="meat" checked={categories.meat} onCheckedChange={() => handleCategoryChange("meat")} />
+              <Checkbox id="meat" checked={categories.고기} onCheckedChange={() => handleCategoryChange("고기")} />
               <Label htmlFor="meat" className="flex items-center gap-2 cursor-pointer">
                 <Beef className="h-4 w-4 text-[#FF5722]" />
                 <span>고기</span>
@@ -43,8 +87,8 @@ export default function Sidebar() {
             <div className="flex items-center space-x-2">
               <Checkbox
                 id="seafood"
-                checked={categories.seafood}
-                onCheckedChange={() => handleCategoryChange("seafood")}
+                checked={categories.해산물}
+                onCheckedChange={() => handleCategoryChange("해산물")}
               />
               <Label htmlFor="seafood" className="flex items-center gap-2 cursor-pointer">
                 <Fish className="h-4 w-4 text-[#2196F3]" />
@@ -52,22 +96,14 @@ export default function Sidebar() {
               </Label>
             </div>
             <div className="flex items-center space-x-2">
-              <Checkbox
-                id="western"
-                checked={categories.western}
-                onCheckedChange={() => handleCategoryChange("western")}
-              />
+              <Checkbox id="western" checked={categories.양식} onCheckedChange={() => handleCategoryChange("양식")} />
               <Label htmlFor="western" className="flex items-center gap-2 cursor-pointer">
                 <Pizza className="h-4 w-4 text-[#FFC107]" />
                 <span>양식</span>
               </Label>
             </div>
             <div className="flex items-center space-x-2">
-              <Checkbox
-                id="korean"
-                checked={categories.korean}
-                onCheckedChange={() => handleCategoryChange("korean")}
-              />
+              <Checkbox id="korean" checked={categories.한식} onCheckedChange={() => handleCategoryChange("한식")} />
               <Label htmlFor="korean" className="flex items-center gap-2 cursor-pointer">
                 <Utensils className="h-4 w-4 text-[#4CAF50]" />
                 <span>한식</span>
@@ -119,6 +155,10 @@ export default function Sidebar() {
             ))}
           </div>
         </div>
+
+        <Button onClick={handleApplyFilters} className="w-full bg-[#FF5722] hover:bg-[#E64A19] mt-4">
+          필터 적용
+        </Button>
       </div>
     </div>
   )

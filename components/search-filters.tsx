@@ -1,87 +1,313 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { Utensils, Fish, Beef, Pizza, Star } from "lucide-react"
-import { Slider } from "@/components/ui/slider"
-import { Checkbox } from "@/components/ui/checkbox"
-import { Label } from "@/components/ui/label"
-import { Separator } from "@/components/ui/separator"
-import { Button } from "@/components/ui/button"
+import { useState, useEffect } from "react";
+import {
+  MenuIcon,
+  Search,
+  X,
+  User,
+  MapPin,
+  Utensils,
+  Fish,
+  Beef,
+  Pizza,
+  Star,
+} from "lucide-react";
+import { Slider } from "@/components/ui/slider";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { useTranslation } from "@/hooks/use-translation";
+import { StoreFilters } from "@/hooks/use-stores";
+import { useRouter, useSearchParams } from "next/navigation";
+import { getCurrentPosition } from "@/lib/geo";
+import { useToast } from "@/hooks/use-toast";
 
 interface SearchFiltersProps {
-  onApplyFilters: (filters: any) => void
+  onApplyFilters: (filters: StoreFilters) => void;
+  initialFilters?: StoreFilters;
 }
 
-export default function SearchFilters({ onApplyFilters }: SearchFiltersProps) {
-  const [radius, setRadius] = useState([3])
-  const [minRating, setMinRating] = useState(0)
-  const [categories, setCategories] = useState({
-    고기: false,
-    해산물: false,
-    양식: false,
-    한식: false,
-  })
+export default function SearchFilters({
+  onApplyFilters,
+  initialFilters,
+}: SearchFiltersProps) {
+  const { t } = useTranslation();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const { toast } = useToast();
 
-  const handleCategoryChange = (category) => {
+  // 필터 상태 관리
+  const [radius, setRadius] = useState([initialFilters?.maxDistance || 3]);
+  const [minRating, setMinRating] = useState(initialFilters?.minRating || 0);
+  const [searchQuery, setSearchQuery] = useState(initialFilters?.query || "");
+  const [categories, setCategories] = useState<Record<string, boolean>>({
+    고기: initialFilters?.categories?.includes("고기") || false,
+    해산물: initialFilters?.categories?.includes("해산물") || false,
+    양식: initialFilters?.categories?.includes("양식") || false,
+    한식: initialFilters?.categories?.includes("한식") || false,
+    중식: initialFilters?.categories?.includes("중식") || false,
+    일식: initialFilters?.categories?.includes("일식") || false,
+    카페: initialFilters?.categories?.includes("카페") || false,
+    디저트: initialFilters?.categories?.includes("디저트") || false,
+  });
+
+  // URL 파라미터에서 필터 설정 가져오기
+  useEffect(() => {
+    const categoryParam = searchParams.get("categories");
+    const distanceParam = searchParams.get("distance");
+    const ratingParam = searchParams.get("rating");
+    const queryParam = searchParams.get("q");
+
+    let updated = false;
+
+    if (categoryParam) {
+      const categoryList = categoryParam.split(",");
+      const newCategoryState = { ...categories };
+      let categoryUpdated = false;
+
+      Object.keys(newCategoryState).forEach((key) => {
+        const shouldCheck = categoryList.includes(key);
+        if (newCategoryState[key] !== shouldCheck) {
+          newCategoryState[key] = shouldCheck;
+          categoryUpdated = true;
+        }
+      });
+
+      if (categoryUpdated) {
+        setCategories(newCategoryState);
+        updated = true;
+      }
+    }
+
+    if (distanceParam) {
+      const distanceValue = Number(distanceParam);
+      if (!isNaN(distanceValue) && radius[0] !== distanceValue) {
+        setRadius([distanceValue]);
+        updated = true;
+      }
+    }
+
+    if (ratingParam) {
+      const ratingValue = Number(ratingParam);
+      if (!isNaN(ratingValue) && minRating !== ratingValue) {
+        setMinRating(ratingValue);
+        updated = true;
+      }
+    }
+
+    if (queryParam && searchQuery !== queryParam) {
+      setSearchQuery(queryParam);
+      updated = true;
+    }
+
+    // URL 파라미터에서 필터값이 변경되었다면 필터 적용
+    if (updated) {
+      // 자동으로 필터 적용
+      const filters: StoreFilters = {};
+
+      if (categoryParam) {
+        filters.categories = categoryParam.split(",");
+      }
+
+      if (distanceParam) {
+        filters.maxDistance = Number(distanceParam);
+      }
+
+      if (ratingParam) {
+        filters.minRating = Number(ratingParam);
+      }
+
+      if (queryParam) {
+        filters.query = queryParam;
+      }
+
+      onApplyFilters(filters);
+    }
+  }, [
+    searchParams,
+    categories,
+    radius,
+    minRating,
+    searchQuery,
+    onApplyFilters,
+  ]);
+
+  const handleCategoryChange = (category: string) => {
     setCategories({
       ...categories,
       [category]: !categories[category],
-    })
-  }
+    });
+  };
 
-  const handleApplyFilters = () => {
+  const handleCurrentLocation = async () => {
+    try {
+      const position = await getCurrentPosition();
+      const { latitude, longitude } = position.coords;
+
+      // 위치 정보를 필터에 포함시켜 적용
+      handleApplyFilters({ latitude, longitude });
+
+      toast({
+        title: t("location_detected"),
+        description: t("location_filter_applied"),
+      });
+    } catch (error) {
+      console.error("위치 정보 오류:", error);
+      toast({
+        title: t("location_error"),
+        description: t("location_error_description"),
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleApplyFilters = (additionalFilters?: Partial<StoreFilters>) => {
     const selectedCategories = Object.entries(categories)
       .filter(([_, isSelected]) => isSelected)
-      .map(([category]) => category)
+      .map(([category]) => category);
 
-    onApplyFilters({
-      categories: selectedCategories,
-      maxDistance: radius[0],
-      minRating: minRating,
-    })
-  }
+    // 기본 필터
+    const filters: StoreFilters = {
+      ...(selectedCategories.length > 0
+        ? { categories: selectedCategories }
+        : {}),
+      ...(radius[0] > 0 ? { maxDistance: radius[0] } : {}),
+      ...(minRating > 0 ? { minRating } : {}),
+      ...(searchQuery ? { query: searchQuery } : {}),
+    };
+
+    // 추가 필터 병합 (위치 정보 등)
+    const mergedFilters = { ...filters, ...additionalFilters };
+
+    // 필터 적용
+    onApplyFilters(mergedFilters);
+
+    // URL 업데이트
+    updateUrl(mergedFilters);
+  };
+
+  const updateUrl = (filters: StoreFilters) => {
+    const params = new URLSearchParams();
+
+    if (filters.categories?.length) {
+      params.set("categories", filters.categories.join(","));
+    }
+
+    if (filters.maxDistance) {
+      params.set("distance", filters.maxDistance.toString());
+    }
+
+    if (filters.minRating) {
+      params.set("rating", filters.minRating.toString());
+    }
+
+    if (filters.query) {
+      params.set("q", filters.query);
+    }
+
+    // 위치 정보는 URL에 포함시키지 않음 (보안상 이유)
+
+    const queryString = params.toString();
+    const url = `/search${queryString ? `?${queryString}` : ""}`;
+
+    // URL 업데이트 (히스토리 추가 없이)
+    router.replace(url);
+  };
 
   const handleResetFilters = () => {
-    setRadius([3])
-    setMinRating(0)
+    setRadius([3]);
+    setMinRating(0);
+    setSearchQuery("");
     setCategories({
       고기: false,
       해산물: false,
       양식: false,
       한식: false,
-    })
+      중식: false,
+      일식: false,
+      카페: false,
+      디저트: false,
+    });
 
-    onApplyFilters({
-      categories: [],
-      maxDistance: 5,
-      minRating: 0,
-    })
-  }
+    onApplyFilters({});
+    router.replace("/search");
+  };
 
   return (
     <div className="p-4 h-full bg-white">
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-bold text-[#333333]">필터</h2>
+        <h2 className="text-lg font-bold text-[#333333]">{t("filter")}</h2>
         <Button
           variant="ghost"
           size="sm"
           onClick={handleResetFilters}
           className="text-[#2196F3] hover:text-[#1976d2] hover:bg-[#2196F3]/10"
         >
-          초기화
+          {t("reset")}
         </Button>
       </div>
 
       <div className="space-y-6">
-        {/* Category filter */}
+        {/* 검색어 필터 */}
         <div>
-          <h3 className="font-medium mb-3 text-[#333333]">카테고리</h3>
-          <div className="space-y-2">
+          <h3 className="font-medium mb-3 text-[#333333]">
+            {t("search_keyword")}
+          </h3>
+          <div className="relative">
+            <Input
+              type="text"
+              placeholder={t("search_placeholder")}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pr-10"
+            />
+            {searchQuery && (
+              <button
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                onClick={() => setSearchQuery("")}
+                aria-label={t("clear")}
+              >
+                &times;
+              </button>
+            )}
+          </div>
+        </div>
+
+        <Separator />
+
+        {/* 현재 위치 버튼 */}
+        <div>
+          <Button
+            onClick={handleCurrentLocation}
+            variant="outline"
+            className="w-full gap-2"
+          >
+            <MapPin className="h-4 w-4 text-[#2196F3]" />
+            {t("use_current_location")}
+          </Button>
+        </div>
+
+        <Separator />
+
+        {/* 카테고리 필터 */}
+        <div>
+          <h3 className="font-medium mb-3 text-[#333333]">{t("category")}</h3>
+          <div className="grid grid-cols-2 gap-2">
             <div className="flex items-center space-x-2">
-              <Checkbox id="meat" checked={categories.고기} onCheckedChange={() => handleCategoryChange("고기")} />
-              <Label htmlFor="meat" className="flex items-center gap-2 cursor-pointer">
+              <Checkbox
+                id="meat"
+                checked={categories.고기}
+                onCheckedChange={() => handleCategoryChange("고기")}
+              />
+              <Label
+                htmlFor="meat"
+                className="flex items-center gap-2 cursor-pointer"
+              >
                 <Beef className="h-4 w-4 text-[#FF5722]" />
-                <span>고기</span>
+                <span>{t("meat")}</span>
               </Label>
             </div>
             <div className="flex items-center space-x-2">
@@ -90,23 +316,69 @@ export default function SearchFilters({ onApplyFilters }: SearchFiltersProps) {
                 checked={categories.해산물}
                 onCheckedChange={() => handleCategoryChange("해산물")}
               />
-              <Label htmlFor="seafood" className="flex items-center gap-2 cursor-pointer">
+              <Label
+                htmlFor="seafood"
+                className="flex items-center gap-2 cursor-pointer"
+              >
                 <Fish className="h-4 w-4 text-[#2196F3]" />
-                <span>해산물</span>
+                <span>{t("seafood")}</span>
               </Label>
             </div>
             <div className="flex items-center space-x-2">
-              <Checkbox id="western" checked={categories.양식} onCheckedChange={() => handleCategoryChange("양식")} />
-              <Label htmlFor="western" className="flex items-center gap-2 cursor-pointer">
+              <Checkbox
+                id="western"
+                checked={categories.양식}
+                onCheckedChange={() => handleCategoryChange("양식")}
+              />
+              <Label
+                htmlFor="western"
+                className="flex items-center gap-2 cursor-pointer"
+              >
                 <Pizza className="h-4 w-4 text-[#FFC107]" />
-                <span>양식</span>
+                <span>{t("western")}</span>
               </Label>
             </div>
             <div className="flex items-center space-x-2">
-              <Checkbox id="korean" checked={categories.한식} onCheckedChange={() => handleCategoryChange("한식")} />
-              <Label htmlFor="korean" className="flex items-center gap-2 cursor-pointer">
+              <Checkbox
+                id="korean"
+                checked={categories.한식}
+                onCheckedChange={() => handleCategoryChange("한식")}
+              />
+              <Label
+                htmlFor="korean"
+                className="flex items-center gap-2 cursor-pointer"
+              >
                 <Utensils className="h-4 w-4 text-[#4CAF50]" />
-                <span>한식</span>
+                <span>{t("korean")}</span>
+              </Label>
+            </div>
+            {/* 추가 카테고리 */}
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="chinese"
+                checked={categories.중식}
+                onCheckedChange={() => handleCategoryChange("중식")}
+              />
+              <Label
+                htmlFor="chinese"
+                className="flex items-center gap-2 cursor-pointer"
+              >
+                <Utensils className="h-4 w-4 text-[#F44336]" />
+                <span>{t("chinese")}</span>
+              </Label>
+            </div>
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="japanese"
+                checked={categories.일식}
+                onCheckedChange={() => handleCategoryChange("일식")}
+              />
+              <Label
+                htmlFor="japanese"
+                className="flex items-center gap-2 cursor-pointer"
+              >
+                <Utensils className="h-4 w-4 text-[#9C27B0]" />
+                <span>{t("japanese")}</span>
               </Label>
             </div>
           </div>
@@ -114,10 +386,10 @@ export default function SearchFilters({ onApplyFilters }: SearchFiltersProps) {
 
         <Separator />
 
-        {/* Radius filter */}
+        {/* 반경 필터 */}
         <div>
           <div className="flex justify-between mb-3">
-            <h3 className="font-medium text-[#333333]">반경 설정</h3>
+            <h3 className="font-medium text-[#333333]">{t("radius")}</h3>
             <span className="text-sm font-medium">{radius[0]}km</span>
           </div>
           <Slider
@@ -138,9 +410,9 @@ export default function SearchFilters({ onApplyFilters }: SearchFiltersProps) {
 
         <Separator />
 
-        {/* Rating filter */}
+        {/* 평점 필터 */}
         <div>
-          <h3 className="font-medium mb-3 text-[#333333]">최소 평점</h3>
+          <h3 className="font-medium mb-3 text-[#333333]">{t("min_rating")}</h3>
           <div className="flex items-center gap-1">
             {[1, 2, 3, 4, 5].map((rating) => (
               <button
@@ -156,10 +428,13 @@ export default function SearchFilters({ onApplyFilters }: SearchFiltersProps) {
           </div>
         </div>
 
-        <Button onClick={handleApplyFilters} className="w-full bg-[#FF5722] hover:bg-[#E64A19] mt-4">
-          필터 적용
+        <Button
+          onClick={() => handleApplyFilters()}
+          className="w-full bg-[#FF5722] hover:bg-[#E64A19] mt-4"
+        >
+          {t("apply_filter")}
         </Button>
       </div>
     </div>
-  )
+  );
 }

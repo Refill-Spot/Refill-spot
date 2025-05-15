@@ -1,4 +1,4 @@
-import { supabase } from "./supabase";
+import { supabaseBrowser } from "@/lib/supabase/client";
 import { Database } from "@/types/supabase";
 
 // --- API 또는 서비스 레이어에서 사용할 최종 가게 데이터 타입 ---
@@ -53,7 +53,7 @@ interface DbStore {
 
 // 가게 목록 조회
 export async function getStores(): Promise<Store[]> {
-  const { data, error } = await supabase
+  const { data, error } = await supabaseBrowser
     .from("stores")
     .select(
       `
@@ -108,7 +108,7 @@ export async function getNearbyStores(
   radius: number = 5000
 ): Promise<Store[]> {
   // Supabase RPC 함수를 호출하여 반경 내 가게 검색
-  const { data, error } = await supabase.rpc("stores_within_radius", {
+  const { data, error } = await supabaseBrowser.rpc("stores_within_radius", {
     lat,
     lng,
     radius_meters: radius,
@@ -157,7 +157,7 @@ export async function getNearbyStores(
 
 // 가게 상세 정보 조회
 export async function getStoreById(id: number): Promise<Store | null> {
-  const { data, error } = await supabase
+  const { data, error } = await supabaseBrowser
     .from("stores")
     .select(
       `

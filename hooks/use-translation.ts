@@ -16,6 +16,14 @@ const koTranslations = {
   try_again_message: "문제가 발생했습니다. 다시 시도해 주세요.",
   no_description: "설명이 없습니다",
   no_distance_info: "거리 정보 없음",
+  menu: "메뉴",
+  home: "홈",
+  search: "검색",
+  profile: "프로필",
+  favorites: "즐겨찾기",
+  login: "로그인",
+  logout: "로그아웃",
+  search_placeholder: "무엇을 찾고 계신가요?",
 
   // 지도 관련
   map_aria_label: "무한리필 가게 지도",
@@ -97,6 +105,14 @@ const enTranslations = {
   try_again_message: "Something went wrong. Please try again.",
   no_description: "No description available",
   no_distance_info: "No distance information",
+  menu: "Menu",
+  home: "Home",
+  search: "Search",
+  profile: "Profile",
+  favorites: "Favorites",
+  login: "Login",
+  logout: "Logout",
+  search_placeholder: "What are you looking for?",
 
   // 지도 관련
   map_aria_label: "Map of all-you-can-eat restaurants",

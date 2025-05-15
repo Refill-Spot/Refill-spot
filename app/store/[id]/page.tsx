@@ -10,7 +10,7 @@ import { Separator } from "@/components/ui/separator";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { supabase } from "@/lib/supabase";
+import { supabaseBrowser } from "@/lib/supabase/client";
 import { toast } from "@/components/ui/use-toast";
 import { Store } from "@/lib/stores";
 
@@ -46,7 +46,7 @@ export default function StorePage() {
         setStore(storeData);
 
         // 리뷰 가져오기
-        const { data: reviewsData, error: reviewsError } = await supabase
+        const { data: reviewsData, error: reviewsError } = await supabaseBrowser
           .from("reviews")
           .select(
             `
@@ -66,7 +66,7 @@ export default function StorePage() {
         // 현재 로그인한 사용자 확인
         const {
           data: { user },
-        } = await supabase.auth.getUser();
+        } = await supabaseBrowser.auth.getUser();
         setUser(user);
 
         // 사용자의 리뷰가 있는지 확인
@@ -105,7 +105,7 @@ export default function StorePage() {
     const checkFavoriteStatus = async () => {
       if (!user || !store) return;
 
-      const { data, error } = await supabase
+      const { data, error } = await supabaseBrowser
         .from("favorites")
         .select("id")
         .eq("user_id", user.id)
@@ -144,7 +144,7 @@ export default function StorePage() {
     try {
       if (isFavorite) {
         // 즐겨찾기 삭제
-        const { error } = await supabase
+        const { error } = await supabaseBrowser
           .from("favorites")
           .delete()
           .eq("user_id", user.id)
@@ -159,7 +159,7 @@ export default function StorePage() {
         });
       } else {
         // 즐겨찾기 추가
-        const { error } = await supabase.from("favorites").insert({
+        const { error } = await supabaseBrowser.from("favorites").insert({
           user_id: user.id,
           store_id: store!.id,
         });
@@ -223,7 +223,7 @@ export default function StorePage() {
 
     try {
       // 리뷰가 있는지 확인
-      const { data: existingReview } = await supabase
+      const { data: existingReview } = await supabaseBrowser
         .from("reviews")
         .select("id")
         .eq("user_id", user.id)
@@ -232,7 +232,7 @@ export default function StorePage() {
 
       if (existingReview) {
         // 기존 리뷰 업데이트
-        const { data, error } = await supabase
+        const { data, error } = await supabaseBrowser
           .from("reviews")
           .update({
             rating: userReview.rating,
@@ -261,7 +261,7 @@ export default function StorePage() {
         });
       } else {
         // 새 리뷰 추가
-        const { data, error } = await supabase
+        const { data, error } = await supabaseBrowser
           .from("reviews")
           .insert({
             user_id: user.id,

@@ -2,7 +2,8 @@ import "./globals.css";
 import { Inter } from "next/font/google";
 import { ThemeProvider } from "@/components/theme-provider";
 import { AuthProvider } from "@/contexts/AuthContext";
-import { ReactNode } from "react"; // React 타입 import 추가
+import { ReactNode } from "react";
+import { Toaster } from "@/components/ui/toaster";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -12,7 +13,6 @@ export const metadata = {
   generator: "v0.dev",
 };
 
-// RootLayout의 props 타입을 명시적으로 지정
 interface RootLayoutProps {
   children: ReactNode;
 }
@@ -22,7 +22,10 @@ export default function RootLayout({ children }: RootLayoutProps) {
     <html lang="ko">
       <body className={inter.className}>
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
-          <AuthProvider>{children}</AuthProvider>
+          <AuthProvider>
+            {children}
+            <Toaster />
+          </AuthProvider>
         </ThemeProvider>
       </body>
     </html>

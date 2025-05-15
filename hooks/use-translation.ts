@@ -74,6 +74,16 @@ const koTranslations = {
   login_required: "로그인 필요",
   login_required_for_review: "리뷰를 작성하려면 로그인해주세요.",
   go_to_login: "로그인하러 가기",
+  signup_success: "회원가입 성공",
+  email_verification_sent: "이메일 인증 링크가 발송되었습니다.",
+  login_success: "로그인 성공",
+  welcome_back: "환영합니다!",
+  logout_success: "로그아웃 성공",
+  logged_out_message: "성공적으로 로그아웃되었습니다.",
+  logout_error: "로그아웃 오류",
+  logout_error_description: "로그아웃 처리 중 문제가 발생했습니다.",
+  profile_updated: "프로필 업데이트 완료",
+  profile_updated_description: "프로필 정보가 성공적으로 업데이트되었습니다.",
 };
 
 // 영어 번역 (필요시 추가)
@@ -146,6 +156,17 @@ const enTranslations = {
   login_required: "Login Required",
   login_required_for_review: "You need to login to write a review.",
   go_to_login: "Go to Login",
+  signup_success: "Signup Success",
+  email_verification_sent: "Email verification link has been sent.",
+  login_success: "Login Success",
+  welcome_back: "Welcome back!",
+  logout_success: "Logout Success",
+  logged_out_message: "Successfully logged out.",
+  logout_error: "Logout Error",
+  logout_error_description: "There was a problem logging out.",
+  profile_updated: "Profile Updated",
+  profile_updated_description:
+    "Your profile information has been successfully updated.",
 };
 
 // 번역 타입 정의

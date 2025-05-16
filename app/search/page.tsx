@@ -1,55 +1,20 @@
-"use client";
+import { Metadata } from "next";
+import ClientSearchPage from "@/components/client-search-page";
 
-import NaverMap from "@/components/naver-map";
-import StoreList from "@/components/store-list";
-import Sidebar from "@/components/sidebar";
-import MobileBottomSheet from "@/components/mobile-bottom-sheet";
-import Header from "@/components/header";
-import ViewToggle from "@/components/view-toggle";
-import { useMapView } from "@/hooks/use-map-view";
+export const metadata: Metadata = {
+  title: "가게 검색 - Refill Spot",
+  description:
+    "가까운 무한리필 가게를 검색하고 필터링하여 찾아보세요. 위치 기반 검색, 카테고리별 필터링 등 다양한 기능을 제공합니다.",
+  keywords: ["무한리필", "맛집", "검색", "필터", "지도", "음식점"],
+  openGraph: {
+    title: "무한리필 가게 검색 - Refill Spot",
+    description:
+      "내 주변 무한리필 맛집을 찾아보세요. 가격, 평점, 거리별 필터링이 가능합니다.",
+    type: "website",
+    locale: "ko_KR",
+  },
+};
 
 export default function SearchPage() {
-  const {
-    view,
-    setView,
-    stores,
-    loading,
-    error,
-    userLocation,
-    setFilters,
-    handleSearch,
-    getCurrentLocation,
-  } = useMapView("map");
-
-  return (
-    <main className="flex flex-col h-screen bg-[#F5F5F5]">
-      <Header onSearch={handleSearch} onLocationRequest={getCurrentLocation} />
-      <ViewToggle view={view} setView={setView} />
-      <div className="flex flex-1 overflow-hidden">
-        <div className="hidden md:block w-80 border-r border-gray-200 overflow-y-auto">
-          <Sidebar onApplyFilters={setFilters} />
-        </div>
-        <div className="flex-1 relative">
-          {loading ? (
-            <div className="flex items-center justify-center h-full">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#FF5722]"></div>
-            </div>
-          ) : error ? (
-            <div className="flex items-center justify-center h-full text-red-500">
-              {error}
-            </div>
-          ) : view === "map" ? (
-            <>
-              <NaverMap stores={stores} userLocation={userLocation} />
-              <div className="md:hidden">
-                <MobileBottomSheet stores={stores} />
-              </div>
-            </>
-          ) : (
-            <StoreList stores={stores} />
-          )}
-        </div>
-      </div>
-    </main>
-  );
+  return <ClientSearchPage />;
 }

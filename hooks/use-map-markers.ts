@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { FormattedStore } from "@/types/store";
 import { setupClustering } from "@/lib/map-integration";
 import { useTranslation } from "@/hooks/use-translation";
@@ -155,13 +155,19 @@ export function useMapMarkers({
     }
   }, [map, stores, provider, win, onMarkerClick]);
 
+  // 메모이제이션된 마커 생성
+  const memoizedMarkers = useMemo(() => {
+    if (!map || !stores.length || !win) return [];
+    return createMarkers();
+  }, [map, stores, win, provider, onMarkerClick, createMarkers]);
+
   // 클러스터링 설정
   const setupClusteringEffect = useCallback(() => {
     if (!map || !stores.length || !win || !enableClustering) return;
 
     try {
-      // 마커 생성
-      const newMarkers = createMarkers();
+      // 메모이제이션된 마커 사용
+      const newMarkers = memoizedMarkers;
 
       // 클러스터가 이미 있으면 파괴 (네이버 지도)
       if (
@@ -201,14 +207,15 @@ export function useMapMarkers({
     } catch (error) {
       console.error("클러스터링 설정 오류:", error);
     }
-  }, [map, stores, provider, win, enableClustering, createMarkers]);
+  }, [map, stores, provider, win, enableClustering, memoizedMarkers]);
 
   // 맵, 스토어 변경시 마커 및 클러스터링 업데이트
   useEffect(() => {
     if (enableClustering) {
       setupClusteringEffect();
     } else {
-      createMarkers();
+      // enableClustering이 false일 때는 메모이제이션된 마커 사용
+      setMarkers(memoizedMarkers);
     }
 
     // 컴포넌트 언마운트 시 마커 제거
@@ -237,11 +244,11 @@ export function useMapMarkers({
     provider,
     enableClustering,
     setupClusteringEffect,
-    createMarkers,
+    memoizedMarkers,
   ]);
 
   return {
-    markers,
+    markers: memoizedMarkers,
     markerClusters,
     refreshMarkers: createMarkers,
     refreshClustering: setupClusteringEffect,

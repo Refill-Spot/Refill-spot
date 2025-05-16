@@ -118,6 +118,21 @@ const koTranslations = {
   logout_error_description: "로그아웃 처리 중 문제가 발생했습니다.",
   profile_updated: "프로필 업데이트 완료",
   profile_updated_description: "프로필 정보가 성공적으로 업데이트되었습니다.",
+
+  // 위치 관련 추가 키
+  location_permission_denied: "위치 접근 권한이 거부되었습니다.",
+  location_unavailable: "위치 정보를 사용할 수 없습니다.",
+  location_timeout: "위치 정보 요청 시간이 초과되었습니다.",
+  location_error_unknown: "알 수 없는 위치 정보 오류가 발생했습니다.",
+
+  // 검색 관련 추가 키
+  search_error: "검색 오류",
+  search_empty_query: "검색어를 입력해주세요.",
+  search_error_description: "검색 처리 중 오류가 발생했습니다.",
+
+  // 필터 관련 추가 키
+  filter_error: "필터 오류",
+  filter_error_description: "필터 적용 중 오류가 발생했습니다.",
 };
 
 // 영어 번역 (필요시 추가)
@@ -235,6 +250,21 @@ const enTranslations = {
   profile_updated: "Profile Updated",
   profile_updated_description:
     "Your profile information has been successfully updated.",
+
+  // 위치 관련 추가 키
+  location_permission_denied: "Location permission was denied.",
+  location_unavailable: "Location information is unavailable.",
+  location_timeout: "The request for location information timed out.",
+  location_error_unknown: "An unknown location error occurred.",
+
+  // 검색 관련 추가 키
+  search_error: "Search Error",
+  search_empty_query: "Please enter a search term.",
+  search_error_description: "An error occurred while processing your search.",
+
+  // 필터 관련 추가 키
+  filter_error: "Filter Error",
+  filter_error_description: "An error occurred while applying filters.",
 };
 
 // 번역 타입 정의

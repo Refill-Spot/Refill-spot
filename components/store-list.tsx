@@ -1,12 +1,13 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { MapPin, Navigation, Clock, Utensils } from "lucide-react";
-import { Store } from "@/lib/stores";
+import { Store } from "@/types/store";
 
 interface StoreListProps {
   stores: Store[];
@@ -30,17 +31,16 @@ export default function StoreList({ stores = [] }: StoreListProps) {
               >
                 <Card>
                   <div className="flex md:flex-row flex-col">
-                    <figure
-                      className="md:w-32 w-full h-32 md:h-full bg-gray-200 flex-shrink-0"
-                      style={{
-                        backgroundImage: `url('/placeholder.svg?height=128&width=128')`,
-                        backgroundSize: "cover",
-                        backgroundPosition: "center",
-                      }}
-                      role="img"
-                      aria-label={`${store.name} 이미지`}
-                    ></figure>
-                    <CardContent className="p-4 flex-1">
+                    <figure className="md:w-32 w-full h-32 relative flex-shrink-0">
+                      <Image
+                        src="/placeholder.svg"
+                        alt={`${store.name} 이미지`}
+                        fill
+                        sizes="(max-width: 768px) 100vw, 128px"
+                        style={{ objectFit: "cover" }}
+                      />
+                    </figure>
+                    <CardContent className="flex-1 p-4">
                       <header className="flex justify-between items-start">
                         <h3 className="font-bold text-[#333333] text-lg">
                           {store.name}

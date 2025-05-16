@@ -4,25 +4,17 @@ import { NextRequest } from "next/server";
 import { StoreFromDb, FormattedStore } from "@/types/store";
 import { successResponse, errorResponse } from "@/lib/api-response";
 import { radiusSearchSchema } from "@/lib/validations";
-
-// 요청 처리 타임아웃 설정 (ms)
-const REQUEST_TIMEOUT = 15000;
+import {
+  API_REQUEST_TIMEOUT,
+  withTimeout,
+  createTimeoutPromise,
+} from "@/lib/timeout-utils";
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const latitudeStr = searchParams.get("lat");
   const longitudeStr = searchParams.get("lng");
   const radiusStr = searchParams.get("radius") || "5000"; // 기본 반경 5km
-
-  // 타임아웃 설정
-  const timeoutPromise = new Promise((_, reject) => {
-    setTimeout(() => {
-      reject({
-        code: "timeout_error",
-        message: "요청 처리 시간이 초과되었습니다.",
-      });
-    }, REQUEST_TIMEOUT);
-  });
 
   try {
     const cookieStore = cookies();
@@ -146,7 +138,11 @@ export async function GET(request: NextRequest) {
     })();
 
     // 타임아웃과 함께 실행
-    return await Promise.race([queryPromise, timeoutPromise]);
+    return await withTimeout(
+      queryPromise,
+      API_REQUEST_TIMEOUT,
+      "가게 정보 조회 시간이 초과되었습니다."
+    );
   } catch (error: any) {
     console.error("가게 정보 조회 API 전체 오류:", error);
 

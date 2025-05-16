@@ -1,31 +1,5 @@
 import { StoreFilters } from "@/hooks/use-stores";
-
-/**
- * 타임아웃이 포함된 fetch 요청 수행
- * @param url 요청 URL
- * @param options fetch 옵션
- * @param timeout 타임아웃 (ms)
- * @returns fetch 응답
- */
-export const fetchWithTimeout = async (
-  url: string,
-  options: RequestInit = {},
-  timeout: number = 15000
-): Promise<Response> => {
-  const controller = new AbortController();
-  const { signal } = controller;
-
-  const timeoutId = setTimeout(() => controller.abort(), timeout);
-
-  try {
-    const response = await fetch(url, { ...options, signal });
-    clearTimeout(timeoutId);
-    return response;
-  } catch (error) {
-    clearTimeout(timeoutId);
-    throw error;
-  }
-};
+import { fetchWithTimeout } from "@/lib/timeout-utils";
 
 /**
  * 가게 데이터를 필터링하여 가져오는 함수
@@ -137,7 +111,7 @@ export const extractFiltersFromURL = (
  * @param filters 필터 설정
  * @returns URL 검색 파라미터
  */
-export const filtersToURLParams = (filters: StoreFilters): URLSearchParams => {
+export function filtersToURLParams(filters: StoreFilters): URLSearchParams {
   const params = new URLSearchParams();
 
   if (filters.categories?.length) {
@@ -162,4 +136,4 @@ export const filtersToURLParams = (filters: StoreFilters): URLSearchParams => {
   }
 
   return params;
-};
+}

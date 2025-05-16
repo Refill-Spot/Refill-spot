@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   MenuIcon,
   Search,
@@ -24,9 +24,11 @@ import { StoreFilters } from "@/hooks/use-stores";
 import { useRouter, useSearchParams } from "next/navigation";
 import { getCurrentPosition } from "@/lib/geo";
 import { useToast } from "@/hooks/use-toast";
+import { useStoreStore } from "@/lib/store";
+import { filtersToURLParams } from "@/lib/api-utils";
 
 interface SearchFiltersProps {
-  onApplyFilters: (filters: StoreFilters) => void;
+  onApplyFilters?: (filters: StoreFilters) => void;
   initialFilters?: StoreFilters;
 }
 
@@ -38,20 +40,55 @@ export default function SearchFilters({
   const router = useRouter();
   const searchParams = useSearchParams();
   const { toast } = useToast();
+  const {
+    filters: storeFilters,
+    updateFilters,
+    resetFilters: resetStoreFilters,
+  } = useStoreStore();
 
   // 필터 상태 관리
-  const [radius, setRadius] = useState([initialFilters?.maxDistance || 3]);
-  const [minRating, setMinRating] = useState(initialFilters?.minRating || 0);
-  const [searchQuery, setSearchQuery] = useState(initialFilters?.query || "");
+  const [radius, setRadius] = useState([
+    initialFilters?.maxDistance || storeFilters.maxDistance || 3,
+  ]);
+  const [minRating, setMinRating] = useState(
+    initialFilters?.minRating || storeFilters.minRating || 0
+  );
+  const [searchQuery, setSearchQuery] = useState(
+    initialFilters?.query || storeFilters.query || ""
+  );
   const [categories, setCategories] = useState<Record<string, boolean>>({
-    고기: initialFilters?.categories?.includes("고기") || false,
-    해산물: initialFilters?.categories?.includes("해산물") || false,
-    양식: initialFilters?.categories?.includes("양식") || false,
-    한식: initialFilters?.categories?.includes("한식") || false,
-    중식: initialFilters?.categories?.includes("중식") || false,
-    일식: initialFilters?.categories?.includes("일식") || false,
-    카페: initialFilters?.categories?.includes("카페") || false,
-    디저트: initialFilters?.categories?.includes("디저트") || false,
+    고기:
+      initialFilters?.categories?.includes("고기") ||
+      storeFilters.categories?.includes("고기") ||
+      false,
+    해산물:
+      initialFilters?.categories?.includes("해산물") ||
+      storeFilters.categories?.includes("해산물") ||
+      false,
+    양식:
+      initialFilters?.categories?.includes("양식") ||
+      storeFilters.categories?.includes("양식") ||
+      false,
+    한식:
+      initialFilters?.categories?.includes("한식") ||
+      storeFilters.categories?.includes("한식") ||
+      false,
+    중식:
+      initialFilters?.categories?.includes("중식") ||
+      storeFilters.categories?.includes("중식") ||
+      false,
+    일식:
+      initialFilters?.categories?.includes("일식") ||
+      storeFilters.categories?.includes("일식") ||
+      false,
+    카페:
+      initialFilters?.categories?.includes("카페") ||
+      storeFilters.categories?.includes("카페") ||
+      false,
+    디저트:
+      initialFilters?.categories?.includes("디저트") ||
+      storeFilters.categories?.includes("디저트") ||
+      false,
   });
 
   // URL 파라미터에서 필터 설정 가져오기
@@ -164,60 +201,49 @@ export default function SearchFilters({
     }
   };
 
-  const handleApplyFilters = (additionalFilters?: Partial<StoreFilters>) => {
-    const selectedCategories = Object.entries(categories)
-      .filter(([_, isSelected]) => isSelected)
-      .map(([category]) => category);
+  const handleApplyFilters = useCallback(
+    (additionalFilters?: Partial<StoreFilters>) => {
+      const selectedCategories = Object.entries(categories)
+        .filter(([_, isSelected]) => isSelected)
+        .map(([category]) => category);
 
-    // 기본 필터
-    const filters: StoreFilters = {
-      ...(selectedCategories.length > 0
-        ? { categories: selectedCategories }
-        : {}),
-      ...(radius[0] > 0 ? { maxDistance: radius[0] } : {}),
-      ...(minRating > 0 ? { minRating } : {}),
-      ...(searchQuery ? { query: searchQuery } : {}),
-    };
+      // 기본 필터
+      const newFilters: StoreFilters = {
+        ...(selectedCategories.length > 0
+          ? { categories: selectedCategories }
+          : {}),
+        ...(radius[0] > 0 ? { maxDistance: radius[0] } : {}),
+        ...(minRating > 0 ? { minRating } : {}),
+        ...(searchQuery ? { query: searchQuery } : {}),
+      };
 
-    // 추가 필터 병합 (위치 정보 등)
-    const mergedFilters = { ...filters, ...additionalFilters };
+      // 추가 필터 병합 (위치 정보 등)
+      const mergedFilters = { ...newFilters, ...additionalFilters };
 
-    // 필터 적용
-    onApplyFilters(mergedFilters);
+      // 글로벌 스토어 업데이트
+      updateFilters(mergedFilters);
 
-    // URL 업데이트
-    updateUrl(mergedFilters);
-  };
+      // 필터 적용 (상위 컴포넌트 콜백)
+      if (onApplyFilters) {
+        onApplyFilters(mergedFilters);
+      }
 
-  const updateUrl = (filters: StoreFilters) => {
-    const params = new URLSearchParams();
+      // URL 업데이트
+      const params = filtersToURLParams(mergedFilters);
+      router.replace(`/search?${params.toString()}`);
+    },
+    [
+      categories,
+      radius,
+      minRating,
+      searchQuery,
+      router,
+      onApplyFilters,
+      updateFilters,
+    ]
+  );
 
-    if (filters.categories?.length) {
-      params.set("categories", filters.categories.join(","));
-    }
-
-    if (filters.maxDistance) {
-      params.set("distance", filters.maxDistance.toString());
-    }
-
-    if (filters.minRating) {
-      params.set("rating", filters.minRating.toString());
-    }
-
-    if (filters.query) {
-      params.set("q", filters.query);
-    }
-
-    // 위치 정보는 URL에 포함시키지 않음 (보안상 이유)
-
-    const queryString = params.toString();
-    const url = `/search${queryString ? `?${queryString}` : ""}`;
-
-    // URL 업데이트 (히스토리 추가 없이)
-    router.replace(url);
-  };
-
-  const handleResetFilters = () => {
+  const handleResetFilters = useCallback(() => {
     setRadius([3]);
     setMinRating(0);
     setSearchQuery("");
@@ -232,9 +258,23 @@ export default function SearchFilters({
       디저트: false,
     });
 
-    onApplyFilters({});
-    router.replace("/search");
-  };
+    // 글로벌 스토어 초기화
+    resetStoreFilters();
+
+    // 필터 적용 (상위 컴포넌트 콜백)
+    if (onApplyFilters) {
+      onApplyFilters({});
+    }
+
+    // URL 초기화
+    const lat = searchParams.get("lat");
+    const lng = searchParams.get("lng");
+    if (lat && lng) {
+      router.replace(`/search?lat=${lat}&lng=${lng}`);
+    } else {
+      router.replace("/search");
+    }
+  }, [router, searchParams, onApplyFilters, resetStoreFilters]);
 
   return (
     <div className="p-4 h-full bg-white">

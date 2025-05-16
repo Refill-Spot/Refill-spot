@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import { getStoreById } from "@/lib/stores";
 import { ArrowLeft, Navigation, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -12,7 +13,9 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { toast } from "@/components/ui/use-toast";
-import { Store } from "@/types/store";
+import { Store, FormattedReview } from "@/types/store";
+import { useStoreStore } from "@/lib/store";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface StoreDetailsProps {
   storeId: number;
@@ -20,97 +23,37 @@ interface StoreDetailsProps {
 
 export default function StoreDetails({ storeId }: StoreDetailsProps) {
   const router = useRouter();
-  const [store, setStore] = useState<Store | null>(null);
-  const [reviews, setReviews] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { user } = useAuth();
+  const {
+    currentStore,
+    storeLoading,
+    storeError,
+    reviews,
+    fetchStoreById,
+    fetchReviews,
+    toggleFavorite,
+    addReview,
+    updateReview,
+  } = useStoreStore();
   const [userReview, setUserReview] = useState({ rating: 0, content: "" });
-  const [user, setUser] = useState<any>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isFavorite, setIsFavorite] = useState(false);
 
   // 가게 정보 및 리뷰 로드
   useEffect(() => {
-    const fetchStoreData = async () => {
-      try {
-        setLoading(true);
-        const storeData = await getStoreById(storeId);
-
-        if (!storeData) {
-          toast({
-            title: "오류",
-            description: "가게 정보를 찾을 수 없습니다.",
-            variant: "destructive",
-          });
-          router.push("/");
-          return;
-        }
-
-        setStore(storeData);
-
-        // 리뷰 가져오기
-        const { data: reviewsData, error: reviewsError } = await supabaseBrowser
-          .from("reviews")
-          .select(
-            `
-            *,
-            profiles:profiles(username)
-          `
-          )
-          .eq("store_id", storeData.id)
-          .order("created_at", { ascending: false });
-
-        if (reviewsError) {
-          throw reviewsError;
-        }
-
-        setReviews(reviewsData);
-
-        // 현재 로그인한 사용자 확인
-        const {
-          data: { user },
-        } = await supabaseBrowser.auth.getUser();
-        setUser(user);
-
-        // 사용자의 리뷰가 있는지 확인
-        if (user) {
-          const userReviewData = reviewsData.find(
-            (review) => review.user_id === user.id
-          );
-
-          if (userReviewData) {
-            setUserReview({
-              rating: userReviewData.rating,
-              content: userReviewData.content,
-            });
-          }
-        }
-      } catch (error) {
-        console.error("가게 정보 로드 오류:", error);
-        toast({
-          title: "오류",
-          description: "가게 정보를 불러오는 중 오류가 발생했습니다.",
-          variant: "destructive",
-        });
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchStoreData();
-  }, [storeId, router]);
-
-  // 즐겨찾기 상태 관리
-  const [isFavorite, setIsFavorite] = useState(false);
+    fetchStoreById(storeId);
+  }, [storeId, fetchStoreById]);
 
   // 즐겨찾기 상태 확인
   useEffect(() => {
     const checkFavoriteStatus = async () => {
-      if (!user || !store) return;
+      if (!user || !currentStore) return;
 
       const { data, error } = await supabaseBrowser
         .from("favorites")
         .select("id")
         .eq("user_id", user.id)
-        .eq("store_id", store.id)
+        .eq("store_id", currentStore.id)
         .single();
 
       if (!error && data) {
@@ -121,10 +64,26 @@ export default function StoreDetails({ storeId }: StoreDetailsProps) {
     };
 
     checkFavoriteStatus();
-  }, [user, store]);
+  }, [user, currentStore]);
+
+  // 사용자의 리뷰가 있는지 확인
+  useEffect(() => {
+    if (user && reviews.length > 0) {
+      const existingReview = reviews.find(
+        (review: FormattedReview) => review.user.id === user.id
+      );
+
+      if (existingReview) {
+        setUserReview({
+          rating: existingReview.rating,
+          content: existingReview.content,
+        });
+      }
+    }
+  }, [reviews, user]);
 
   // 즐겨찾기 토글
-  const toggleFavorite = async () => {
+  const handleToggleFavorite = async () => {
     if (!user) {
       toast({
         title: "로그인 필요",
@@ -134,7 +93,7 @@ export default function StoreDetails({ storeId }: StoreDetailsProps) {
       return;
     }
 
-    if (!store) {
+    if (!currentStore) {
       toast({
         title: "오류",
         description: "가게 정보를 불러올 수 없습니다.",
@@ -143,36 +102,15 @@ export default function StoreDetails({ storeId }: StoreDetailsProps) {
     }
 
     try {
-      if (isFavorite) {
-        // 즐겨찾기 삭제
-        const { error } = await supabaseBrowser
-          .from("favorites")
-          .delete()
-          .eq("user_id", user.id)
-          .eq("store_id", store!.id);
+      await toggleFavorite(currentStore.id, user.id);
+      setIsFavorite(!isFavorite);
 
-        if (error) throw error;
-
-        setIsFavorite(false);
-        toast({
-          title: "즐겨찾기 해제",
-          description: "즐겨찾기에서 삭제되었습니다.",
-        });
-      } else {
-        // 즐겨찾기 추가
-        const { error } = await supabaseBrowser.from("favorites").insert({
-          user_id: user.id,
-          store_id: store!.id,
-        });
-
-        if (error) throw error;
-
-        setIsFavorite(true);
-        toast({
-          title: "즐겨찾기 추가",
-          description: "즐겨찾기에 추가되었습니다.",
-        });
-      }
+      toast({
+        title: isFavorite ? "즐겨찾기 해제" : "즐겨찾기 추가",
+        description: isFavorite
+          ? "즐겨찾기에서 삭제되었습니다."
+          : "즐겨찾기에 추가되었습니다.",
+      });
     } catch (error) {
       console.error("즐겨찾기 오류:", error);
       toast({
@@ -184,7 +122,7 @@ export default function StoreDetails({ storeId }: StoreDetailsProps) {
   };
 
   // 리뷰 제출
-  const submitReview = async (e: React.FormEvent) => {
+  const handleSubmitReview = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!user) {
@@ -196,7 +134,7 @@ export default function StoreDetails({ storeId }: StoreDetailsProps) {
       return;
     }
 
-    if (!store) {
+    if (!currentStore) {
       toast({
         title: "오류",
         description: "가게 정보를 불러올 수 없습니다.",
@@ -228,32 +166,15 @@ export default function StoreDetails({ storeId }: StoreDetailsProps) {
         .from("reviews")
         .select("id")
         .eq("user_id", user.id)
-        .eq("store_id", store!.id)
+        .eq("store_id", currentStore.id)
         .maybeSingle();
 
       if (existingReview) {
         // 기존 리뷰 업데이트
-        const { data, error } = await supabaseBrowser
-          .from("reviews")
-          .update({
-            rating: userReview.rating,
-            content: userReview.content,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", existingReview.id)
-          .select(
-            `
-            *,
-            profiles:profiles(username)
-          `
-          )
-          .single();
-
-        if (error) throw error;
-
-        // 리뷰 목록 업데이트
-        setReviews(
-          reviews.map((review) => (review.id === data.id ? data : review))
+        await updateReview(
+          existingReview.id,
+          userReview.rating,
+          userReview.content
         );
 
         toast({
@@ -262,26 +183,12 @@ export default function StoreDetails({ storeId }: StoreDetailsProps) {
         });
       } else {
         // 새 리뷰 추가
-        const { data, error } = await supabaseBrowser
-          .from("reviews")
-          .insert({
-            user_id: user.id,
-            store_id: store!.id,
-            rating: userReview.rating,
-            content: userReview.content,
-          })
-          .select(
-            `
-            *,
-            profiles:profiles(username)
-          `
-          )
-          .single();
-
-        if (error) throw error;
-
-        // 리뷰 목록 업데이트
-        setReviews([data, ...reviews]);
+        await addReview(
+          currentStore.id,
+          user.id,
+          userReview.rating,
+          userReview.content
+        );
 
         toast({
           title: "리뷰 등록",
@@ -304,7 +211,7 @@ export default function StoreDetails({ storeId }: StoreDetailsProps) {
     router.back();
   };
 
-  if (loading) {
+  if (storeLoading) {
     return (
       <div
         className="flex items-center justify-center h-screen"
@@ -321,7 +228,7 @@ export default function StoreDetails({ storeId }: StoreDetailsProps) {
     );
   }
 
-  if (!store) {
+  if (!currentStore) {
     return (
       <section className="p-8 text-center" aria-live="assertive">
         <p>가게 정보를 불러올 수 없습니다.</p>
@@ -332,7 +239,10 @@ export default function StoreDetails({ storeId }: StoreDetailsProps) {
   // 평균 평점 계산
   const avgRating =
     reviews.length > 0
-      ? reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length
+      ? reviews.reduce(
+          (sum: number, review: FormattedReview) => sum + review.rating,
+          0
+        ) / reviews.length
       : 0;
 
   // 별점 렌더링 도우미 함수
@@ -352,7 +262,7 @@ export default function StoreDetails({ storeId }: StoreDetailsProps) {
   };
 
   // store는 여기서 확실히 null이 아님
-  const storeData = store as Store;
+  const storeData = currentStore;
 
   return (
     <article className="bg-white min-h-screen">
@@ -365,16 +275,16 @@ export default function StoreDetails({ storeId }: StoreDetailsProps) {
       </header>
 
       {/* 가게 이미지 (플레이스 홀더) */}
-      <figure
-        className="w-full h-48 md:h-64 bg-gray-200"
-        style={{
-          backgroundImage: `url('/placeholder.svg?height=200&width=400')`,
-          backgroundSize: "cover",
-          backgroundPosition: "center",
-        }}
-        role="img"
-        aria-label={`${storeData.name} 이미지`}
-      ></figure>
+      <figure className="w-full h-48 md:h-64 relative">
+        <Image
+          src="/placeholder.svg"
+          alt={`${storeData.name} 이미지`}
+          fill
+          sizes="(max-width: 768px) 100vw, 768px"
+          style={{ objectFit: "cover" }}
+          priority
+        />
+      </figure>
 
       <main className="p-4 md:p-6 max-w-4xl mx-auto">
         {/* 가게 정보 */}
@@ -409,7 +319,7 @@ export default function StoreDetails({ storeId }: StoreDetailsProps) {
                 <Button
                   variant={isFavorite ? "destructive" : "outline"}
                   size="sm"
-                  onClick={toggleFavorite}
+                  onClick={handleToggleFavorite}
                 >
                   {isFavorite ? "즐겨찾기 해제" : "즐겨찾기"}
                 </Button>
@@ -551,22 +461,22 @@ export default function StoreDetails({ storeId }: StoreDetailsProps) {
             <TabsContent value="all">
               {reviews.length > 0 ? (
                 <div className="space-y-4">
-                  {reviews.map((review) => (
+                  {reviews.map((review: FormattedReview) => (
                     <article
                       key={review.id}
                       className="border rounded-lg p-4 shadow-sm"
                     >
                       <header className="flex justify-between items-center mb-2">
                         <span className="font-semibold">
-                          {review.profiles.username}
+                          {review.user.username}
                         </span>
                         <div className="flex items-center">
                           {renderStars(review.rating)}
                           <time
                             className="ml-2 text-sm text-gray-500"
-                            dateTime={review.created_at}
+                            dateTime={review.createdAt}
                           >
-                            {new Date(review.created_at).toLocaleDateString()}
+                            {new Date(review.createdAt).toLocaleDateString()}
                           </time>
                         </div>
                       </header>
@@ -593,7 +503,7 @@ export default function StoreDetails({ storeId }: StoreDetailsProps) {
 
             <TabsContent value="write">
               {user ? (
-                <form onSubmit={submitReview} className="space-y-4">
+                <form onSubmit={handleSubmitReview} className="space-y-4">
                   <fieldset>
                     <legend className="block mb-2 font-medium">평점</legend>
                     <div className="flex gap-2 mb-4">
@@ -680,11 +590,7 @@ export default function StoreDetails({ storeId }: StoreDetailsProps) {
                 )
               }
             >
-              <img
-                src="/images/naver-logo.png"
-                alt="네이버"
-                className="h-5 w-5"
-              />
+              <span className="text-[#03C75A] font-bold">N</span>
               <span>네이버 검색</span>
             </Button>
             <Button
@@ -699,11 +605,9 @@ export default function StoreDetails({ storeId }: StoreDetailsProps) {
                 )
               }
             >
-              <img
-                src="/images/kakao-logo.png"
-                alt="카카오"
-                className="h-5 w-5"
-              />
+              <span className="text-[#FFDE00] bg-[#371D1E] rounded-full h-5 w-5 flex items-center justify-center text-xs font-bold">
+                K
+              </span>
               <span>카카오 검색</span>
             </Button>
           </div>

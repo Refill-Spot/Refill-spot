@@ -1,54 +1,11 @@
 import { supabaseBrowser } from "@/lib/supabase/client";
-import { Database } from "@/types/supabase";
-
-// --- API 또는 서비스 레이어에서 사용할 최종 가게 데이터 타입 ---
-// (이 타입은 @/types/store.ts 로 옮겨서 다른 곳에서도 재사용 가능)
-export type Store = {
-  id: number;
-  name: string;
-  address: string;
-  distance?: string | null; // 문자열 형태의 거리 (예: "1.2km") 또는 null
-  categories: string[];
-  rating: {
-    naver: number;
-    kakao: number;
-  };
-  position: {
-    lat: number;
-    lng: number;
-    x: number;
-    y: number;
-  };
-  refillItems?: string[] | null; // null 가능성 명시
-  description?: string | null; // null 가능성 명시
-  openHours?: string | null; // null 가능성 명시
-  price?: string | null; // null 가능성 명시
-};
+import { Store, StoreFromDb } from "@/types/store";
 
 // 카테고리 아이템 타입 정의
 interface CategoryItem {
   category: {
     name: string;
   };
-}
-
-// 데이터베이스에서 가져온 가게 데이터 타입
-interface DbStore {
-  id: number;
-  name: string;
-  address: string;
-  distance?: string | null;
-  naver_rating: number | null;
-  kakao_rating: number | null;
-  position_lat: number;
-  position_lng: number;
-  position_x: number;
-  position_y: number;
-  refill_items: string[] | null;
-  description: string | null;
-  open_hours: string | null;
-  price: string | null;
-  categories: CategoryItem[];
 }
 
 // 가게 목록 조회
@@ -71,7 +28,7 @@ export async function getStores(): Promise<Store[]> {
   }
 
   // 응답 데이터 가공
-  return data.map((store: DbStore) => {
+  return data.map((store: StoreFromDb) => {
     // item 파라미터의 타입을 명시적으로 지정
     const categories = store.categories.map(
       (item: CategoryItem) => item.category.name
@@ -81,7 +38,7 @@ export async function getStores(): Promise<Store[]> {
       id: store.id,
       name: store.name,
       address: store.address,
-      distance: store.distance,
+      distance: store.distance ? String(store.distance) : null,
       categories,
       rating: {
         naver: store.naver_rating || 0,
@@ -125,7 +82,7 @@ export async function getNearbyStores(
   }
 
   // 응답 데이터 가공
-  return data.map((store: DbStore) => {
+  return data.map((store: StoreFromDb) => {
     // item 파라미터의 타입을 명시적으로 지정
     const categories = store.categories.map(
       (item: CategoryItem) => item.category.name
@@ -135,7 +92,7 @@ export async function getNearbyStores(
       id: store.id,
       name: store.name,
       address: store.address,
-      distance: store.distance,
+      distance: store.distance ? String(store.distance) : null,
       categories,
       rating: {
         naver: store.naver_rating || 0,

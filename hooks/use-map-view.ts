@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useFetchStores, StoreFilters } from "./use-stores";
 import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from "@/hooks/use-translation";
+import { extractFiltersFromURL, filtersToURLParams } from "@/lib/api-utils";
 
 export function useMapView(initialView: "map" | "list" = "map") {
   const [view, setView] = useState<"map" | "list">(initialView);
@@ -22,53 +23,17 @@ export function useMapView(initialView: "map" | "list" = "map") {
   // URL 파라미터에서 필터 설정 가져오기
   useEffect(() => {
     try {
-      const categoryParam = searchParams.get("categories");
-      const distanceParam = searchParams.get("distance");
-      const ratingParam = searchParams.get("rating");
-      const queryParam = searchParams.get("q");
-      const latParam = searchParams.get("lat");
-      const lngParam = searchParams.get("lng");
+      const filters = extractFiltersFromURL(searchParams);
 
-      if (
-        categoryParam ||
-        distanceParam ||
-        ratingParam ||
-        queryParam ||
-        (latParam && lngParam)
-      ) {
-        const filters: StoreFilters = {};
+      if (Object.keys(filters).length > 0) {
+        setFilters(filters);
 
-        if (categoryParam) filters.categories = categoryParam.split(",");
-
-        if (distanceParam) {
-          const distance = Number(distanceParam);
-          if (!isNaN(distance)) {
-            filters.maxDistance = distance;
-          }
-        }
-
-        if (ratingParam) {
-          const rating = Number(ratingParam);
-          if (!isNaN(rating)) {
-            filters.minRating = rating;
-          }
-        }
-
-        if (queryParam) filters.query = queryParam;
-
-        if (latParam && lngParam) {
-          const lat = Number(latParam);
-          const lng = Number(lngParam);
-
-          if (!isNaN(lat) && !isNaN(lng)) {
-            filters.latitude = lat;
-            filters.longitude = lng;
-            setUserLocation({ lat, lng });
-          }
-        }
-
-        if (Object.keys(filters).length > 0) {
-          setFilters(filters);
+        // 위치 정보가 있으면 상태 업데이트
+        if (filters.latitude && filters.longitude) {
+          setUserLocation({
+            lat: filters.latitude,
+            lng: filters.longitude,
+          });
         }
       }
     } catch (err) {
@@ -96,10 +61,9 @@ export function useMapView(initialView: "map" | "list" = "map") {
           // 필터에 위치 정보 추가
           setFilters({ latitude, longitude });
 
-          // URL 업데이트 (옵션)
-          const params = new URLSearchParams(searchParams.toString());
-          params.set("lat", latitude.toString());
-          params.set("lng", longitude.toString());
+          // URL 업데이트
+          const filters: StoreFilters = { latitude, longitude };
+          const params = filtersToURLParams(filters);
           router.replace(`?${params.toString()}`);
 
           toast({
@@ -139,7 +103,7 @@ export function useMapView(initialView: "map" | "list" = "map") {
         variant: "destructive",
       });
     }
-  }, [router, searchParams, setFilters, toast, t]);
+  }, [router, setFilters, toast, t]);
 
   // 검색 처리
   const handleSearch = useCallback(
@@ -157,8 +121,8 @@ export function useMapView(initialView: "map" | "list" = "map") {
         setFilters({ query: query.trim() });
 
         // URL 업데이트
-        const params = new URLSearchParams(searchParams.toString());
-        params.set("q", query.trim());
+        const filters: StoreFilters = { query: query.trim() };
+        const params = filtersToURLParams(filters);
         router.replace(`?${params.toString()}`);
       } catch (err) {
         console.error("검색 처리 중 오류:", err);
@@ -169,7 +133,7 @@ export function useMapView(initialView: "map" | "list" = "map") {
         });
       }
     },
-    [router, searchParams, setFilters, toast, t]
+    [router, setFilters, toast, t]
   );
 
   // 필터 적용
@@ -185,29 +149,7 @@ export function useMapView(initialView: "map" | "list" = "map") {
         setFilters(filters);
 
         // URL 업데이트
-        const params = new URLSearchParams();
-
-        if (filters.categories?.length) {
-          params.set("categories", filters.categories.join(","));
-        }
-
-        if (filters.maxDistance) {
-          params.set("distance", filters.maxDistance.toString());
-        }
-
-        if (filters.minRating) {
-          params.set("rating", filters.minRating.toString());
-        }
-
-        if (filters.query) {
-          params.set("q", filters.query);
-        }
-
-        if (filters.latitude && filters.longitude) {
-          params.set("lat", filters.latitude.toString());
-          params.set("lng", filters.longitude.toString());
-        }
-
+        const params = filtersToURLParams(filters);
         router.replace(`?${params.toString()}`);
       } catch (err) {
         console.error("필터 적용 중 오류:", err);
@@ -229,8 +171,6 @@ export function useMapView(initialView: "map" | "list" = "map") {
     error,
     userLocation,
     setFilters: applyFilters,
-    resetFilters,
-    refetch,
     handleSearch,
     getCurrentLocation,
   };

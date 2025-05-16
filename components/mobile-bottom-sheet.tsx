@@ -4,7 +4,7 @@ import { useState } from "react";
 import { ChevronUp } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Store } from "@/lib/stores"; // Store 타입 가져오기
+import { Store } from "@/types/store"; // Store 타입 가져오기
 import Link from "next/link";
 
 interface MobileBottomSheetProps {

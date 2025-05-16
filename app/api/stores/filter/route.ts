@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 import { StoreFromDb, FormattedStore } from "@/types/store";
 import { Database } from "@/types/supabase";
 import { successResponse, errorResponse } from "@/lib/api-response";
+import { storeFilterSchema } from "@/lib/validations";
 
 // 요청 처리 타임아웃 설정 (ms)
 const REQUEST_TIMEOUT = 15000;
@@ -21,8 +22,6 @@ export async function POST(request: NextRequest) {
 
   try {
     const requestBody = await request.json().catch(() => ({}));
-    const { categories, maxDistance, minRating, latitude, longitude, query } =
-      requestBody;
 
     if (!requestBody || Object.keys(requestBody).length === 0) {
       return errorResponse(
@@ -40,56 +39,146 @@ export async function POST(request: NextRequest) {
     });
 
     const queryPromise = (async () => {
-      // 위치 기반 필터링 (거리)
-      if (latitude && longitude && maxDistance) {
-        if (
-          isNaN(Number(latitude)) ||
-          isNaN(Number(longitude)) ||
-          isNaN(Number(maxDistance))
-        ) {
-          return errorResponse(
-            {
-              code: "invalid_parameters",
-              message: "위도, 경도, 반경은 유효한 숫자여야 합니다.",
-              details: { latitude, longitude, maxDistance },
-            },
-            400
-          );
-        }
+      // Zod 스키마로 요청 데이터 검증
+      try {
+        const {
+          categories,
+          maxDistance,
+          minRating,
+          latitude,
+          longitude,
+          query,
+        } = storeFilterSchema.parse(requestBody);
 
-        // Supabase RPC 함수 사용
-        const { data: stores, error } = await supabase.rpc<any, StoreFromDb[]>(
-          "stores_filter",
-          {
-            lat: Number(latitude),
-            lng: Number(longitude),
-            max_distance: Number(maxDistance) * 1000,
+        // 위치 기반 필터링 (거리)
+        if (latitude && longitude && maxDistance) {
+          // Supabase RPC 함수 사용
+          const { data: stores, error } = await supabase.rpc<
+            any,
+            StoreFromDb[]
+          >("stores_filter", {
+            lat: latitude,
+            lng: longitude,
+            max_distance: maxDistance * 1000,
             min_rating: minRating || 0,
             categories_filter:
               categories && categories.length > 0 ? categories : null,
+          }).select(`
+            *,
+            categories:store_categories(
+              category:categories(name)
+            )
+          `);
+
+          if (error) {
+            return errorResponse(
+              {
+                code: "database_error",
+                message:
+                  "필터링된 가게 정보를 조회하는 중 오류가 발생했습니다.",
+                details: error,
+              },
+              500
+            );
           }
-        ).select(`
-          *,
-          categories:store_categories(
-            category:categories(name)
-          )
-        `);
 
-        if (error) {
-          return errorResponse(
-            {
-              code: "database_error",
-              message: "필터링된 가게 정보를 조회하는 중 오류가 발생했습니다.",
-              details: error,
-            },
-            500
+          // 응답 데이터 가공
+          const formattedStores: FormattedStore[] = (stores || []).map(
+            (store: StoreFromDb) => {
+              // 카테고리 배열 추출
+              const storeCategories = store.categories.map(
+                (item: { category: { name: string } }) => item.category.name
+              );
+
+              return {
+                id: store.id,
+                name: store.name,
+                address: store.address,
+                distance: store.distance
+                  ? Math.round(store.distance) + ""
+                  : null,
+                categories: storeCategories,
+                rating: {
+                  naver: store.naver_rating || 0,
+                  kakao: store.kakao_rating || 0,
+                },
+                position: {
+                  lat: store.position_lat,
+                  lng: store.position_lng,
+                  x: store.position_x,
+                  y: store.position_y,
+                },
+                refillItems: store.refill_items || [],
+                description: store.description,
+                openHours: store.open_hours,
+                price: store.price,
+              };
+            }
           );
-        }
 
-        // 응답 데이터 가공
-        const formattedStores: FormattedStore[] = (stores || []).map(
-          (store: StoreFromDb) => {
-            // 카테고리 배열 추출
+          return successResponse(formattedStores);
+        } else {
+          // 일반 필터링 (위치 정보 없는 경우)
+          let queryBuilder = supabase.from("stores").select(`
+            *,
+            categories:store_categories(
+              category:categories(name)
+            )
+          `);
+
+          // 카테고리 필터링
+          if (categories && categories.length > 0) {
+            // 여기서는 stores_by_categories라는 RPC 함수를 호출
+            const { data: stores, error } = await supabase.rpc<
+              any,
+              StoreFromDb[]
+            >("stores_by_categories", {
+              category_names: categories,
+            });
+
+            if (error) {
+              return errorResponse(
+                {
+                  code: "category_filter_error",
+                  message: "카테고리 필터링 중 오류가 발생했습니다.",
+                  details: error,
+                },
+                500
+              );
+            }
+
+            // 평점 필터
+            if (minRating && minRating > 0) {
+              queryBuilder = queryBuilder.gte("naver_rating", minRating);
+            }
+          } else if (minRating && minRating > 0) {
+            // 카테고리 필터 없이 평점 필터만 있는 경우
+            queryBuilder = queryBuilder.gte("naver_rating", minRating);
+          }
+
+          // 검색어 필터링
+          if (query && typeof query === "string" && query.trim()) {
+            // 검색어로 이름과 주소 검색 (ilike는 대소문자 구분 없이 검색)
+            queryBuilder = queryBuilder.or(
+              `name.ilike.%${query}%,address.ilike.%${query}%`
+            );
+          }
+
+          const { data: stores, error } = await queryBuilder;
+
+          if (error) {
+            return errorResponse(
+              {
+                code: "database_error",
+                message: "가게 정보 필터링 중 오류가 발생했습니다.",
+                details: error,
+              },
+              500
+            );
+          }
+
+          // 응답 데이터 가공
+          const formattedStores = (stores || []).map((store: StoreFromDb) => {
             const storeCategories = store.categories.map(
               (item: { category: { name: string } }) => item.category.name
             );
@@ -98,7 +187,7 @@ export async function POST(request: NextRequest) {
               id: store.id,
               name: store.name,
               address: store.address,
-              distance: store.distance ? Math.round(store.distance) + "" : null,
+              distance: null, // 위치 기반 필터링이 아니므로 distance는 null
               categories: storeCategories,
               rating: {
                 naver: store.naver_rating || 0,
@@ -115,100 +204,19 @@ export async function POST(request: NextRequest) {
               openHours: store.open_hours,
               price: store.price,
             };
-          }
-        );
-
-        return successResponse(formattedStores);
-      } else {
-        // 일반 필터링 (위치 정보 없는 경우)
-        let queryBuilder = supabase.from("stores").select(`
-          *,
-          categories:store_categories(
-            category:categories(name)
-          )
-        `);
-
-        // 카테고리 필터링
-        if (categories && categories.length > 0) {
-          // 여기서는 stores_by_categories라는 RPC 함수를 호출
-          const { data: stores, error } = await supabase.rpc<
-            any,
-            StoreFromDb[]
-          >("stores_by_categories", {
-            category_names: categories,
           });
 
-          if (error) {
-            return errorResponse(
-              {
-                code: "category_filter_error",
-                message: "카테고리 필터링 중 오류가 발생했습니다.",
-                details: error,
-              },
-              500
-            );
-          }
-
-          // 평점 필터
-          if (minRating && minRating > 0) {
-            queryBuilder = queryBuilder.gte("naver_rating", minRating);
-          }
-        } else if (minRating && minRating > 0) {
-          // 카테고리 필터 없이 평점 필터만 있는 경우
-          queryBuilder = queryBuilder.gte("naver_rating", minRating);
+          return successResponse(formattedStores);
         }
-
-        // 검색어 필터링
-        if (query && typeof query === "string" && query.trim()) {
-          // 검색어로 이름과 주소 검색 (ilike는 대소문자 구분 없이 검색)
-          queryBuilder = queryBuilder.or(
-            `name.ilike.%${query}%,address.ilike.%${query}%`
-          );
-        }
-
-        const { data: stores, error } = await queryBuilder;
-
-        if (error) {
-          return errorResponse(
-            {
-              code: "database_error",
-              message: "가게 정보 필터링 중 오류가 발생했습니다.",
-              details: error,
-            },
-            500
-          );
-        }
-
-        // 응답 데이터 가공
-        const formattedStores = (stores || []).map((store: StoreFromDb) => {
-          const storeCategories = store.categories.map(
-            (item: { category: { name: string } }) => item.category.name
-          );
-
-          return {
-            id: store.id,
-            name: store.name,
-            address: store.address,
-            distance: null, // 위치 기반 필터링이 아니므로 distance는 null
-            categories: storeCategories,
-            rating: {
-              naver: store.naver_rating || 0,
-              kakao: store.kakao_rating || 0,
-            },
-            position: {
-              lat: store.position_lat,
-              lng: store.position_lng,
-              x: store.position_x,
-              y: store.position_y,
-            },
-            refillItems: store.refill_items || [],
-            description: store.description,
-            openHours: store.open_hours,
-            price: store.price,
-          };
-        });
-
-        return successResponse(formattedStores);
+      } catch (validationError: any) {
+        return errorResponse(
+          {
+            code: "validation_error",
+            message: "요청 데이터가 유효하지 않습니다.",
+            details: validationError.errors || validationError,
+          },
+          400
+        );
       }
     })();
 

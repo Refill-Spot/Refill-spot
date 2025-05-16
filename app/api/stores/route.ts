@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { NextRequest } from "next/server";
 import { StoreFromDb, FormattedStore } from "@/types/store";
 import { successResponse, errorResponse } from "@/lib/api-response";
+import { radiusSearchSchema } from "@/lib/validations";
 
 // 요청 처리 타임아웃 설정 (ms)
 const REQUEST_TIMEOUT = 15000;
@@ -32,48 +33,55 @@ export async function GET(request: NextRequest) {
 
     const queryPromise = (async () => {
       if (latitudeStr && longitudeStr) {
-        const latitude = parseFloat(latitudeStr);
-        const longitude = parseFloat(longitudeStr);
-        const radiusInMeters = parseInt(radiusStr, 10);
+        // Zod 스키마를 사용한 파라미터 검증
+        try {
+          const validatedParams = radiusSearchSchema.parse({
+            lat: latitudeStr,
+            lng: longitudeStr,
+            radius: radiusStr,
+          });
 
-        if (isNaN(latitude) || isNaN(longitude) || isNaN(radiusInMeters)) {
+          const latitude = validatedParams.lat;
+          const longitude = validatedParams.lng;
+          const radiusInMeters = validatedParams.radius;
+
+          // 타입 단언 사용
+          const { data, error } = await (supabase as any).rpc(
+            "stores_within_radius",
+            {
+              lat: latitude,
+              lng: longitude,
+              radius_meters: radiusInMeters,
+            }
+          ).select(`
+              *,
+              categories:store_categories(
+                category:categories(name)
+              )
+            `);
+
+          if (error) {
+            return errorResponse(
+              {
+                code: "database_error",
+                message: "주변 가게 정보를 조회하는 중 오류가 발생했습니다.",
+                details: error,
+              },
+              500
+            );
+          }
+
+          storesFromQuery = data || [];
+        } catch (validationError: any) {
           return errorResponse(
             {
-              code: "invalid_parameters",
-              message: "위도, 경도, 반경은 유효한 숫자여야 합니다.",
-              details: { latitude, longitude, radius: radiusInMeters },
+              code: "validation_error",
+              message: "요청 파라미터가 유효하지 않습니다.",
+              details: validationError.errors || validationError,
             },
             400
           );
         }
-
-        // 타입 단언 사용
-        const { data, error } = await (supabase as any).rpc(
-          "stores_within_radius",
-          {
-            lat: latitude,
-            lng: longitude,
-            radius_meters: radiusInMeters,
-          }
-        ).select(`
-            *,
-            categories:store_categories(
-              category:categories(name)
-            )
-          `);
-
-        if (error) {
-          return errorResponse(
-            {
-              code: "database_error",
-              message: "주변 가게 정보를 조회하는 중 오류가 발생했습니다.",
-              details: error,
-            },
-            500
-          );
-        }
-
-        storesFromQuery = data || [];
       } else {
         // 일반 검색 (모든 가게)
         const { data, error } = await supabase

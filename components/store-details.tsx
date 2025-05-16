@@ -12,7 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { toast } from "@/components/ui/use-toast";
-import { Store } from "@/lib/stores";
+import { Store } from "@/types/store";
 
 interface StoreDetailsProps {
   storeId: number;

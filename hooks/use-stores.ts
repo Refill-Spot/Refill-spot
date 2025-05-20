@@ -15,6 +15,7 @@ export interface StoreFilters {
   latitude?: number;
   longitude?: number;
   query?: string;
+  sort?: "default" | "rating" | "distance";
 }
 
 export function useFetchStores(initialFilters?: StoreFilters) {

@@ -49,6 +49,8 @@ export async function POST(request: NextRequest) {
           longitude,
           query,
         } = storeFilterSchema.parse(requestBody);
+        // sort는 별도로 추출
+        const sort = requestBody.sort || "default";
 
         // 위치 기반 필터링 (거리)
         if (latitude && longitude && maxDistance) {
@@ -82,8 +84,18 @@ export async function POST(request: NextRequest) {
             );
           }
 
+          // 정렬: 평점순
+          let sortedStores = stores || [];
+          if (sort === "rating") {
+            sortedStores = [...sortedStores].sort((a, b) => {
+              const avgA = ((a.naver_rating || 0) + (a.kakao_rating || 0)) / 2;
+              const avgB = ((b.naver_rating || 0) + (b.kakao_rating || 0)) / 2;
+              return avgB - avgA;
+            });
+          }
+
           // 응답 데이터 가공
-          const formattedStores: FormattedStore[] = (stores || []).map(
+          const formattedStores: FormattedStore[] = sortedStores.map(
             (store: StoreFromDb) => {
               // 카테고리 배열 추출
               const storeCategories = store.categories.map(
@@ -177,8 +189,18 @@ export async function POST(request: NextRequest) {
             );
           }
 
+          // 정렬: 평점순
+          let sortedStores = stores || [];
+          if (sort === "rating") {
+            sortedStores = [...sortedStores].sort((a, b) => {
+              const avgA = ((a.naver_rating || 0) + (a.kakao_rating || 0)) / 2;
+              const avgB = ((b.naver_rating || 0) + (b.kakao_rating || 0)) / 2;
+              return avgB - avgA;
+            });
+          }
+
           // 응답 데이터 가공
-          const formattedStores = (stores || []).map((store: StoreFromDb) => {
+          const formattedStores = sortedStores.map((store: StoreFromDb) => {
             const storeCategories = store.categories.map(
               (item: { category: { name: string } }) => item.category.name
             );

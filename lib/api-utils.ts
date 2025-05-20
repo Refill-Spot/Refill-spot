@@ -3,7 +3,7 @@ import { fetchWithTimeout } from "@/lib/timeout-utils";
 
 /**
  * 가게 데이터를 필터링하여 가져오는 함수
- * @param filters 필터 옵션
+ * @param filters 필터 옵션 (sort 포함)
  * @returns 필터링된 가게 데이터
  */
 export const fetchFilteredStores = async (filters: StoreFilters) => {

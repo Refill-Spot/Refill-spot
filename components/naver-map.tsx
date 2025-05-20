@@ -21,12 +21,14 @@ interface NaverMapProps {
   stores: Store[];
   userLocation?: { lat: number; lng: number } | null;
   enableClustering?: boolean;
+  center?: { lat: number; lng: number } | null;
 }
 
 export default function NaverMap({
   stores = [],
   userLocation,
   enableClustering = true,
+  center,
 }: NaverMapProps) {
   const mapRef = useRef<HTMLDivElement>(null);
   const [naverMapLoaded, setNaverMapLoaded] = useState(false);
@@ -145,6 +147,13 @@ export default function NaverMap({
       });
     }
   }, [naverMapLoaded, userLocation, toast, t]);
+
+  // center props로 지도 중심 이동
+  useEffect(() => {
+    if (map && center) {
+      map.setCenter(new window.naver.maps.LatLng(center.lat, center.lng));
+    }
+  }, [center, map]);
 
   // 마커 클러스터링 설정
   const setupMarkerClustering = useCallback(

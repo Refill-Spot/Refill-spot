@@ -38,6 +38,7 @@ export default function NaverMap({
   const [selectedStore, setSelectedStore] = useState<Store | null>(null);
   const { toast } = useToast();
   const { t } = useTranslation();
+  const [locationError, setLocationError] = useState<string | null>(null);
 
   // 네이버 지도 API 로드 완료 핸들러
   const handleNaverMapLoaded = () => {
@@ -66,6 +67,7 @@ export default function NaverMap({
               },
             });
           }
+          setLocationError(null);
         },
         (error) => {
           console.error("위치 정보 오류:", error);
@@ -74,6 +76,7 @@ export default function NaverMap({
             description: t("location_error_description"),
             variant: "destructive",
           });
+          setLocationError(t("location_error_description"));
         }
       );
     } else {
@@ -82,6 +85,7 @@ export default function NaverMap({
         description: t("location_not_supported_description"),
         variant: "destructive",
       });
+      setLocationError(t("location_not_supported_description"));
     }
   }, [map, toast, t]);
 
@@ -370,6 +374,22 @@ export default function NaverMap({
 
   return (
     <div className="w-full h-full bg-gray-100 relative">
+      {/* 위치 에러 안내 메시지 */}
+      {locationError && (
+        <div className="absolute top-16 left-1/2 transform -translate-x-1/2 z-50 bg-white border border-red-300 rounded shadow-lg p-4 flex flex-col items-center max-w-xs w-full">
+          <div className="text-red-500 font-bold mb-2">위치 정보 오류</div>
+          <div className="text-sm text-gray-700 mb-3 text-center">
+            {locationError}
+          </div>
+          <div className="text-xs text-gray-500 mb-2">
+            수동으로 지역/주소를 검색해보세요.
+          </div>
+          <a href="#header-search" className="text-blue-600 underline text-sm">
+            수동 지역 검색 바로가기
+          </a>
+        </div>
+      )}
+
       {/* 네이버 지도 스크립트 */}
       <Script
         strategy="beforeInteractive"

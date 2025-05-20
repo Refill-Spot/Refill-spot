@@ -161,7 +161,9 @@ export default function SearchFilters({
         filters.query = queryParam;
       }
 
-      onApplyFilters(filters);
+      if (onApplyFilters) {
+        onApplyFilters(filters);
+      }
     }
   }, [
     searchParams,

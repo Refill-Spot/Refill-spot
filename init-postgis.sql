@@ -30,6 +30,7 @@ CREATE TABLE IF NOT EXISTS stores (
   open_hours TEXT,
   price TEXT,
   refill_items TEXT[],
+  image_urls TEXT[],
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -84,6 +85,9 @@ CREATE TABLE IF NOT EXISTS favorites (
   created_at TIMESTAMPTZ DEFAULT NOW(),
   UNIQUE(user_id, store_id)
 );
+
+-- 기존 stores 테이블에 image_urls 컬럼이 없다면 추가
+ALTER TABLE stores ADD COLUMN IF NOT EXISTS image_urls TEXT[];
 
 -- 3. RPC 함수 생성
 -- 반경 내 가게 검색 함수

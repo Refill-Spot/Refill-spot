@@ -16,6 +16,11 @@ import { toast } from "@/components/ui/use-toast";
 import { Store, FormattedReview } from "@/types/store";
 import { useStoreStore } from "@/lib/store";
 import { useAuth } from "@/contexts/AuthContext";
+import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+} from "@/components/ui/carousel";
 
 interface StoreDetailsProps {
   storeId: number;
@@ -38,6 +43,10 @@ export default function StoreDetails({ storeId }: StoreDetailsProps) {
   const [userReview, setUserReview] = useState({ rating: 0, content: "" });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isFavorite, setIsFavorite] = useState(false);
+  const [uploading, setUploading] = useState(false);
+
+  // 관리자 여부 (user_metadata.role 기반)
+  const isAdmin = user && user.user_metadata?.role === "admin";
 
   // 가게 정보 및 리뷰 로드
   useEffect(() => {
@@ -207,6 +216,55 @@ export default function StoreDetails({ storeId }: StoreDetailsProps) {
     }
   };
 
+  // 이미지 업로드 핸들러
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || e.target.files.length === 0 || !currentStore) return;
+    const file = e.target.files[0];
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch(`/api/stores/${currentStore.id}/upload`, {
+        method: "POST",
+        body: formData,
+      });
+      const data = await res.json();
+      if (res.ok && data.url) {
+        // imageUrls에 추가 (최대 3장)
+        const newUrls = [...(currentStore.imageUrls || []), data.url].slice(
+          0,
+          3
+        );
+        // DB 업데이트
+        await supabaseBrowser
+          .from("stores")
+          .update({ image_urls: newUrls })
+          .eq("id", currentStore.id);
+        // UI 갱신
+        fetchStoreById(currentStore.id);
+        toast({
+          title: "업로드 성공",
+          description: "이미지가 추가되었습니다.",
+        });
+      } else {
+        toast({
+          title: "업로드 실패",
+          description: data.error || "오류가 발생했습니다.",
+          variant: "destructive",
+        });
+      }
+    } catch (err) {
+      toast({
+        title: "업로드 오류",
+        description: String(err),
+        variant: "destructive",
+      });
+    } finally {
+      setUploading(false);
+      e.target.value = "";
+    }
+  };
+
   const handleBack = () => {
     router.back();
   };
@@ -274,16 +332,59 @@ export default function StoreDetails({ storeId }: StoreDetailsProps) {
         <h1 className="text-lg font-bold">{storeData.name}</h1>
       </header>
 
-      {/* 가게 이미지 (플레이스 홀더) */}
+      {/* 관리자만 이미지 업로드 */}
+      {isAdmin && (
+        <div className="p-4 flex items-center gap-4 bg-gray-50 border-b">
+          <label className="block">
+            <span className="text-sm font-medium">
+              가게 사진 업로드 (최대 3장)
+            </span>
+            <input
+              type="file"
+              accept="image/*"
+              className="block mt-1"
+              onChange={handleImageUpload}
+              disabled={uploading || (storeData.imageUrls?.length || 0) >= 3}
+            />
+          </label>
+          {uploading && (
+            <span className="text-sm text-gray-500">업로드 중...</span>
+          )}
+        </div>
+      )}
+
+      {/* 가게 이미지 (캐러셀) */}
       <figure className="w-full h-48 md:h-64 relative">
-        <Image
-          src="/placeholder.svg"
-          alt={`${storeData.name} 이미지`}
-          fill
-          sizes="(max-width: 768px) 100vw, 768px"
-          style={{ objectFit: "cover" }}
-          priority
-        />
+        {storeData.imageUrls && storeData.imageUrls.length > 0 ? (
+          <Carousel className="w-full h-full">
+            <CarouselContent>
+              {storeData.imageUrls.map((url, idx) => (
+                <CarouselItem
+                  key={idx}
+                  className="w-full h-48 md:h-64 relative"
+                >
+                  <Image
+                    src={url}
+                    alt={`${storeData.name} 사진 ${idx + 1}`}
+                    fill
+                    sizes="(max-width: 768px) 100vw, 768px"
+                    style={{ objectFit: "cover" }}
+                    priority={idx === 0}
+                  />
+                </CarouselItem>
+              ))}
+            </CarouselContent>
+          </Carousel>
+        ) : (
+          <Image
+            src="/placeholder.svg"
+            alt={`${storeData.name} 이미지`}
+            fill
+            sizes="(max-width: 768px) 100vw, 768px"
+            style={{ objectFit: "cover" }}
+            priority
+          />
+        )}
       </figure>
 
       <main className="p-4 md:p-6 max-w-4xl mx-auto">

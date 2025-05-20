@@ -36,6 +36,7 @@ model Store {
   openHours      String?
   price          String?
   refillItems    String[]
+  imageUrls      String[]
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
   favorites      Favorite[]

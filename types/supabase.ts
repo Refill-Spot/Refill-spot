@@ -50,6 +50,7 @@ export interface Database {
           open_hours: string | null;
           price: string | null;
           refill_items: string[] | null;
+          image_urls: string[] | null;
           created_at: string;
           updated_at: string;
           geom: unknown;
@@ -69,6 +70,7 @@ export interface Database {
           open_hours?: string | null;
           price?: string | null;
           refill_items?: string[] | null;
+          image_urls?: string[] | null;
           created_at?: string;
           updated_at?: string;
           geom?: unknown;
@@ -88,6 +90,7 @@ export interface Database {
           open_hours?: string | null;
           price?: string | null;
           refill_items?: string[] | null;
+          image_urls?: string[] | null;
           created_at?: string;
           updated_at?: string;
           geom?: unknown;

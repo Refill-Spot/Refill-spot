@@ -130,6 +130,7 @@ export async function GET(request: NextRequest) {
             description: store.description,
             openHours: store.open_hours,
             price: store.price,
+            imageUrls: store.image_urls || [],
           };
         }
       );

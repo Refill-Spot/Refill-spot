@@ -32,13 +32,23 @@ export default function StoreList({ stores = [] }: StoreListProps) {
                 <Card>
                   <div className="flex md:flex-row flex-col">
                     <figure className="md:w-32 w-full h-32 relative flex-shrink-0">
-                      <Image
-                        src="/placeholder.svg"
-                        alt={`${store.name} 이미지`}
-                        fill
-                        sizes="(max-width: 768px) 100vw, 128px"
-                        style={{ objectFit: "cover" }}
-                      />
+                      {store.imageUrls && store.imageUrls.length > 0 ? (
+                        <Image
+                          src={store.imageUrls[0]}
+                          alt={`${store.name} 대표 이미지`}
+                          fill
+                          sizes="(max-width: 768px) 100vw, 128px"
+                          style={{ objectFit: "cover" }}
+                        />
+                      ) : (
+                        <Image
+                          src="/placeholder.svg"
+                          alt={`${store.name} 이미지`}
+                          fill
+                          sizes="(max-width: 768px) 100vw, 128px"
+                          style={{ objectFit: "cover" }}
+                        />
+                      )}
                     </figure>
                     <CardContent className="flex-1 p-4">
                       <header className="flex justify-between items-start">

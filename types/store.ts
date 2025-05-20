@@ -15,6 +15,7 @@ export interface StoreFromDb {
   open_hours: string | null;
   price: string | null;
   categories: Array<{ category: { name: string } }>;
+  image_urls?: string[] | null;
   [key: string]: any;
 }
 
@@ -39,6 +40,7 @@ export interface Store {
   description: string | null;
   openHours: string | null;
   price: string | null;
+  imageUrls?: string[] | null;
 }
 
 // FormattedStore 타입은 Store 타입과 동일하므로 아래와 같이 타입 별칭으로 정의
@@ -47,6 +49,7 @@ export type FormattedStore = Store;
 // 가게 상세 정보 타입 (리뷰 포함)
 export interface StoreDetail extends Store {
   reviews: FormattedReview[];
+  imageUrls?: string[] | null;
 }
 
 // API가 반환하는 리뷰 형식은 그대로 유지

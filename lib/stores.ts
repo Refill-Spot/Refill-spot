@@ -54,6 +54,7 @@ export async function getStores(): Promise<Store[]> {
       description: store.description,
       openHours: store.open_hours,
       price: store.price,
+      imageUrls: store.image_urls || [],
     };
   });
 }
@@ -108,6 +109,7 @@ export async function getNearbyStores(
       description: store.description,
       openHours: store.open_hours,
       price: store.price,
+      imageUrls: store.image_urls || [],
     };
   });
 }
@@ -157,5 +159,6 @@ export async function getStoreById(id: number): Promise<Store | null> {
     refillItems: data.refill_items || [],
     openHours: data.open_hours,
     price: data.price,
+    imageUrls: data.image_urls || [],
   };
 }

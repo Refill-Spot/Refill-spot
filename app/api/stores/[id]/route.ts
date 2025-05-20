@@ -22,6 +22,7 @@ interface FormattedStore {
   refillItems: string[] | null;
   openHours: string | null;
   price: string | null;
+  imageUrls: string[] | null;
   reviews: Array<{
     id: number;
     rating: number;
@@ -110,6 +111,7 @@ export async function GET(
       refillItems: store.refill_items || [],
       openHours: store.open_hours,
       price: store.price,
+      imageUrls: store.image_urls || [],
       reviews: reviews.map((review: ReviewFromDb) => ({
         id: review.id,
         rating: review.rating,

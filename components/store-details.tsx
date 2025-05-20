@@ -269,6 +269,37 @@ export default function StoreDetails({ storeId }: StoreDetailsProps) {
     router.back();
   };
 
+  // 리뷰 삭제 핸들러
+  const handleDeleteReview = async (reviewId: number) => {
+    if (!user || !currentStore) return;
+    if (!window.confirm("정말로 이 리뷰를 삭제하시겠습니까?")) return;
+    try {
+      const res = await fetch(
+        `/api/stores/${currentStore.id}/reviews?reviewId=${reviewId}`,
+        {
+          method: "DELETE",
+        }
+      );
+      const data = await res.json();
+      if (res.ok) {
+        toast({ title: "리뷰 삭제", description: "리뷰가 삭제되었습니다." });
+        fetchReviews(currentStore.id);
+      } else {
+        toast({
+          title: "삭제 실패",
+          description: data.error || "오류가 발생했습니다.",
+          variant: "destructive",
+        });
+      }
+    } catch (err) {
+      toast({
+        title: "삭제 오류",
+        description: String(err),
+        variant: "destructive",
+      });
+    }
+  };
+
   if (storeLoading) {
     return (
       <div
@@ -571,7 +602,7 @@ export default function StoreDetails({ storeId }: StoreDetailsProps) {
                         <span className="font-semibold">
                           {review.user.username}
                         </span>
-                        <div className="flex items-center">
+                        <div className="flex items-center gap-2">
                           {renderStars(review.rating)}
                           <time
                             className="ml-2 text-sm text-gray-500"
@@ -579,6 +610,16 @@ export default function StoreDetails({ storeId }: StoreDetailsProps) {
                           >
                             {new Date(review.createdAt).toLocaleDateString()}
                           </time>
+                          {user && review.user.id === user.id && (
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              className="ml-2"
+                              onClick={() => handleDeleteReview(review.id)}
+                            >
+                              삭제
+                            </Button>
+                          )}
                         </div>
                       </header>
                       <p className="text-gray-700">{review.content}</p>

@@ -60,6 +60,23 @@ export default function StoreDetails({ storeId }: StoreDetailsProps) {
     fetchStoreById(storeId);
   }, [storeId, fetchStoreById]);
 
+  // 네이버 지도로 이동
+  const handleViewInNaverMap = () => {
+    if (!currentStore) return;
+
+    const { lat, lng } = currentStore.position;
+    const storeName = encodeURIComponent(currentStore.name);
+
+    // 네이버 지도 앱 딥링크
+    const naverMapUrl = `nmap://place?lat=${lat}&lng=${lng}&name=${storeName}&appname=com.example.refillspot`;
+    window.location.href = naverMapUrl;
+
+    // 앱이 실행되지 않으면 웹으로 리다이렉트 (1초 후)
+    setTimeout(() => {
+      window.location.href = `https://map.naver.com/v5/search/${storeName}?c=${lng},${lat},15,0,0,0,dh`;
+    }, 1000);
+  };
+
   // 즐겨찾기 상태 확인
   useEffect(() => {
     const checkFavoriteStatus = async () => {
@@ -518,22 +535,7 @@ export default function StoreDetails({ storeId }: StoreDetailsProps) {
                     size="sm"
                     variant="outline"
                     className="gap-1"
-                    onClick={() => {
-                      // 네이버 지도 앱으로 연결
-                      const naverMapUrl = `nmap://place?lat=${
-                        storeData.position.lat
-                      }&lng=${storeData.position.lng}&name=${encodeURIComponent(
-                        storeData.name
-                      )}&appname=com.example.myapp`;
-                      window.location.href = naverMapUrl;
-
-                      // 앱이 설치되어 있지 않은 경우를 위한 대체 URL (1초 후)
-                      setTimeout(() => {
-                        window.location.href = `https://map.naver.com/v5/search/${encodeURIComponent(
-                          storeData.name
-                        )}`;
-                      }, 1000);
-                    }}
+                    onClick={handleViewInNaverMap}
                   >
                     <Navigation className="h-4 w-4 text-[#2196F3]" />
                     <span>네이버 길찾기</span>

@@ -4,6 +4,28 @@ import { successResponse, errorResponse } from "@/lib/api-response";
 import { storeFilterSchema } from "@/lib/validations";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
+// 거리 계산 함수 (하버사인 공식)
+function calculateDistance(
+  lat1: number,
+  lon1: number,
+  lat2: number,
+  lon2: number
+): number {
+  const R = 6371e3; // 지구 반지름 (미터)
+  const φ1 = (lat1 * Math.PI) / 180;
+  const φ2 = (lat2 * Math.PI) / 180;
+  const Δφ = ((lat2 - lat1) * Math.PI) / 180;
+  const Δλ = ((lon2 - lon1) * Math.PI) / 180;
+
+  const a =
+    Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+    Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  const distance = R * c; // 미터 단위 거리
+
+  return distance;
+}
+
 export async function POST(request: NextRequest) {
   try {
     const requestBody = await request.json().catch(() => ({}));
@@ -24,81 +46,91 @@ export async function POST(request: NextRequest) {
     try {
       const { categories, maxDistance, minRating, latitude, longitude, query } =
         storeFilterSchema.parse(requestBody);
-
+      // sort는 별도로 추출
       const sort = requestBody.sort || "default";
 
-      // 기본 쿼리 빌더
-      let queryBuilder = supabase.from("stores").select(`
-        *,
-        categories:store_categories(
-          category:categories(name)
-        )
-      `);
+      // 모든 가게 데이터 가져오기
+      const { data: allStores, error: storesError } = await supabase.from(
+        "stores"
+      ).select(`
+          *,
+          categories:store_categories(
+            category:categories(name)
+          )
+        `);
 
-      // 평점 필터링
-      if (minRating && minRating > 0) {
-        queryBuilder = queryBuilder.gte("naver_rating", minRating);
-      }
-
-      // 검색어 필터링
-      if (query && typeof query === "string" && query.trim()) {
-        queryBuilder = queryBuilder.or(
-          `name.ilike.%${query}%,address.ilike.%${query}%`
-        );
-      }
-
-      // 쿼리 실행
-      const { data: stores, error } = await queryBuilder;
-
-      if (error) {
+      if (storesError) {
         return errorResponse(
           {
             code: "database_error",
             message: "가게 정보를 조회하는 중 오류가 발생했습니다.",
-            details: error,
+            details: storesError,
           },
           500
         );
       }
 
-      let filteredStores = stores || [];
+      if (!allStores) {
+        return successResponse([]);
+      }
 
-      // 카테고리 필터링 (클라이언트 사이드)
+      // 로컬에서 필터링 처리
+      let filteredStores = [...allStores];
+
+      // 1. 위치 기반 필터링
+      if (latitude && longitude && maxDistance) {
+        const maxDistanceMeters = maxDistance * 1000; // km -> m 변환
+        filteredStores = filteredStores.filter((store) => {
+          if (!store.position_lat || !store.position_lng) return false;
+
+          const distance = calculateDistance(
+            latitude,
+            longitude,
+            store.position_lat,
+            store.position_lng
+          );
+
+          // 거리 정보 추가
+          (store as any).distance = distance;
+
+          return distance <= maxDistanceMeters;
+        });
+      }
+
+      // 2. 카테고리 필터링
       if (categories && categories.length > 0) {
-        filteredStores = filteredStores.filter((store: StoreFromDb) => {
+        filteredStores = filteredStores.filter((store) => {
           const storeCategories = store.categories.map(
             (item: { category: { name: string } }) => item.category.name
           );
-          return categories.some((cat) => storeCategories.includes(cat));
+
+          return categories.some((category) =>
+            storeCategories.includes(category)
+          );
         });
       }
 
-      // 위치 기반 필터링 (클라이언트 사이드)
-      if (latitude && longitude) {
-        const maxDistanceKm = maxDistance || 5; // 기본값 5km
-
-        filteredStores = filteredStores.filter((store: StoreFromDb) => {
-          // 간단한 거리 계산 (Haversine formula)
-          const R = 6371; // 지구 반지름 (km)
-          const dLat = ((store.position_lat - latitude) * Math.PI) / 180;
-          const dLon = ((store.position_lng - longitude) * Math.PI) / 180;
-          const a =
-            Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-            Math.cos((latitude * Math.PI) / 180) *
-              Math.cos((store.position_lat * Math.PI) / 180) *
-              Math.sin(dLon / 2) *
-              Math.sin(dLon / 2);
-          const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-          const distance = R * c;
-
-          // 거리 정보를 store 객체에 추가
-          (store as any).distance = distance;
-
-          return distance <= maxDistanceKm;
+      // 3. 평점 필터링
+      if (minRating && minRating > 0) {
+        filteredStores = filteredStores.filter((store) => {
+          const avgRating =
+            ((store.naver_rating || 0) + (store.kakao_rating || 0)) / 2;
+          return avgRating >= minRating;
         });
       }
 
-      // 정렬
+      // 4. 검색어 필터링
+      if (query && query.trim()) {
+        const searchTerm = query.trim().toLowerCase();
+        filteredStores = filteredStores.filter((store) => {
+          return (
+            (store.name && store.name.toLowerCase().includes(searchTerm)) ||
+            (store.address && store.address.toLowerCase().includes(searchTerm))
+          );
+        });
+      }
+
+      // 5. 정렬
       if (sort === "rating") {
         filteredStores.sort((a, b) => {
           const avgA = ((a.naver_rating || 0) + (a.kakao_rating || 0)) / 2;
@@ -107,15 +139,16 @@ export async function POST(request: NextRequest) {
         });
       } else if (sort === "distance" && latitude && longitude) {
         filteredStores.sort((a, b) => {
-          const distA = (a as any).distance || 0;
-          const distB = (b as any).distance || 0;
-          return distA - distB;
+          const distanceA = (a as any).distance || Number.MAX_VALUE;
+          const distanceB = (b as any).distance || Number.MAX_VALUE;
+          return distanceA - distanceB;
         });
       }
 
       // 응답 데이터 가공
       const formattedStores: FormattedStore[] = filteredStores.map(
         (store: StoreFromDb) => {
+          // 카테고리 배열 추출
           const storeCategories = store.categories.map(
             (item: { category: { name: string } }) => item.category.name
           );
@@ -125,7 +158,7 @@ export async function POST(request: NextRequest) {
             name: store.name,
             address: store.address,
             distance: (store as any).distance
-              ? Math.round((store as any).distance * 100) / 100 + ""
+              ? Math.round((store as any).distance) + ""
               : null,
             categories: storeCategories,
             rating: {
@@ -163,9 +196,9 @@ export async function POST(request: NextRequest) {
 
     return errorResponse(
       {
-        code: error.code || "server_error",
-        message: error.message || "가게 필터링 중 오류가 발생했습니다.",
-        details: error,
+        code: "server_error",
+        message: "서버 오류가 발생했습니다.",
+        details: error.message || error,
       },
       500
     );

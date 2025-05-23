@@ -6,15 +6,27 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { MapPin, Navigation, Clock, Utensils } from "lucide-react";
+import { MapPin, Clock, Utensils, Map } from "lucide-react";
 import { Store } from "@/types/store";
 
 interface StoreListProps {
   stores: Store[];
+  onViewMap?: (store: Store) => void; // 네이버 지도로 연결
 }
 
-export default function StoreList({ stores = [] }: StoreListProps) {
+export default function StoreList({ stores = [], onViewMap }: StoreListProps) {
   const [selectedStore, setSelectedStore] = useState<Store | null>(null);
+
+  const handleStoreClick = (store: Store) => {
+    setSelectedStore(store);
+  };
+
+  const handleViewOnMap = (e: React.MouseEvent, store: Store) => {
+    e.stopPropagation();
+    if (onViewMap) {
+      onViewMap(store);
+    }
+  };
 
   return (
     <section className="h-full bg-[#F5F5F5] p-4" aria-label="가게 목록">
@@ -27,7 +39,7 @@ export default function StoreList({ stores = [] }: StoreListProps) {
                 className={`overflow-hidden transition-all hover:shadow-md cursor-pointer ${
                   selectedStore?.id === store.id ? "ring-2 ring-[#FF5722]" : ""
                 }`}
-                onClick={() => setSelectedStore(store)}
+                onClick={() => handleStoreClick(store)}
               >
                 <Card>
                   <div className="flex md:flex-row flex-col">
@@ -123,33 +135,17 @@ export default function StoreList({ stores = [] }: StoreListProps) {
                         >
                           상세 보기
                         </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="flex-1"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            // 네이버 지도 앱으로 연결
-                            const naverMapUrl = `nmap://place?lat=${
-                              store.position.lat
-                            }&lng=${
-                              store.position.lng
-                            }&name=${encodeURIComponent(
-                              store.name
-                            )}&appname=com.example.myapp`;
-                            window.location.href = naverMapUrl;
-
-                            // 앱이 설치되어 있지 않은 경우를 위한 대체 URL (1초 후)
-                            setTimeout(() => {
-                              window.location.href = `https://map.naver.com/v5/search/${encodeURIComponent(
-                                store.name
-                              )}`;
-                            }, 1000);
-                          }}
-                        >
-                          <Navigation className="h-4 w-4 mr-1" />
-                          길찾기
-                        </Button>
+                        {onViewMap && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="flex-1 bg-[#03C75A]/10 text-[#03C75A] hover:bg-[#03C75A]/20 border-[#03C75A]/20"
+                            onClick={(e) => handleViewOnMap(e, store)}
+                          >
+                            <Map className="h-4 w-4 mr-1" />
+                            네이버 지도
+                          </Button>
+                        )}
                       </div>
                     </CardContent>
                   </div>

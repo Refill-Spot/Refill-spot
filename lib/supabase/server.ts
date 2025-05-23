@@ -5,21 +5,21 @@ import { Database } from "@/types/supabase";
 
 // 서버 컴포넌트에서 사용할 Supabase 클라이언트
 export const createServerSupabaseClient = async () => {
-  const cookieStore = await cookies();
+  const cookieStore = cookies();
 
   return createServerClient<Database>(
     process.env.SUPABASE_URL!,
     process.env.SUPABASE_ANON_KEY!,
     {
       cookies: {
-        get(name: string) {
-          return cookieStore.get(name)?.value;
+        async get(name: string) {
+          return (await cookieStore).get(name)?.value;
         },
-        set(name: string, value: string, options: CookieOptions) {
-          cookieStore.set({ name, value, ...options });
+        async set(name: string, value: string, options: CookieOptions) {
+          (await cookieStore).set({ name, value, ...options });
         },
-        remove(name: string, options: CookieOptions) {
-          cookieStore.set({ name, value: "", ...options });
+        async remove(name: string, options: CookieOptions) {
+          (await cookieStore).set({ name, value: "", ...options });
         },
       },
     }

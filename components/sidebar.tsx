@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { Utensils, Fish, Beef, Pizza, Star } from "lucide-react";
+import React, { useState, useCallback, memo } from "react";
+import { Utensils, Fish, Beef, Pizza, Star, Coffee, Soup } from "lucide-react";
 import { Slider } from "@/components/ui/slider";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
@@ -22,7 +22,44 @@ interface SidebarProps {
   onApplyFilters: (filters: FilterOptions) => void;
 }
 
-export default function Sidebar({ onApplyFilters }: SidebarProps) {
+// 메모이제이션된 카테고리 체크박스 컴포넌트
+const CategoryCheckbox = memo(
+  ({
+    id,
+    checked,
+    onChange,
+    icon,
+    label,
+  }: {
+    id: string;
+    checked: boolean;
+    onChange: (checked: boolean) => void;
+    icon: React.ReactNode;
+    label: string;
+  }) => {
+    return (
+      <div className="flex items-center space-x-2">
+        <Checkbox
+          id={id}
+          checked={checked}
+          onCheckedChange={(checked) => {
+            if (typeof checked === "boolean") {
+              onChange(checked);
+            }
+          }}
+        />
+        <Label htmlFor={id} className="flex items-center gap-2 cursor-pointer">
+          {icon}
+          <span>{label}</span>
+        </Label>
+      </div>
+    );
+  }
+);
+
+CategoryCheckbox.displayName = "CategoryCheckbox";
+
+function Sidebar({ onApplyFilters }: SidebarProps) {
   const [radius, setRadius] = useState([3]);
   const [minRating, setMinRating] = useState(0);
   const [categories, setCategories] = useState({
@@ -30,16 +67,23 @@ export default function Sidebar({ onApplyFilters }: SidebarProps) {
     해산물: false,
     양식: false,
     한식: false,
+    중식: false,
+    일식: false,
+    디저트: false,
   });
 
-  const handleCategoryChange = (category: string) => {
-    setCategories({
-      ...categories,
-      [category]: !categories[category as keyof typeof categories],
-    });
-  };
+  // useCallback으로 함수 메모이제이션
+  const handleCategoryChange = useCallback(
+    (category: string, checked: boolean) => {
+      setCategories((prev) => ({
+        ...prev,
+        [category]: checked,
+      }));
+    },
+    []
+  );
 
-  const handleApplyFilters = () => {
+  const handleApplyFilters = useCallback(() => {
     const selectedCategories = Object.entries(categories)
       .filter(([_, isSelected]) => isSelected)
       .map(([category]) => category);
@@ -69,9 +113,9 @@ export default function Sidebar({ onApplyFilters }: SidebarProps) {
         });
       }
     );
-  };
+  }, [categories, radius, minRating, onApplyFilters]);
 
-  const handleResetFilters = () => {
+  const handleResetFilters = useCallback(() => {
     setRadius([3]);
     setMinRating(0);
     setCategories({
@@ -79,6 +123,9 @@ export default function Sidebar({ onApplyFilters }: SidebarProps) {
       해산물: false,
       양식: false,
       한식: false,
+      중식: false,
+      일식: false,
+      디저트: false,
     });
 
     onApplyFilters({
@@ -86,7 +133,57 @@ export default function Sidebar({ onApplyFilters }: SidebarProps) {
       maxDistance: 5,
       minRating: 0,
     });
-  };
+  }, [onApplyFilters]);
+
+  // 카테고리 체크박스 변경 핸들러
+  const handleMeatChange = useCallback(
+    (checked: boolean) => {
+      handleCategoryChange("고기", checked);
+    },
+    [handleCategoryChange]
+  );
+
+  const handleSeafoodChange = useCallback(
+    (checked: boolean) => {
+      handleCategoryChange("해산물", checked);
+    },
+    [handleCategoryChange]
+  );
+
+  const handleWesternChange = useCallback(
+    (checked: boolean) => {
+      handleCategoryChange("양식", checked);
+    },
+    [handleCategoryChange]
+  );
+
+  const handleKoreanChange = useCallback(
+    (checked: boolean) => {
+      handleCategoryChange("한식", checked);
+    },
+    [handleCategoryChange]
+  );
+
+  const handleChineseChange = useCallback(
+    (checked: boolean) => {
+      handleCategoryChange("중식", checked);
+    },
+    [handleCategoryChange]
+  );
+
+  const handleJapaneseChange = useCallback(
+    (checked: boolean) => {
+      handleCategoryChange("일식", checked);
+    },
+    [handleCategoryChange]
+  );
+
+  const handleDessertChange = useCallback(
+    (checked: boolean) => {
+      handleCategoryChange("디저트", checked);
+    },
+    [handleCategoryChange]
+  );
 
   return (
     <div className="p-4 h-full bg-white">
@@ -107,62 +204,55 @@ export default function Sidebar({ onApplyFilters }: SidebarProps) {
         <div>
           <h3 className="font-medium mb-3 text-[#333333]">카테고리</h3>
           <div className="space-y-2">
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="meat"
-                checked={categories.고기}
-                onCheckedChange={() => handleCategoryChange("고기")}
-              />
-              <Label
-                htmlFor="meat"
-                className="flex items-center gap-2 cursor-pointer"
-              >
-                <Beef className="h-4 w-4 text-[#FF5722]" />
-                <span>고기</span>
-              </Label>
-            </div>
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="seafood"
-                checked={categories.해산물}
-                onCheckedChange={() => handleCategoryChange("해산물")}
-              />
-              <Label
-                htmlFor="seafood"
-                className="flex items-center gap-2 cursor-pointer"
-              >
-                <Fish className="h-4 w-4 text-[#2196F3]" />
-                <span>해산물</span>
-              </Label>
-            </div>
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="western"
-                checked={categories.양식}
-                onCheckedChange={() => handleCategoryChange("양식")}
-              />
-              <Label
-                htmlFor="western"
-                className="flex items-center gap-2 cursor-pointer"
-              >
-                <Pizza className="h-4 w-4 text-[#FFC107]" />
-                <span>양식</span>
-              </Label>
-            </div>
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="korean"
-                checked={categories.한식}
-                onCheckedChange={() => handleCategoryChange("한식")}
-              />
-              <Label
-                htmlFor="korean"
-                className="flex items-center gap-2 cursor-pointer"
-              >
-                <Utensils className="h-4 w-4 text-[#4CAF50]" />
-                <span>한식</span>
-              </Label>
-            </div>
+            <CategoryCheckbox
+              id="meat"
+              checked={categories.고기}
+              onChange={handleMeatChange}
+              icon={<Beef className="h-4 w-4 text-[#FF5722]" />}
+              label="고기"
+            />
+            <CategoryCheckbox
+              id="seafood"
+              checked={categories.해산물}
+              onChange={handleSeafoodChange}
+              icon={<Fish className="h-4 w-4 text-[#2196F3]" />}
+              label="해산물"
+            />
+            <CategoryCheckbox
+              id="western"
+              checked={categories.양식}
+              onChange={handleWesternChange}
+              icon={<Pizza className="h-4 w-4 text-[#FFC107]" />}
+              label="양식"
+            />
+            <CategoryCheckbox
+              id="korean"
+              checked={categories.한식}
+              onChange={handleKoreanChange}
+              icon={<Utensils className="h-4 w-4 text-[#4CAF50]" />}
+              label="한식"
+            />
+            <CategoryCheckbox
+              id="chinese"
+              checked={categories.중식}
+              onChange={handleChineseChange}
+              icon={<Soup className="h-4 w-4 text-[#FF9800]" />}
+              label="중식"
+            />
+            <CategoryCheckbox
+              id="japanese"
+              checked={categories.일식}
+              onChange={handleJapaneseChange}
+              icon={<Fish className="h-4 w-4 text-[#E91E63]" />}
+              label="일식"
+            />
+            <CategoryCheckbox
+              id="dessert"
+              checked={categories.디저트}
+              onChange={handleDessertChange}
+              icon={<Coffee className="h-4 w-4 text-[#795548]" />}
+              label="디저트"
+            />
           </div>
         </div>
 
@@ -220,3 +310,5 @@ export default function Sidebar({ onApplyFilters }: SidebarProps) {
     </div>
   );
 }
+
+export default memo(Sidebar);

@@ -1,7 +1,7 @@
-import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
-import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
 import { StoreFromDb, ReviewFromDb } from "@/types/store";
+import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { successResponse, errorResponse } from "@/lib/api-response";
 
 interface FormattedStore {
   id: number;
@@ -42,15 +42,17 @@ export async function GET(
   const storeId = parseInt(params.id);
 
   if (isNaN(storeId)) {
-    return NextResponse.json(
-      { error: "올바르지 않은 가게 ID입니다." },
-      { status: 400 }
+    return errorResponse(
+      {
+        code: "invalid_id",
+        message: "올바르지 않은 가게 ID입니다.",
+      },
+      400
     );
   }
 
   try {
-    const cookieStore = cookies();
-    const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
+    const supabase = await createServerSupabaseClient();
 
     // 가게 정보 조회
     const { data: store, error: storeError } = await supabase
@@ -67,6 +69,15 @@ export async function GET(
       .single();
 
     if (storeError) {
+      if (storeError.code === "PGRST116") {
+        return errorResponse(
+          {
+            code: "store_not_found",
+            message: "가게를 찾을 수 없습니다.",
+          },
+          404
+        );
+      }
       throw storeError;
     }
 
@@ -112,23 +123,28 @@ export async function GET(
       openHours: store.open_hours,
       price: store.price,
       imageUrls: store.image_urls || [],
-      reviews: reviews.map((review: ReviewFromDb) => ({
+      reviews: (reviews || []).map((review: ReviewFromDb) => ({
         id: review.id,
         rating: review.rating,
         content: review.content,
         createdAt: review.created_at,
         user: {
           id: review.user_id,
-          username: review.profiles.username,
+          username: review.profiles?.username || "익명",
         },
       })),
     };
 
-    return NextResponse.json(formattedStore);
+    return successResponse(formattedStore);
   } catch (error: any) {
     console.error("가게 상세 정보 조회 오류:", error);
-    const errorMessage =
-      error?.message || "가게 정보를 불러오는 중 오류가 발생했습니다.";
-    return NextResponse.json({ error: errorMessage }, { status: 500 });
+    return errorResponse(
+      {
+        code: "database_error",
+        message: "가게 정보를 불러오는 중 오류가 발생했습니다.",
+        details: error,
+      },
+      500
+    );
   }
 }

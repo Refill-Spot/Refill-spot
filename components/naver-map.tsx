@@ -22,6 +22,7 @@ interface NaverMapProps {
   userLocation?: { lat: number; lng: number } | null;
   enableClustering?: boolean;
   center?: { lat: number; lng: number } | null;
+  selectedStore?: Store | null;
 }
 
 export default function NaverMap({
@@ -29,6 +30,7 @@ export default function NaverMap({
   userLocation,
   enableClustering = true,
   center,
+  selectedStore: propSelectedStore,
 }: NaverMapProps) {
   const mapRef = useRef<HTMLDivElement>(null);
   const [naverMapLoaded, setNaverMapLoaded] = useState(false);
@@ -39,6 +41,13 @@ export default function NaverMap({
   const { toast } = useToast();
   const { t } = useTranslation();
   const [locationError, setLocationError] = useState<string | null>(null);
+
+  // props로 전달된 selectedStore가 변경되면 내부 상태 업데이트
+  useEffect(() => {
+    if (propSelectedStore) {
+      setSelectedStore(propSelectedStore);
+    }
+  }, [propSelectedStore]);
 
   // 네이버 지도 API 로드 완료 핸들러
   const handleNaverMapLoaded = () => {
@@ -94,6 +103,15 @@ export default function NaverMap({
     if (!naverMapLoaded || !mapRef.current) return;
 
     try {
+      // window.naver가 정의되어 있는지 확인
+      if (!window.naver || !window.naver.maps) {
+        console.error("네이버 지도 API가 로드되지 않았습니다.");
+        setLocationError(
+          "지도 API를 로드하는데 실패했습니다. 페이지를 새로고침해 주세요."
+        );
+        return;
+      }
+
       // 초기 좌표 설정 (사용자 위치 또는 기본값)
       const initialLat = userLocation?.lat || 37.5665;
       const initialLng = userLocation?.lng || 126.978;
@@ -144,6 +162,9 @@ export default function NaverMap({
       };
     } catch (error) {
       console.error("지도 초기화 오류:", error);
+      setLocationError(
+        "지도를 초기화하는데 실패했습니다. 페이지를 새로고침해 주세요."
+      );
       toast({
         title: t("map_initialization_error"),
         description: t("map_initialization_error_description"),
@@ -226,7 +247,7 @@ export default function NaverMap({
 
   // 가게 마커 추가
   useEffect(() => {
-    if (!map || !stores.length) return;
+    if (!map || !stores.length || !window.naver || !window.naver.maps) return;
 
     try {
       // 기존 마커 제거
@@ -237,6 +258,16 @@ export default function NaverMap({
 
       // 각 가게별 마커 생성
       for (const store of stores) {
+        if (
+          !store ||
+          !store.position ||
+          !store.position.lat ||
+          !store.position.lng
+        ) {
+          console.warn("유효하지 않은 가게 데이터:", store);
+          continue; // 유효하지 않은 가게 데이터 건너뛰기
+        }
+
         const markerPosition = new window.naver.maps.LatLng(
           store.position.lat,
           store.position.lng
@@ -280,8 +311,10 @@ export default function NaverMap({
       setMarkers(newMarkers);
 
       // 클러스터링 적용
-      const cluster = setupMarkerClustering(map, newMarkers);
-      setMarkerClusters(cluster);
+      if (newMarkers.length > 0) {
+        const cluster = setupMarkerClustering(map, newMarkers);
+        setMarkerClusters(cluster);
+      }
 
       // 마커 호버 이벤트를 위한 전역 이벤트 리스너
       const handleMarkerHover = (e: MouseEvent) => {
@@ -392,12 +425,13 @@ export default function NaverMap({
 
       {/* 네이버 지도 스크립트 */}
       <Script
-        strategy="beforeInteractive"
+        strategy="afterInteractive"
         src={`https://openapi.map.naver.com/openapi/v3/maps.js?ncpClientId=${
           process.env.NEXT_PUBLIC_NAVER_MAP_CLIENT_ID || ""
         }&submodules=geocoder,marker,drawing,visualization,panorama,clustering`}
         onLoad={handleNaverMapLoaded}
-        onError={() => {
+        onError={(e) => {
+          console.error("네이버 지도 스크립트 로딩 오류:", e);
           toast({
             title: t("map_load_error"),
             description: t("map_load_error_description"),

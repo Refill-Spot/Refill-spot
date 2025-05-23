@@ -124,6 +124,10 @@ const koTranslations = {
   location_unavailable: "위치 정보를 사용할 수 없습니다.",
   location_timeout: "위치 정보 요청 시간이 초과되었습니다.",
   location_error_unknown: "알 수 없는 위치 정보 오류가 발생했습니다.",
+  invalid_location_coordinates: "유효하지 않은 위치 좌표입니다.",
+  location_updated: "위치 업데이트",
+  custom_location_applied: "사용자 지정 위치가 적용되었습니다.",
+  location_setting_error: "위치 설정 중 오류가 발생했습니다.",
 
   // 검색 관련 추가 키
   search_error: "검색 오류",
@@ -256,6 +260,10 @@ const enTranslations = {
   location_unavailable: "Location information is unavailable.",
   location_timeout: "The request for location information timed out.",
   location_error_unknown: "An unknown location error occurred.",
+  invalid_location_coordinates: "Invalid location coordinates.",
+  location_updated: "Location Updated",
+  custom_location_applied: "Custom location applied.",
+  location_setting_error: "There was an error setting the location.",
 
   // 검색 관련 추가 키
   search_error: "Search Error",

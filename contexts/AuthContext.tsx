@@ -28,7 +28,7 @@ type AuthContextType = {
     password: string
   ) => Promise<{ error: AuthError | null }>;
   signInWithGoogle: () => Promise<void>;
-  signInWithGithub: () => Promise<void>;
+  signInWithKakao: () => Promise<void>;
   signOut: () => Promise<void>;
   updateProfile: (data: {
     username: string;
@@ -111,14 +111,46 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // 인증 상태 변경 구독
     const { data: authListener } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        console.log("Auth state changed:", event, session?.user?.email);
+
         const user = session?.user || null;
         setUser(user);
-        await loadUserData(user);
+
+        if (user) {
+          await loadUserData(user);
+        } else {
+          setProfile(null);
+        }
+
         setLoading(false);
 
-        // 인증 상태 변경 시 라우터 새로고침
-        if (event === "SIGNED_IN" || event === "SIGNED_OUT") {
-          router.refresh();
+        // 로그인 성공 시 처리 (OAuth 포함)
+        if (event === "SIGNED_IN" && user) {
+          toast({
+            title: "로그인 성공",
+            description: "환영합니다!",
+          });
+
+          // OAuth 로그인인지 확인 (provider 정보가 있으면 OAuth)
+          const isOAuthLogin =
+            user.app_metadata?.provider &&
+            user.app_metadata.provider !== "email";
+
+          if (isOAuthLogin) {
+            // OAuth 로그인의 경우 현재 페이지가 로그인 페이지라면 홈으로 이동
+            if (window.location.pathname === "/login") {
+              router.push("/");
+            }
+            // 그렇지 않으면 현재 페이지에서 상태만 업데이트
+          } else {
+            // 일반 로그인의 경우 홈으로 이동
+            router.push("/");
+          }
+        }
+
+        // 로그아웃 시 처리
+        if (event === "SIGNED_OUT") {
+          router.push("/");
         }
       }
     );
@@ -126,7 +158,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => {
       authListener.subscription.unsubscribe();
     };
-  }, [supabase, loadUserData, router]);
+  }, [supabase, loadUserData, router, toast]);
 
   // 회원가입
   const signUp = async (
@@ -146,8 +178,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (!error && data.user) {
         toast({
-          title: t("signup_success"),
-          description: t("email_verification_sent"),
+          title: "회원가입 성공",
+          description: "이메일을 확인하여 계정을 인증해주세요.",
         });
       }
 
@@ -169,8 +201,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (!error) {
         toast({
-          title: t("login_success"),
-          description: t("welcome_back"),
+          title: "로그인 성공",
+          description: "환영합니다!",
         });
         router.push("/");
       }
@@ -185,22 +217,58 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // 구글 로그인
   const signInWithGoogle = async () => {
-    await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
-      },
-    });
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback`,
+        },
+      });
+
+      if (error) {
+        console.error("구글 로그인 오류:", error);
+        toast({
+          title: "로그인 오류",
+          description: "구글 로그인 중 오류가 발생했습니다.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("구글 로그인 오류:", error);
+      toast({
+        title: "로그인 오류",
+        description: "구글 로그인 중 오류가 발생했습니다.",
+        variant: "destructive",
+      });
+    }
   };
 
-  // 깃허브 로그인
-  const signInWithGithub = async () => {
-    await supabase.auth.signInWithOAuth({
-      provider: "github",
-      options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
-      },
-    });
+  // 카카오 로그인
+  const signInWithKakao = async () => {
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "kakao",
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback`,
+        },
+      });
+
+      if (error) {
+        console.error("카카오 로그인 오류:", error);
+        toast({
+          title: "로그인 오류",
+          description: "카카오 로그인 중 오류가 발생했습니다.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("카카오 로그인 오류:", error);
+      toast({
+        title: "로그인 오류",
+        description: "카카오 로그인 중 오류가 발생했습니다.",
+        variant: "destructive",
+      });
+    }
   };
 
   // 로그아웃
@@ -208,15 +276,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       await supabase.auth.signOut();
       toast({
-        title: t("logout_success"),
-        description: t("logged_out_message"),
+        title: "로그아웃 완료",
+        description: "안전하게 로그아웃되었습니다.",
       });
       router.push("/");
     } catch (error) {
       console.error("로그아웃 오류:", error);
       toast({
-        title: t("logout_error"),
-        description: t("logout_error_description"),
+        title: "오류",
+        description: "로그아웃 중 오류가 발생했습니다.",
         variant: "destructive",
       });
     }
@@ -224,28 +292,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // 프로필 업데이트
   const updateProfile = async (data: { username: string }) => {
-    if (!user) {
-      return { error: new Error("로그인이 필요합니다.") };
-    }
-
     try {
+      if (!user) {
+        throw new Error("로그인이 필요합니다.");
+      }
+
       const { error } = await supabase
         .from("profiles")
         .update(data)
         .eq("id", user.id);
 
       if (!error) {
-        setProfile(data);
+        setProfile({ username: data.username });
         toast({
-          title: t("profile_updated"),
-          description: t("profile_updated_description"),
+          title: "프로필 업데이트 완료",
+          description: "프로필이 성공적으로 업데이트되었습니다.",
         });
       }
 
-      return { error: error as unknown as Error | null };
+      return { error };
     } catch (err) {
       console.error("프로필 업데이트 오류:", err);
-      return { error: err as Error };
+      const error = err as Error;
+      return { error };
     }
   };
 
@@ -256,7 +325,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     signUp,
     signIn,
     signInWithGoogle,
-    signInWithGithub,
+    signInWithKakao,
     signOut,
     updateProfile,
   };
@@ -266,10 +335,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
 export function useAuth() {
   const context = useContext(AuthContext);
-
   if (context === undefined) {
     throw new Error("useAuth must be used within an AuthProvider");
   }
-
   return context;
 }

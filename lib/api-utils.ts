@@ -1,5 +1,6 @@
 import { StoreFilters } from "@/hooks/use-stores";
 import { fetchWithTimeout } from "@/lib/timeout-utils";
+import { Store } from "@/types/store";
 
 /**
  * 가게 데이터를 필터링하여 가져오는 함수
@@ -7,28 +8,83 @@ import { fetchWithTimeout } from "@/lib/timeout-utils";
  * @returns 필터링된 가게 데이터
  */
 export const fetchFilteredStores = async (filters: StoreFilters) => {
-  const response = await fetchWithTimeout("/api/stores/filter", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(filters),
-  });
+  try {
+    const response = await fetchWithTimeout("/api/stores/filter", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(filters),
+    });
 
-  if (!response.ok) {
+    if (!response.ok) {
+      console.log(
+        `기본 필터 API 오류: ${response.status}. 백업 API 시도 중...`
+      );
+      return await fetchBackupFilteredStores(filters);
+    }
+
     const data = await response.json();
-    throw new Error(
-      data.error?.message || `HTTP error! status: ${response.status}`
-    );
+
+    if (data.error) {
+      console.log(
+        `기본 필터 API 데이터 오류: ${data.error.message}. 백업 API 시도 중...`
+      );
+      return await fetchBackupFilteredStores(filters);
+    }
+
+    // 데이터가 없거나 배열이 아닌 경우 빈 배열 반환
+    if (!data.data || !Array.isArray(data.data)) {
+      console.warn("API 응답 데이터가 올바른 형식이 아닙니다:", data);
+      return [];
+    }
+
+    return data.data;
+  } catch (error) {
+    console.error("필터링 API 호출 실패, 백업 API 시도 중...", error);
+    return await fetchBackupFilteredStores(filters);
   }
+};
 
-  const data = await response.json();
+/**
+ * 백업 API를 사용하여 가게 데이터를 필터링하여 가져오는 함수
+ * @param filters 필터 옵션 (sort 포함)
+ * @returns 필터링된 가게 데이터
+ */
+export const fetchBackupFilteredStores = async (filters: StoreFilters) => {
+  try {
+    const response = await fetchWithTimeout("/api/stores/backup-filter", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(filters),
+    });
 
-  if (data.error) {
-    throw new Error(data.error.message || "알 수 없는 오류가 발생했습니다.");
+    if (!response.ok) {
+      const data = await response.json();
+      throw new Error(
+        data.error?.message || `백업 API HTTP 오류! 상태: ${response.status}`
+      );
+    }
+
+    const data = await response.json();
+
+    if (data.error) {
+      throw new Error(data.error.message || "알 수 없는 오류가 발생했습니다.");
+    }
+
+    // 데이터가 없거나 배열이 아닌 경우 빈 배열 반환
+    if (!data.data || !Array.isArray(data.data)) {
+      console.warn("백업 API 응답 데이터가 올바른 형식이 아닙니다:", data);
+      return [];
+    }
+
+    return data.data;
+  } catch (error) {
+    console.error("백업 API 호출도 실패:", error);
+    throw error; // 백업 API도 실패하면 에러 전파
   }
-
-  return data.data;
 };
 
 /**
@@ -49,6 +105,12 @@ export const fetchAllStores = async () => {
 
   if (data.error) {
     throw new Error(data.error.message || "알 수 없는 오류가 발생했습니다.");
+  }
+
+  // 데이터가 없거나 배열이 아닌 경우 빈 배열 반환
+  if (!data.data || !Array.isArray(data.data)) {
+    console.warn("API 응답 데이터가 올바른 형식이 아닙니다:", data);
+    return [];
   }
 
   return data.data;
@@ -137,3 +199,30 @@ export function filtersToURLParams(filters: StoreFilters): URLSearchParams {
 
   return params;
 }
+
+/**
+ * 가게의 별점 정보를 가져오는 함수
+ * @param storeName 가게 이름
+ * @param address 가게 주소 (선택)
+ * @returns 별점 정보 (네이버, 카카오)
+ */
+export const fetchStoreRating = async (storeName: string, address?: string) => {
+  let url = `/api/stores/ratings?name=${encodeURIComponent(storeName)}`;
+  if (address) {
+    url += `&address=${encodeURIComponent(address)}`;
+  }
+
+  const response = await fetchWithTimeout(url);
+
+  if (!response.ok) {
+    throw new Error(`HTTP error! status: ${response.status}`);
+  }
+
+  const data = await response.json();
+
+  if (!data.success) {
+    throw new Error(data.error || "별점 정보를 가져오는데 실패했습니다.");
+  }
+
+  return data.data;
+};

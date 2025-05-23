@@ -1,151 +1,117 @@
-import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
-import { cookies } from "next/headers";
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { StoreFromDb, FormattedStore } from "@/types/store";
 import { successResponse, errorResponse } from "@/lib/api-response";
-import { radiusSearchSchema } from "@/lib/validations";
-import {
-  API_REQUEST_TIMEOUT,
-  withTimeout,
-  createTimeoutPromise,
-} from "@/lib/timeout-utils";
+import { createServerSupabaseClient } from "@/lib/supabase/server";
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const latitudeStr = searchParams.get("lat");
   const longitudeStr = searchParams.get("lng");
-  const radiusStr = searchParams.get("radius") || "5000"; // 기본 반경 5km
+  const radiusStr = searchParams.get("radius") || "5"; // 기본 반경 5km
 
   try {
-    const cookieStore = cookies();
-    const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
+    const supabase = await createServerSupabaseClient();
 
-    let storesFromQuery: StoreFromDb[] = [];
-    let queryError: any = null;
+    // 기본 쿼리 - 모든 가게 조회
+    const { data: stores, error } = await supabase
+      .from("stores")
+      .select(
+        `
+        *,
+        categories:store_categories(
+          category:categories(name)
+        )
+      `
+      )
+      .order("name");
 
-    const queryPromise = (async () => {
-      if (latitudeStr && longitudeStr) {
-        // Zod 스키마를 사용한 파라미터 검증
-        try {
-          const validatedParams = radiusSearchSchema.parse({
-            lat: latitudeStr,
-            lng: longitudeStr,
-            radius: radiusStr,
-          });
-
-          const latitude = validatedParams.lat;
-          const longitude = validatedParams.lng;
-          const radiusInMeters = validatedParams.radius;
-
-          // 타입 단언 사용
-          const { data, error } = await (supabase as any).rpc(
-            "stores_within_radius",
-            {
-              lat: latitude,
-              lng: longitude,
-              radius_meters: radiusInMeters,
-            }
-          ).select(`
-              *,
-              categories:store_categories(
-                category:categories(name)
-              )
-            `);
-
-          if (error) {
-            return errorResponse(
-              {
-                code: "database_error",
-                message: "주변 가게 정보를 조회하는 중 오류가 발생했습니다.",
-                details: error,
-              },
-              500
-            );
-          }
-
-          storesFromQuery = data || [];
-        } catch (validationError: any) {
-          return errorResponse(
-            {
-              code: "validation_error",
-              message: "요청 파라미터가 유효하지 않습니다.",
-              details: validationError.errors || validationError,
-            },
-            400
-          );
-        }
-      } else {
-        // 일반 검색 (모든 가게)
-        const { data, error } = await supabase
-          .from("stores")
-          .select(
-            `
-            *,
-            categories:store_categories(
-              category:categories(name)
-            )
-          `
-          )
-          .order("name");
-
-        if (error) {
-          return errorResponse(
-            {
-              code: "database_error",
-              message: "가게 정보를 조회하는 중 오류가 발생했습니다.",
-              details: error,
-            },
-            500
-          );
-        }
-
-        storesFromQuery = data || [];
-      }
-
-      // 응답 데이터 가공
-      const formattedStores: FormattedStore[] = storesFromQuery.map(
-        (store: StoreFromDb): FormattedStore => {
-          // 카테고리 배열 추출
-          const categories = store.categories.map(
-            (item: { category: { name: string } }): string => item.category.name
-          );
-
-          return {
-            id: store.id,
-            name: store.name,
-            address: store.address,
-            distance: store.distance ? String(store.distance) : null,
-            categories,
-            rating: {
-              naver: store.naver_rating || 0,
-              kakao: store.kakao_rating || 0,
-            },
-            position: {
-              lat: store.position_lat,
-              lng: store.position_lng,
-              x: store.position_x,
-              y: store.position_y,
-            },
-            refillItems: store.refill_items || [],
-            description: store.description,
-            openHours: store.open_hours,
-            price: store.price,
-            imageUrls: store.image_urls || [],
-          };
-        }
+    if (error) {
+      return errorResponse(
+        {
+          code: "database_error",
+          message: "가게 정보를 조회하는 중 오류가 발생했습니다.",
+          details: error,
+        },
+        500
       );
+    }
 
-      return successResponse(formattedStores);
-    })();
+    let filteredStores = stores || [];
 
-    // 타임아웃과 함께 실행
-    return await withTimeout(
-      queryPromise,
-      API_REQUEST_TIMEOUT,
-      "가게 정보 조회 시간이 초과되었습니다."
+    // 위치 기반 필터링 (클라이언트 사이드)
+    if (latitudeStr && longitudeStr) {
+      const latitude = parseFloat(latitudeStr);
+      const longitude = parseFloat(longitudeStr);
+      const radiusKm = parseFloat(radiusStr);
+
+      if (!isNaN(latitude) && !isNaN(longitude) && !isNaN(radiusKm)) {
+        filteredStores = filteredStores.filter((store: StoreFromDb) => {
+          // 간단한 거리 계산 (Haversine formula)
+          const R = 6371; // 지구 반지름 (km)
+          const dLat = ((store.position_lat - latitude) * Math.PI) / 180;
+          const dLon = ((store.position_lng - longitude) * Math.PI) / 180;
+          const a =
+            Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+            Math.cos((latitude * Math.PI) / 180) *
+              Math.cos((store.position_lat * Math.PI) / 180) *
+              Math.sin(dLon / 2) *
+              Math.sin(dLon / 2);
+          const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+          const distance = R * c;
+
+          // 거리 정보를 store 객체에 추가
+          (store as any).distance = distance;
+
+          return distance <= radiusKm;
+        });
+
+        // 거리순 정렬
+        filteredStores.sort((a, b) => {
+          const distA = (a as any).distance || 0;
+          const distB = (b as any).distance || 0;
+          return distA - distB;
+        });
+      }
+    }
+
+    // 응답 데이터 가공
+    const formattedStores: FormattedStore[] = filteredStores.map(
+      (store: StoreFromDb): FormattedStore => {
+        // 카테고리 배열 추출
+        const categories = store.categories.map(
+          (item: { category: { name: string } }): string => item.category.name
+        );
+
+        return {
+          id: store.id,
+          name: store.name,
+          address: store.address,
+          distance: (store as any).distance
+            ? Math.round((store as any).distance * 100) / 100 + ""
+            : null,
+          categories,
+          rating: {
+            naver: store.naver_rating || 0,
+            kakao: store.kakao_rating || 0,
+          },
+          position: {
+            lat: store.position_lat,
+            lng: store.position_lng,
+            x: store.position_x,
+            y: store.position_y,
+          },
+          refillItems: store.refill_items || [],
+          description: store.description,
+          openHours: store.open_hours,
+          price: store.price,
+          imageUrls: store.image_urls || [],
+        };
+      }
     );
+
+    return successResponse(formattedStores);
   } catch (error: any) {
-    console.error("가게 정보 조회 API 전체 오류:", error);
+    console.error("가게 정보 조회 API 오류:", error);
 
     return errorResponse(
       {

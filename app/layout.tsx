@@ -4,6 +4,7 @@ import Image from "next/image";
 import { Inter } from "next/font/google";
 import { ThemeProvider } from "@/components/theme-provider";
 import { AuthProvider } from "@/contexts/AuthContext";
+import GoogleMapsLoader from "@/components/GoogleMapsLoader";
 import { ReactNode } from "react";
 import { Toaster } from "@/components/ui/toaster";
 
@@ -30,8 +31,10 @@ export default function RootLayout({ children }: RootLayoutProps) {
           disableTransitionOnChange
         >
           <AuthProvider>
-            {children}
-            <Toaster />
+            <GoogleMapsLoader>
+              {children}
+              <Toaster />
+            </GoogleMapsLoader>
           </AuthProvider>
         </ThemeProvider>
       </body>

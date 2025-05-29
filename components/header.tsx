@@ -3,7 +3,16 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Search, MapPin, Menu, User, LogOut, X, Map } from "lucide-react";
+import {
+  Search,
+  MapPin,
+  Menu,
+  User,
+  LogOut,
+  X,
+  Map,
+  Loader2,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -44,6 +53,16 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { useAuth } from "@/contexts/AuthContext";
+import { POPULAR_LOCATIONS } from "@/lib/geocoding";
+import { useToast } from "@/hooks/use-toast";
+import GooglePlacesAutocomplete from "react-google-places-autocomplete";
+
+// Google Maps API 타입 선언
+declare global {
+  interface Window {
+    google: any;
+  }
+}
 
 // 필터 타입 정의
 interface FilterOptions {
@@ -54,16 +73,9 @@ interface FilterOptions {
   longitude?: number;
 }
 
-// 위치 입력 폼 스키마 정의
-const locationFormSchema = z.object({
-  latitude: z.coerce
-    .number()
-    .min(-90, "위도는 -90에서 90 사이의 값이어야 합니다")
-    .max(90, "위도는 -90에서 90 사이의 값이어야 합니다"),
-  longitude: z.coerce
-    .number()
-    .min(-180, "경도는 -180에서 180 사이의 값이어야 합니다")
-    .max(180, "경도는 -180에서 180 사이의 값이어야 합니다"),
+// 주소 검색 폼 스키마 정의
+const addressFormSchema = z.object({
+  address: z.string().min(1, "주소를 입력해주세요"),
   radius: z.coerce
     .number()
     .min(1, "반경은 1km 이상이어야 합니다")
@@ -87,16 +99,19 @@ export default function Header({
   const router = useRouter();
   const { t } = useTranslation();
   const { user, profile, loading, signOut } = useAuth();
+  const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState(initialSearchValue);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isLocationDialogOpen, setIsLocationDialogOpen] = useState(false);
+  const [selectedPlace, setSelectedPlace] = useState<any>(null);
+  const [radiusInput, setRadiusInput] = useState(5);
+  const [isLoading, setIsLoading] = useState(false);
 
-  // 위치 설정 폼
-  const locationForm = useForm<z.infer<typeof locationFormSchema>>({
-    resolver: zodResolver(locationFormSchema),
+  // 주소 검색 폼
+  const addressForm = useForm<z.infer<typeof addressFormSchema>>({
+    resolver: zodResolver(addressFormSchema),
     defaultValues: {
-      latitude: 37.498095,
-      longitude: 127.02761,
+      address: "",
       radius: 5,
     },
   });
@@ -104,6 +119,126 @@ export default function Header({
   useEffect(() => {
     setSearchQuery(initialSearchValue);
   }, [initialSearchValue]);
+
+  // 장소 선택 핸들러
+  const handlePlaceSelect = async (place: any) => {
+    if (!place || !place.place_id) return;
+    if (!window.google || !window.google.maps) {
+      toast({
+        title: "오류",
+        description: "Google Maps API가 로드되지 않았습니다.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      // Google Places API를 사용하여 장소 상세 정보 가져오기
+      const service = new window.google.maps.places.PlacesService(
+        document.createElement("div")
+      );
+
+      service.getDetails(
+        {
+          placeId: place.place_id,
+          fields: ["geometry", "formatted_address", "name"],
+        },
+        (result: any, status: any) => {
+          if (
+            status === window.google.maps.places.PlacesServiceStatus.OK &&
+            result
+          ) {
+            const lat = result.geometry?.location?.lat();
+            const lng = result.geometry?.location?.lng();
+
+            if (lat && lng) {
+              if (onCustomLocationSet) {
+                onCustomLocationSet(lat, lng, radiusInput);
+              } else {
+                router.push(`/?lat=${lat}&lng=${lng}&distance=${radiusInput}`);
+              }
+
+              toast({
+                title: "위치 설정 완료",
+                description: `${
+                  result.name || place.description
+                } 주변 ${radiusInput}km로 설정되었습니다.`,
+              });
+
+              handleLocationDialogChange(false);
+            }
+          } else {
+            toast({
+              title: "오류",
+              description: "장소 정보를 가져오는 중 오류가 발생했습니다.",
+              variant: "destructive",
+            });
+          }
+          setIsLoading(false);
+        }
+      );
+    } catch (error) {
+      console.error("장소 선택 오류:", error);
+      toast({
+        title: "오류",
+        description: "장소 정보를 가져오는 중 오류가 발생했습니다.",
+        variant: "destructive",
+      });
+      setIsLoading(false);
+    }
+  };
+
+  // 인기 지역 선택
+  const handlePopularLocationSelect = (location: {
+    name: string;
+    address: string;
+  }) => {
+    if (!window.google || !window.google.maps) {
+      toast({
+        title: "오류",
+        description: "Google Maps API가 로드되지 않았습니다.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setSelectedPlace({
+      description: location.address,
+      place_id: null, // 인기 지역은 직접 주소로 처리
+    });
+
+    // 직접 지오코딩 처리
+    const geocoder = new window.google.maps.Geocoder();
+    geocoder.geocode(
+      { address: location.address },
+      (results: any, status: any) => {
+        if (status === window.google.maps.GeocoderStatus.OK && results?.[0]) {
+          const lat = results[0].geometry.location.lat();
+          const lng = results[0].geometry.location.lng();
+
+          if (onCustomLocationSet) {
+            onCustomLocationSet(lat, lng, radiusInput);
+          } else {
+            router.push(`/?lat=${lat}&lng=${lng}&distance=${radiusInput}`);
+          }
+
+          toast({
+            title: "위치 설정 완료",
+            description: `${location.name} 주변 ${radiusInput}km로 설정되었습니다.`,
+          });
+
+          handleLocationDialogChange(false);
+        } else {
+          toast({
+            title: "오류",
+            description: "주소를 찾을 수 없습니다.",
+            variant: "destructive",
+          });
+        }
+      }
+    );
+  };
 
   // 모바일 검색 처리
   const handleMobileSearch = (e: React.FormEvent) => {
@@ -147,6 +282,11 @@ export default function Header({
         },
         (error) => {
           console.error("Geolocation error:", error);
+          toast({
+            title: "위치 오류",
+            description: "현재 위치를 가져올 수 없습니다.",
+            variant: "destructive",
+          });
         }
       );
     }
@@ -178,18 +318,165 @@ export default function Header({
     router.push(`/search?${queryString}`);
   };
 
-  // 위치 설정 제출 핸들러
-  const onLocationSubmit = (values: z.infer<typeof locationFormSchema>) => {
-    const { latitude, longitude, radius } = values;
+  // 다이얼로그 상태 관리
+  const handleLocationDialogChange = (open: boolean) => {
+    setIsLocationDialogOpen(open);
+    if (!open) {
+      // 다이얼로그가 닫힐 때 상태 초기화
+      setSelectedPlace(null);
+      setRadiusInput(5);
+    }
+  };
 
-    if (onCustomLocationSet) {
-      onCustomLocationSet(latitude, longitude, radius);
-    } else {
-      // 직접 URL 파라미터 설정
-      router.push(`/?lat=${latitude}&lng=${longitude}&distance=${radius}`);
+  // 주소 자동완성 컴포넌트
+  const AddressAutocomplete = () => (
+    <div className="space-y-2">
+      <label className="text-sm font-medium">주소 검색</label>
+      <GooglePlacesAutocomplete
+        apiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}
+        selectProps={{
+          value: selectedPlace,
+          onChange: (place: any) => {
+            if (place && place.place_id) {
+              // 자동완성에서 선택한 경우 즉시 위치 설정
+              setSelectedPlace(place);
+              handlePlaceSelect(place);
+            } else if (place === null) {
+              // 선택 해제한 경우
+              setSelectedPlace(null);
+            }
+          },
+          placeholder: "예: 강남역, 서울시 강남구 테헤란로 123",
+          isClearable: true,
+          isLoading: isLoading,
+          onInputChange: (inputValue: string) => {
+            // 입력값이 변경될 때만 상태 업데이트 (깜빡임 방지)
+            if (!selectedPlace || selectedPlace.description !== inputValue) {
+              // 입력 중일 때는 selectedPlace를 null로 설정하지 않음
+            }
+          },
+          onKeyDown: (event: any) => {
+            if (event.key === "Enter") {
+              event.preventDefault();
+              // 이미 선택된 place가 있으면 그것을 사용
+              if (selectedPlace && selectedPlace.place_id) {
+                handlePlaceSelect(selectedPlace);
+              } else {
+                // 선택된 것이 없으면 입력된 텍스트로 검색
+                const inputValue = event.target.value;
+                if (inputValue && inputValue.trim()) {
+                  handleManualSearch(inputValue.trim());
+                }
+              }
+            }
+          },
+          styles: {
+            control: (provided: any) => ({
+              ...provided,
+              minHeight: "40px",
+              border: "1px solid #e2e8f0",
+              borderRadius: "6px",
+              "&:hover": {
+                borderColor: "#cbd5e1",
+              },
+            }),
+            placeholder: (provided: any) => ({
+              ...provided,
+              color: "#64748b",
+            }),
+          },
+        }}
+        autocompletionRequest={{
+          componentRestrictions: { country: "kr" },
+          types: ["establishment", "geocode"],
+        }}
+      />
+    </div>
+  );
+
+  // 수동 검색 핸들러 (Enter 키 입력 시)
+  const handleManualSearch = async (searchText: string) => {
+    if (!window.google || !window.google.maps) {
+      toast({
+        title: "오류",
+        description: "Google Maps API가 로드되지 않았습니다.",
+        variant: "destructive",
+      });
+      return;
     }
 
-    setIsLocationDialogOpen(false);
+    setIsLoading(true);
+
+    try {
+      // AutocompleteService를 사용하여 첫 번째 결과 가져오기
+      const service = new window.google.maps.places.AutocompleteService();
+
+      service.getPlacePredictions(
+        {
+          input: searchText,
+          componentRestrictions: { country: "kr" },
+          types: ["establishment", "geocode"],
+        },
+        (predictions: any, status: any) => {
+          if (
+            status === window.google.maps.places.PlacesServiceStatus.OK &&
+            predictions &&
+            predictions.length > 0
+          ) {
+            // 첫 번째 결과를 자동으로 선택
+            const firstResult = predictions[0];
+            setSelectedPlace(firstResult);
+            handlePlaceSelect(firstResult);
+          } else {
+            // 자동완성 결과가 없으면 직접 지오코딩 시도
+            handleDirectGeocoding(searchText);
+          }
+        }
+      );
+    } catch (error) {
+      console.error("수동 검색 오류:", error);
+      toast({
+        title: "검색 오류",
+        description: "주소 검색 중 오류가 발생했습니다.",
+        variant: "destructive",
+      });
+      setIsLoading(false);
+    }
+  };
+
+  // 직접 지오코딩 처리 (분리하여 재사용성 향상)
+  const handleDirectGeocoding = (searchText: string) => {
+    const geocoder = new window.google.maps.Geocoder();
+    geocoder.geocode(
+      { address: searchText, componentRestrictions: { country: "KR" } },
+      (results: any, status: any) => {
+        if (status === window.google.maps.GeocoderStatus.OK && results?.[0]) {
+          const lat = results[0].geometry.location.lat();
+          const lng = results[0].geometry.location.lng();
+
+          if (onCustomLocationSet) {
+            onCustomLocationSet(lat, lng, radiusInput);
+          } else {
+            router.push(`/?lat=${lat}&lng=${lng}&distance=${radiusInput}`);
+          }
+
+          toast({
+            title: "위치 설정 완료",
+            description: `${searchText} 주변 ${radiusInput}km로 설정되었습니다.`,
+          });
+
+          handleLocationDialogChange(false);
+        } else {
+          toast({
+            title: "검색 결과 없음",
+            description:
+              "입력하신 주소를 찾을 수 없습니다. 다른 주소로 시도해보세요.",
+            variant: "destructive",
+          });
+        }
+        setIsLoading(false);
+      }
+    );
   };
 
   // 데스크탑 헤더
@@ -229,98 +516,65 @@ export default function Header({
           <div className="absolute right-1 top-1/2 transform -translate-y-1/2 flex">
             <Dialog
               open={isLocationDialogOpen}
-              onOpenChange={setIsLocationDialogOpen}
+              onOpenChange={handleLocationDialogChange}
             >
               <DialogTrigger asChild>
                 <Button variant="ghost" size="icon" className="h-7 w-7 ml-1">
                   <Map className="h-4 w-4 text-[#4CAF50]" />
-                  <span className="sr-only">위치 직접 설정</span>
+                  <span className="sr-only">위치 설정</span>
                 </Button>
               </DialogTrigger>
-              <DialogContent className="sm:max-w-[425px]">
+              <DialogContent className="sm:max-w-[500px] max-h-[80vh] overflow-y-auto">
                 <DialogHeader>
-                  <DialogTitle>위치 직접 설정</DialogTitle>
+                  <DialogTitle>위치 설정</DialogTitle>
                   <DialogDescription>
-                    찾고자 하는 지역의 위도와 경도를 입력하세요.
+                    주소를 검색하거나 인기 지역을 선택하세요.
                   </DialogDescription>
                 </DialogHeader>
-                <Form {...locationForm}>
-                  <form
-                    onSubmit={locationForm.handleSubmit(onLocationSubmit)}
-                    className="space-y-4"
-                  >
-                    <FormField
-                      control={locationForm.control}
-                      name="latitude"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>위도 (Latitude)</FormLabel>
-                          <FormControl>
-                            <Input
-                              type="number"
-                              step="0.000001"
-                              placeholder="예: 37.498095"
-                              {...field}
-                            />
-                          </FormControl>
-                          <FormDescription>위도 값 (-90 ~ 90)</FormDescription>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={locationForm.control}
-                      name="longitude"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>경도 (Longitude)</FormLabel>
-                          <FormControl>
-                            <Input
-                              type="number"
-                              step="0.000001"
-                              placeholder="예: 127.027610"
-                              {...field}
-                            />
-                          </FormControl>
-                          <FormDescription>
-                            경도 값 (-180 ~ 180)
-                          </FormDescription>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={locationForm.control}
-                      name="radius"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>검색 반경 (km)</FormLabel>
-                          <FormControl>
-                            <Input
-                              type="number"
-                              min="1"
-                              max="20"
-                              placeholder="5"
-                              {...field}
-                            />
-                          </FormControl>
-                          <FormDescription>
-                            1km ~ 20km 사이 설정
-                          </FormDescription>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <DialogFooter>
-                      <Button
-                        type="submit"
-                        className="bg-[#FF5722] hover:bg-[#E64A19]"
-                      >
-                        위치 설정 적용
-                      </Button>
-                    </DialogFooter>
-                  </form>
-                </Form>
+
+                <div className="space-y-4">
+                  {/* 주소 자동완성 */}
+                  <AddressAutocomplete />
+
+                  {/* 검색 반경 설정 */}
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">검색 반경</label>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        type="number"
+                        min="1"
+                        max="20"
+                        value={radiusInput}
+                        onChange={(e) =>
+                          setRadiusInput(parseInt(e.target.value) || 5)
+                        }
+                        className="w-20"
+                      />
+                      <span className="text-sm text-gray-500">km</span>
+                    </div>
+                  </div>
+
+                  {/* 인기 지역 */}
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">인기 지역</label>
+                    <div className="grid grid-cols-2 gap-2">
+                      {POPULAR_LOCATIONS.map((location) => (
+                        <Button
+                          key={location.name}
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handlePopularLocationSelect(location)}
+                          disabled={isLoading}
+                          className="justify-start"
+                        >
+                          <MapPin className="h-3 w-3 mr-1" />
+                          {location.name}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
               </DialogContent>
             </Dialog>
             <Button
@@ -412,94 +666,65 @@ export default function Header({
           {/* 위치 설정 다이얼로그 */}
           <Dialog
             open={isLocationDialogOpen}
-            onOpenChange={setIsLocationDialogOpen}
+            onOpenChange={handleLocationDialogChange}
           >
             <DialogTrigger asChild>
               <Button variant="ghost" size="icon">
                 <Map className="h-5 w-5 text-[#4CAF50]" />
-                <span className="sr-only">위치 직접 설정</span>
+                <span className="sr-only">위치 설정</span>
               </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-[425px]">
+            <DialogContent className="sm:max-w-[500px] max-h-[80vh] overflow-y-auto">
               <DialogHeader>
-                <DialogTitle>위치 직접 설정</DialogTitle>
+                <DialogTitle>위치 설정</DialogTitle>
                 <DialogDescription>
-                  찾고자 하는 지역의 위도와 경도를 입력하세요.
+                  주소를 검색하거나 인기 지역을 선택하세요.
                 </DialogDescription>
               </DialogHeader>
-              <Form {...locationForm}>
-                <form
-                  onSubmit={locationForm.handleSubmit(onLocationSubmit)}
-                  className="space-y-4"
-                >
-                  <FormField
-                    control={locationForm.control}
-                    name="latitude"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>위도 (Latitude)</FormLabel>
-                        <FormControl>
-                          <Input
-                            type="number"
-                            step="0.000001"
-                            placeholder="예: 37.498095"
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormDescription>위도 값 (-90 ~ 90)</FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={locationForm.control}
-                    name="longitude"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>경도 (Longitude)</FormLabel>
-                        <FormControl>
-                          <Input
-                            type="number"
-                            step="0.000001"
-                            placeholder="예: 127.027610"
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormDescription>경도 값 (-180 ~ 180)</FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={locationForm.control}
-                    name="radius"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>검색 반경 (km)</FormLabel>
-                        <FormControl>
-                          <Input
-                            type="number"
-                            min="1"
-                            max="20"
-                            placeholder="5"
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormDescription>1km ~ 20km 사이 설정</FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <DialogFooter>
-                    <Button
-                      type="submit"
-                      className="bg-[#FF5722] hover:bg-[#E64A19]"
-                    >
-                      위치 설정 적용
-                    </Button>
-                  </DialogFooter>
-                </form>
-              </Form>
+
+              <div className="space-y-4">
+                {/* 주소 자동완성 */}
+                <AddressAutocomplete />
+
+                {/* 검색 반경 설정 */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">검색 반경</label>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="number"
+                      min="1"
+                      max="20"
+                      value={radiusInput}
+                      onChange={(e) =>
+                        setRadiusInput(parseInt(e.target.value) || 5)
+                      }
+                      className="w-20"
+                    />
+                    <span className="text-sm text-gray-500">km</span>
+                  </div>
+                </div>
+
+                {/* 인기 지역 */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">인기 지역</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {POPULAR_LOCATIONS.map((location) => (
+                      <Button
+                        key={location.name}
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handlePopularLocationSelect(location)}
+                        disabled={isLoading}
+                        className="justify-start"
+                      >
+                        <MapPin className="h-3 w-3 mr-1" />
+                        {location.name}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+              </div>
             </DialogContent>
           </Dialog>
 

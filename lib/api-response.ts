@@ -10,9 +10,9 @@ export function errorResponse(error: string | ApiError, status: number = 500) {
   const errorObj =
     typeof error === "string" ? { code: "error", message: error } : error;
 
-  return NextResponse.json({ error: errorObj }, { status });
+  return NextResponse.json({ success: false, error: errorObj }, { status });
 }
 
 export function successResponse<T>(data: T) {
-  return NextResponse.json(data);
+  return NextResponse.json({ success: true, data });
 }

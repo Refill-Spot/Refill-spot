@@ -7,7 +7,24 @@ const nextConfig = {
     ignoreBuildErrors: true,
   },
   images: {
-    domains: ["placeholder.com", "via.placeholder.com", "dummyimage.com"],
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "placeholder.com",
+      },
+      {
+        protocol: "https",
+        hostname: "via.placeholder.com",
+      },
+      {
+        protocol: "https",
+        hostname: "dummyimage.com",
+      },
+      {
+        protocol: "https",
+        hostname: "example.com",
+      },
+    ],
   },
 };
 

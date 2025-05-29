@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { Store } from "@/types/store";
 import { useToast } from "@/hooks/use-toast";
+import { getUserLocation, isLocationValid } from "@/lib/location-storage";
 
 export default function StorePage() {
   const params = useParams();
@@ -85,6 +86,25 @@ export default function StorePage() {
     }
   };
 
+  // 뒤로가기 핸들러
+  const handleGoBack = () => {
+    // 저장된 위치 정보가 있는지 확인
+    const savedLocation = getUserLocation();
+
+    if (savedLocation && isLocationValid(savedLocation)) {
+      // 위치 정보가 있으면 쿼리 파라미터와 함께 메인 페이지로 이동
+      const params = new URLSearchParams({
+        lat: savedLocation.lat.toString(),
+        lng: savedLocation.lng.toString(),
+        source: savedLocation.source,
+      });
+      router.push(`/?${params.toString()}`);
+    } else {
+      // 위치 정보가 없으면 일반 뒤로가기
+      router.back();
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-[#F5F5F5] flex items-center justify-center">
@@ -100,7 +120,7 @@ export default function StorePage() {
           <h2 className="text-xl font-semibold text-gray-700 mb-2">
             가게를 찾을 수 없습니다
           </h2>
-          <Button onClick={() => router.back()} variant="outline">
+          <Button onClick={handleGoBack} variant="outline">
             <ArrowLeft className="w-4 h-4 mr-2" />
             돌아가기
           </Button>
@@ -118,7 +138,7 @@ export default function StorePage() {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => router.back()}
+              onClick={handleGoBack}
               className="p-2"
             >
               <ArrowLeft className="w-5 h-5" />

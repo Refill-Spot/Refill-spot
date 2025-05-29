@@ -37,9 +37,10 @@ interface FormattedStore {
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const storeId = parseInt(params.id);
+  const { id } = await params;
+  const storeId = parseInt(id);
 
   if (isNaN(storeId)) {
     return errorResponse(
@@ -81,20 +82,16 @@ export async function GET(
       throw storeError;
     }
 
-    // 리뷰 조회
+    // 리뷰 조회 (profiles 관계 제거하고 user_id만 사용)
     const { data: reviews, error: reviewsError } = await supabase
       .from("reviews")
-      .select(
-        `
-        *,
-        profiles:profiles(username)
-      `
-      )
+      .select("*")
       .eq("store_id", storeId)
       .order("created_at", { ascending: false });
 
     if (reviewsError) {
-      throw reviewsError;
+      console.error("리뷰 조회 오류:", reviewsError);
+      // 리뷰 조회 실패해도 가게 정보는 반환
     }
 
     // 카테고리 배열 추출
@@ -130,7 +127,7 @@ export async function GET(
         createdAt: review.created_at,
         user: {
           id: review.user_id,
-          username: review.profiles?.username || "익명",
+          username: "사용자", // 임시로 고정값 사용
         },
       })),
     };

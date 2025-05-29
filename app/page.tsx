@@ -1,17 +1,26 @@
 "use client";
 
 import { useCallback, useEffect, useState, memo } from "react";
+import { useSearchParams } from "next/navigation";
 import StoreList from "@/components/store-list";
 import Sidebar from "@/components/sidebar";
 import Header from "@/components/header";
 import { ErrorBoundary } from "@/components/error-boundary";
+import { StoreListSkeleton } from "@/components/skeleton-loader";
 import { useToast } from "@/hooks/use-toast";
 import { Store } from "@/types/store";
+import {
+  saveUserLocation,
+  getUserLocation,
+  isLocationValid,
+  UserLocation,
+} from "@/lib/location-storage";
 
 // 메모이제이션된 StoreList 컴포넌트
 const MemoizedStoreList = memo(StoreList);
 
 export default function Home() {
+  const searchParams = useSearchParams();
   const [stores, setStores] = useState<Store[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -34,24 +43,36 @@ export default function Home() {
           url += `?lat=${lat}&lng=${lng}&radius=${radius || 5}`;
         }
 
-        console.log("API 호출:", url);
-        const response = await fetch(url);
+        // 타임아웃 설정 (10초)
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+        const response = await fetch(url, {
+          signal: controller.signal,
+          headers: {
+            "Cache-Control": "no-cache",
+          },
+        });
+
+        clearTimeout(timeoutId);
 
         if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
+          const errorText = await response.text();
+          throw new Error(
+            `HTTP error! status: ${response.status} - ${errorText}`
+          );
         }
 
         const data = await response.json();
-        console.log("API 응답:", data);
 
-        if (data.error) {
+        if (!data.success || data.error) {
           throw new Error(
-            data.error.message || "가게 정보를 불러오는 중 오류가 발생했습니다."
+            data.error?.message ||
+              "가게 정보를 불러오는 중 오류가 발생했습니다."
           );
         }
 
         const storeData = data.data || [];
-        console.log("가게 데이터:", storeData.length, "개");
         setStores(storeData);
 
         if (storeData.length === 0) {
@@ -61,17 +82,26 @@ export default function Home() {
           });
         }
       } catch (err) {
-        console.error("가게 목록 조회 오류:", err);
-        const errorMessage =
-          err instanceof Error
-            ? err.message
-            : "알 수 없는 오류가 발생했습니다.";
-        setError(errorMessage);
-        toast({
-          title: "오류",
-          description: errorMessage,
-          variant: "destructive",
-        });
+        if (err instanceof Error && err.name === "AbortError") {
+          setError("요청 시간이 초과되었습니다. 다시 시도해주세요.");
+          toast({
+            title: "시간 초과",
+            description:
+              "요청 시간이 초과되었습니다. 네트워크 상태를 확인해주세요.",
+            variant: "destructive",
+          });
+        } else {
+          const errorMessage =
+            err instanceof Error
+              ? err.message
+              : "알 수 없는 오류가 발생했습니다.";
+          setError(errorMessage);
+          toast({
+            title: "오류",
+            description: errorMessage,
+            variant: "destructive",
+          });
+        }
       } finally {
         setLoading(false);
       }
@@ -81,21 +111,89 @@ export default function Home() {
 
   // 초기 로드
   useEffect(() => {
-    // 기본 주소 (서울 강남역) 주변 가게 표시
-    const defaultLocation = {
-      lat: 37.498095,
-      lng: 127.02761,
-    };
+    // URL 파라미터에서 위치 정보 확인
+    const urlLat = searchParams.get("lat");
+    const urlLng = searchParams.get("lng");
+    const urlSource = searchParams.get("source") as
+      | "gps"
+      | "manual"
+      | "default"
+      | null;
 
-    setUserLocation(defaultLocation);
-    fetchStores(defaultLocation.lat, defaultLocation.lng, 5);
+    if (urlLat && urlLng) {
+      // URL 파라미터에 위치 정보가 있으면 사용
+      const lat = parseFloat(urlLat);
+      const lng = parseFloat(urlLng);
 
-    toast({
-      title: "기본 위치 적용",
-      description:
-        "서울 강남역 주변의 가게를 표시합니다. 위치 버튼을 눌러 현재 위치로 변경할 수 있습니다.",
-    });
-  }, [fetchStores, toast]);
+      if (!isNaN(lat) && !isNaN(lng)) {
+        setUserLocation({ lat, lng });
+        fetchStores(lat, lng, 5);
+
+        // URL 파라미터의 위치 정보를 저장
+        saveUserLocation({
+          lat,
+          lng,
+          source: urlSource || "manual",
+        });
+
+        const sourceText =
+          urlSource === "gps"
+            ? "현재 위치"
+            : urlSource === "manual"
+            ? "설정한 위치"
+            : "이전 위치";
+
+        toast({
+          title: "위치 복원 완료",
+          description: `${sourceText} 주변의 가게를 표시합니다.`,
+        });
+        return;
+      }
+    }
+
+    // URL 파라미터가 없으면 저장된 위치 정보 복원 시도
+    const savedLocation = getUserLocation();
+
+    if (savedLocation && isLocationValid(savedLocation)) {
+      // 저장된 위치 정보가 있으면 사용
+      setUserLocation({ lat: savedLocation.lat, lng: savedLocation.lng });
+      fetchStores(savedLocation.lat, savedLocation.lng, 5);
+
+      const sourceText =
+        savedLocation.source === "gps"
+          ? "현재 위치"
+          : savedLocation.source === "manual"
+          ? "설정한 위치"
+          : "기본 위치";
+
+      toast({
+        title: "위치 복원 완료",
+        description: `이전에 설정한 ${sourceText} 주변의 가게를 표시합니다.`,
+      });
+    } else {
+      // 저장된 위치 정보가 없으면 기본 위치 사용
+      const defaultLocation = {
+        lat: 37.498095,
+        lng: 127.02761,
+      };
+
+      setUserLocation(defaultLocation);
+      fetchStores(defaultLocation.lat, defaultLocation.lng, 5);
+
+      // 기본 위치 저장
+      saveUserLocation({
+        lat: defaultLocation.lat,
+        lng: defaultLocation.lng,
+        source: "default",
+      });
+
+      toast({
+        title: "기본 위치 적용",
+        description:
+          "서울 강남역 주변의 가게를 표시합니다. 위치 버튼을 눌러 현재 위치로 변경할 수 있습니다.",
+      });
+    }
+  }, [searchParams, fetchStores, toast]);
 
   // 현재 위치 가져오기 요청
   const handleGetCurrentLocation = () => {
@@ -116,20 +214,40 @@ export default function Home() {
     navigator.geolocation.getCurrentPosition(
       (position) => {
         const { latitude, longitude } = position.coords;
+
         setUserLocation({ lat: latitude, lng: longitude });
         fetchStores(latitude, longitude, 5);
 
+        // GPS 위치 정보 저장
+        saveUserLocation({
+          lat: latitude,
+          lng: longitude,
+          source: "gps",
+        });
+
         toast({
           title: "위치 확인 완료",
-          description: "현재 위치 주변의 가게를 표시합니다.",
+          description: `현재 위치 주변의 가게를 표시합니다.`,
         });
       },
       (error) => {
-        console.error("위치 정보를 가져올 수 없습니다:", error);
+        let errorMessage = "위치 정보를 가져올 수 없습니다.";
+        switch (error.code) {
+          case error.PERMISSION_DENIED:
+            errorMessage =
+              "위치 접근 권한이 거부되었습니다. 브라우저 설정에서 위치 권한을 허용해주세요.";
+            break;
+          case error.POSITION_UNAVAILABLE:
+            errorMessage = "위치 정보를 사용할 수 없습니다.";
+            break;
+          case error.TIMEOUT:
+            errorMessage = "위치 정보 요청 시간이 초과되었습니다.";
+            break;
+        }
+
         toast({
           title: "위치 정보 확인 불가",
-          description:
-            "기본 지역의 가게를 표시합니다. 검색을 통해 지역을 변경할 수 있습니다.",
+          description: errorMessage + " 기본 지역의 가게를 표시합니다.",
           variant: "destructive",
         });
       },
@@ -146,6 +264,13 @@ export default function Home() {
     (lat: number, lng: number, radius: number = 5) => {
       setUserLocation({ lat, lng });
       fetchStores(lat, lng, radius);
+
+      // 수동 설정 위치 정보 저장
+      saveUserLocation({
+        lat,
+        lng,
+        source: "manual",
+      });
 
       toast({
         title: "위치 설정 완료",
@@ -192,33 +317,6 @@ export default function Home() {
     [fetchStores, userLocation]
   );
 
-  const handleViewInNaverMap = useCallback((store: Store) => {
-    // 네이버 지도 앱으로 열기 시도
-    const naverMapUrl = `nmap://place?lat=${store.position.lat}&lng=${
-      store.position.lng
-    }&name=${encodeURIComponent(store.name)}&appname=com.refillspot.app`;
-
-    // 앱이 설치되어 있지 않으면 웹으로 리다이렉트
-    const webMapUrl = `https://map.naver.com/v5/search/${encodeURIComponent(
-      store.name
-    )}?c=${store.position.lng},${store.position.lat},15,0,0,0,dh`;
-
-    // 모바일에서는 앱 링크 시도, 데스크톱에서는 바로 웹으로
-    if (
-      /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
-        navigator.userAgent
-      )
-    ) {
-      window.location.href = naverMapUrl;
-      // 1초 후 앱이 열리지 않으면 웹으로 이동
-      setTimeout(() => {
-        window.open(webMapUrl, "_blank");
-      }, 1000);
-    } else {
-      window.open(webMapUrl, "_blank");
-    }
-  }, []);
-
   return (
     <ErrorBoundary fallback={<div className="p-4">오류가 발생했습니다.</div>}>
       <main className="flex flex-col h-screen bg-[#F5F5F5]">
@@ -226,6 +324,7 @@ export default function Home() {
           onSearch={handleSearch}
           onLocationRequest={handleGetCurrentLocation}
           onCustomLocationSet={setCustomLocation}
+          userLocation={userLocation}
         />
         <div className="flex flex-1 overflow-hidden">
           {/* 사이드바 - 데스크톱에서만 표시 */}
@@ -233,58 +332,41 @@ export default function Home() {
             <Sidebar onApplyFilters={handleApplyFilters} />
           </div>
 
-          {/* 메인 콘텐츠 영역 - 가게 목록만 표시 */}
+          {/* 메인 콘텐츠 영역 - 가게 목록 전체 화면 */}
           <div className="flex-1 relative">
-            {loading ? (
-              <div className="flex items-center justify-center h-full">
-                <div className="text-center">
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#FF5722] mx-auto mb-4"></div>
-                  <p className="text-gray-600">가게 정보를 불러오는 중...</p>
-                </div>
-              </div>
-            ) : error ? (
-              <div className="flex items-center justify-center h-full">
-                <div className="text-center">
-                  <p className="text-red-500 mb-4">{error}</p>
-                  <button
-                    onClick={() =>
-                      fetchStores(userLocation?.lat, userLocation?.lng, 5)
-                    }
-                    className="px-4 py-2 bg-[#FF5722] text-white rounded-md hover:bg-[#E64A19]"
-                  >
-                    다시 시도
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div className="h-full">
-                {/* 모바일 필터 버튼 */}
-                <div className="lg:hidden bg-white border-b border-gray-200 p-4">
-                  <button className="w-full py-2 px-4 bg-gray-100 text-gray-700 rounded-md text-sm font-medium">
-                    필터 및 정렬 ▼
-                  </button>
-                </div>
-
-                {/* 가게 목록 */}
-                <div className="h-full">
-                  <MemoizedStoreList
-                    stores={stores}
-                    onViewMap={handleViewInNaverMap}
-                  />
-                </div>
-
-                {/* 결과 요약 */}
-                {stores.length > 0 && (
-                  <div className="absolute top-4 left-4 bg-white/90 backdrop-blur-sm px-3 py-2 rounded-lg shadow-sm border">
-                    <p className="text-sm text-gray-700">
-                      총{" "}
-                      <span className="font-semibold text-[#FF5722]">
-                        {stores.length}
-                      </span>
-                      개의 가게
-                    </p>
+            {/* 가게 목록 */}
+            <div className="h-full">
+              {loading ? (
+                <StoreListSkeleton />
+              ) : error ? (
+                <div className="flex items-center justify-center h-full">
+                  <div className="text-center">
+                    <p className="text-red-500 mb-4">{error}</p>
+                    <button
+                      onClick={() =>
+                        fetchStores(userLocation?.lat, userLocation?.lng, 5)
+                      }
+                      className="px-4 py-2 bg-[#FF5722] text-white rounded-md hover:bg-[#E64A19] transition-colors"
+                    >
+                      다시 시도
+                    </button>
                   </div>
-                )}
+                </div>
+              ) : (
+                <MemoizedStoreList stores={stores} />
+              )}
+            </div>
+
+            {/* 결과 요약 */}
+            {stores.length > 0 && (
+              <div className="absolute top-4 right-4 bg-white/90 backdrop-blur-sm px-3 py-2 rounded-lg shadow-sm border">
+                <p className="text-sm text-gray-700">
+                  총{" "}
+                  <span className="font-semibold text-[#FF5722]">
+                    {stores.length}
+                  </span>
+                  개의 가게
+                </p>
               </div>
             )}
           </div>

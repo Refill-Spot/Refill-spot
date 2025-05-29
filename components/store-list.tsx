@@ -1,30 +1,40 @@
 "use client";
 
-import { useState } from "react";
+import { useState, memo } from "react";
 import Image from "next/image";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { MapPin, Clock, Utensils, Map } from "lucide-react";
+import { MapPin, Clock, Utensils } from "lucide-react";
 import { Store } from "@/types/store";
+import { useRouter } from "next/navigation";
+import { getUserLocation, isLocationValid } from "@/lib/location-storage";
 
 interface StoreListProps {
   stores: Store[];
-  onViewMap?: (store: Store) => void; // 네이버 지도로 연결
 }
 
-export default function StoreList({ stores = [], onViewMap }: StoreListProps) {
+function StoreList({ stores = [] }: StoreListProps) {
   const [selectedStore, setSelectedStore] = useState<Store | null>(null);
+  const router = useRouter();
 
   const handleStoreClick = (store: Store) => {
     setSelectedStore(store);
-  };
 
-  const handleViewOnMap = (e: React.MouseEvent, store: Store) => {
-    e.stopPropagation();
-    if (onViewMap) {
-      onViewMap(store);
+    // 현재 위치 정보를 URL 파라미터로 전달
+    const savedLocation = getUserLocation();
+    if (savedLocation && isLocationValid(savedLocation)) {
+      const params = new URLSearchParams({
+        from: "list",
+        lat: savedLocation.lat.toString(),
+        lng: savedLocation.lng.toString(),
+        source: savedLocation.source,
+      });
+      router.push(`/store/${store.id}?${params.toString()}`);
+    } else {
+      // 위치 정보가 없으면 기본 이동
+      router.push(`/store/${store.id}`);
     }
   };
 
@@ -51,15 +61,16 @@ export default function StoreList({ stores = [], onViewMap }: StoreListProps) {
                           fill
                           sizes="(max-width: 768px) 100vw, 128px"
                           style={{ objectFit: "cover" }}
+                          loading="lazy"
+                          placeholder="blur"
+                          blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCdABmX/9k="
                         />
                       ) : (
-                        <Image
-                          src="/placeholder.svg"
-                          alt={`${store.name} 이미지`}
-                          fill
-                          sizes="(max-width: 768px) 100vw, 128px"
-                          style={{ objectFit: "cover" }}
-                        />
+                        <div className="w-full h-full bg-gray-200 flex items-center justify-center">
+                          <span className="text-gray-400 text-sm">
+                            이미지 없음
+                          </span>
+                        </div>
                       )}
                     </figure>
                     <CardContent className="flex-1 p-4">
@@ -89,6 +100,12 @@ export default function StoreList({ stores = [], onViewMap }: StoreListProps) {
                         <MapPin className="h-4 w-4 text-[#2196F3]" />
                         <span className="line-clamp-1">{store.address}</span>
                       </address>
+
+                      {store.distance && (
+                        <div className="flex items-center gap-2 mt-1 text-sm text-gray-500">
+                          <span>📍 거리: {store.distance}km</span>
+                        </div>
+                      )}
 
                       {store.openHours && (
                         <div className="flex items-center gap-2 mt-1 text-sm text-gray-600">
@@ -124,28 +141,10 @@ export default function StoreList({ stores = [], onViewMap }: StoreListProps) {
                         </div>
                       )}
 
-                      <div className="mt-4 flex gap-2">
-                        <Button
-                          size="sm"
-                          className="bg-[#FF5722] hover:bg-[#E64A19] flex-1"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            window.location.href = `/store/${store.id}`;
-                          }}
-                        >
-                          상세 보기
-                        </Button>
-                        {onViewMap && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="flex-1 bg-[#03C75A]/10 text-[#03C75A] hover:bg-[#03C75A]/20 border-[#03C75A]/20"
-                            onClick={(e) => handleViewOnMap(e, store)}
-                          >
-                            <Map className="h-4 w-4 mr-1" />
-                            네이버 지도
-                          </Button>
-                        )}
+                      <div className="mt-4">
+                        <div className="text-xs text-gray-400">
+                          클릭하여 상세 정보 보기
+                        </div>
                       </div>
                     </CardContent>
                   </div>
@@ -165,3 +164,5 @@ export default function StoreList({ stores = [], onViewMap }: StoreListProps) {
     </section>
   );
 }
+
+export default memo(StoreList);

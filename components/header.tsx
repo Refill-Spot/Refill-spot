@@ -88,6 +88,7 @@ interface HeaderProps {
   onSearch?: (query: string) => void;
   onLocationRequest?: () => void;
   onCustomLocationSet?: (lat: number, lng: number, radius: number) => void;
+  userLocation?: { lat: number; lng: number } | null;
 }
 
 export default function Header({
@@ -95,6 +96,7 @@ export default function Header({
   onSearch,
   onLocationRequest,
   onCustomLocationSet,
+  userLocation,
 }: HeaderProps) {
   const router = useRouter();
   const { t } = useTranslation();

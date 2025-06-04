@@ -79,8 +79,8 @@ Refill Spot은 다음과 같은 현대적이고 효율적인 기술들을 활용
 **1. 레포지토리 클론 (Clone Repository):**
 
 ```bash
-git clone https://your-repository-url.git # 실제 레포지토리 URL로 변경해주세요.
-cd project-directory-name # 실제 프로젝트 디렉토리 이름으로 변경해주세요.
+git clone https://github.com/Refill-Spot/ex_refill.git
+cd ex_refill
 ```
 
 **2. 패키지 설치 (Install Packages):**

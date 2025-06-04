@@ -205,65 +205,146 @@ pnpm start   # 빌드된 애플리케이션 실행
 
 ## 📊 데이터 흐름 및 사용자 인터랙션 (Data Flow & User Interaction)
 
-애플리케이션의 핵심 기능인 가게 검색 및 정보 조회 과정의 대략적인 데이터 흐름과 사용자 인터랙션은 다음과 같습니다.
+이 섹션에서는 Refill Spot 사용자가 식당을 검색하고 정보를 확인하는 주요 과정을 시각화하여 보여줍니다. 핵심적인 사용자 행동과 시스템 내부의 데이터 처리를 단계별로 나누어 이해를 돕고자 합니다.
+
+### 1. 초기 접속 및 위치 기반 가게 검색 흐름
+
+사용자가 처음 서비스에 접속하거나 위치를 기준으로 가게를 검색할 때의 흐름입니다.
 
 ```mermaid
-graph LR
-    A[사용자 접속] --> B{위치 정보 확인};
-    B -- GPS 사용 --> C[GPS로 현재 위치 파악];
-    B -- 수동 입력/저장된 위치 --> D[주소 입력 또는 저장된 위치 사용];
-    B -- 기본 위치 --> E[기본값 위치 사용 (예: 강남역)];
+graph TD
+    subgraph "사용자 시작"
+        A[📱 사용자: Refill Spot 접속]
+    end
 
-    subgraph "위치 기반 가게 검색"
-        C --> F[위치 좌표 API 전달];
+    subgraph "📍 1단계: 위치 정보 확보"
+        A --> B{사용자 위치 확인 방법 결정};
+        B -- GPS 우선 --> C[자동: GPS 현재 위치 파악];
+        B -- 저장된 위치 --> D[자동: 이전 사용 위치 불러오기];
+        B -- 수동 설정/기본값 --> E[수동: 주소 검색 또는 기본 위치 사용];
+    end
+
+    subgraph "📡 2단계: 주변 가게 정보 요청 및 응답"
+        F[프론트엔드: 위치 좌표 준비]
+        C --> F;
         D --> F;
         E --> F;
-        F[위치 좌표 API 전달: /api/stores?lat=...&lng=...] --> G((Supabase DB));
-        G -- 가게 목록 --> H[API 응답: 가게 데이터];
+        F --> G{API 서버에 주변 가게 요청<br>(/api/stores?lat=...&lng=...)};
+        G --> H[(Supabase DB)];
+        H -- 가게 데이터 목록 --> G;
+        G -- JSON 응답 --> I[프론트엔드: 가게 목록 수신];
     end
 
-    H --> I{가게 목록 표시};
-    I -- 사용자 인터랙션 --> J[Naver/Google 지도에 마커 표시];
-    I -- 사용자 인터랙션 --> K[가게 리스트 UI 렌더링];
-
-    K -- 가게 선택 --> L[가게 상세 페이지 이동 (/store/:id)];
-    J -- 마커 클릭 --> L;
-
-    L --> M[상세 정보 API 요청 (필요시)];
-    M --> N((Supabase DB));
-    N -- 상세 가게 정보 --> O[가게 상세 정보 표시];
-
-    subgraph "키워드 검색"
-        P[사용자: 헤더 검색창에 키워드 입력] --> Q{검색 유형 결정};
-        Q -- 프론트엔드 필터링 --> R[현재 로드된 가게 목록에서 필터링];
-        Q -- 백엔드 검색 --> S[키워드 포함 API 요청: /api/stores?query=...];
-        S --> G;
-        R --> I;
+    subgraph "🖥️ 3단계: 가게 정보 표시"
+        I --> J[화면: 가게 목록 및 지도에 마커 표시];
+        J -- 사용자가 특정 가게 선택 --> K[화면: 가게 상세 정보 페이지로 이동<br>(/store/:id)];
     end
 
-    U[사용자: 로그인/회원가입] --> V{인증 요청};
-    V --> W((Supabase Auth));
-    W -- 인증 성공/사용자 정보 --> X[인증 컨텍스트 업데이트];
-    X --> Y[개인화 기능 활성화 (즐겨찾기 등)];
-
-    style A fill:#f9f,stroke:#333,stroke-width:2px
-    style F fill:#ccf,stroke:#333,stroke-width:2px
-    style S fill:#ccf,stroke:#333,stroke-width:2px
-    style G fill:#f8d568,stroke:#333,stroke-width:2px
-    style N fill:#f8d568,stroke:#333,stroke-width:2px
-    style W fill:#f8d568,stroke:#333,stroke-width:2px
-    style I fill:#bdf,stroke:#333,stroke-width:2px
-    style O fill:#bdf,stroke:#333,stroke-width:2px
+    style A fill:#FFDEAD,stroke:#333,stroke-width:2px
+    style B fill:#E6E6FA,stroke:#333,stroke-width:2px
+    style F fill:#ADD8E6,stroke:#333,stroke-width:2px
+    style G fill:#ADD8E6,stroke:#333,stroke-width:2px
+    style H fill:#FFFACD,stroke:#333,stroke-width:2px
+    style I fill:#ADD8E6,stroke:#333,stroke-width:2px
+    style J fill:#90EE90,stroke:#333,stroke-width:2px
+    style K fill:#90EE90,stroke:#333,stroke-width:2px
 ```
 
 **흐름 설명:**
 
-1.  **사용자 접속 및 위치 확인:** 사용자가 웹사이트에 접속하면, 브라우저 GPS, 이전에 저장된 위치 또는 기본값(예: 강남역)을 기준으로 위치 정보를 설정합니다.
-2.  **가게 정보 요청:** 설정된 위치 정보를 기반으로 백엔드 API (`/api/stores`)에 주변 가게 목록을 요청합니다.
-3.  **데이터베이스 조회:** API는 Supabase 데이터베이스에서 조건에 맞는 가게 정보를 조회합니다.
-4.  **가게 목록 표시:** 조회된 가게 데이터를 받아와 사용자 화면의 리스트 및 지도(Naver/Google)에 마커 형태로 표시합니다.
-5.  **상세 정보 확인:** 사용자가 특정 가게를 선택(리스트 클릭 또는 마커 클릭)하면 해당 가게의 상세 페이지로 이동하여 더 자세한 정보를 볼 수 있습니다. (필요시 추가 API 요청 발생)
-6.  **키워드 검색:** 사용자는 헤더의 검색창을 통해 가게 이름, 주소 등으로 직접 검색할 수 있습니다. 이는 현재 로드된 목록을 필터링하거나, 새로운 API 요청을 통해 서버에서 검색 결과를 가져올 수 있습니다.
-7.  **사용자 인증:** 로그인/회원가입 시 Supabase Auth를 통해 인증 처리가 이루어지며, 성공 시 즐겨찾기 등 개인화된 기능을 사용할 수 있게 됩니다.
+1.  **사용자 접속 (`📱`):** 사용자가 Refill Spot 웹사이트에 처음 방문합니다.
+2.  **위치 정보 확보 (`📍`):**
+    *   애플리케이션은 사용자의 위치를 파악하려 시도합니다.
+    *   **우선순위:** GPS > 이전에 저장된 위치 > 사용자의 수동 입력 또는 시스템 기본 위치(예: 강남역).
+3.  **주변 가게 정보 요청 (`📡`):**
+    *   확보된 위치 좌표를 사용하여, 프론트엔드는 백엔드 API (`/api/stores`)로 주변 가게 목록을 요청합니다.
+    *   API 서버는 이 요청을 받아 Supabase 데이터베이스에서 조건에 맞는 가게 정보를 조회합니다.
+    *   조회된 가게 목록은 JSON 형태로 프론트엔드에 응답으로 전달됩니다.
+4.  **가게 정보 표시 (`🖥️`):**
+    *   프론트엔드는 수신된 가게 데이터를 사용자 화면에 목록 형태로 보여주고, 지도(Naver/Google) 위에도 마커로 위치를 표시합니다.
+    *   사용자가 목록이나 지도에서 특정 가게를 선택하면, 해당 가게의 상세 정보를 볼 수 있는 페이지로 이동합니다.
 
-이 다이어그램은 주요 상호작용을 간략화한 것이며, 실제 구현에는 더 많은 세부 로직과 상태 관리가 포함됩니다.
+### 2. 키워드 검색 흐름
+
+사용자가 검색창에 키워드(가게 이름, 주소 등)를 입력하여 가게를 검색하는 경우의 흐름입니다.
+
+```mermaid
+graph TD
+    subgraph "사용자 시작"
+        L[⌨️ 사용자: 헤더 검색창에 키워드 입력 및 검색 실행]
+    end
+
+    subgraph "🔍 1단계: 검색 요청 처리"
+        L --> M{검색 요청 API 전달<br>(/api/stores/search?query=...)};
+        M --> N[(Supabase DB)];
+        N -- 검색 조건에 맞는 가게 데이터 --> M;
+        M -- JSON 응답 --> O[프론트엔드: 검색 결과 수신];
+    end
+
+    subgraph "🖥️ 2단계: 검색 결과 표시"
+        O --> P[화면: 검색된 가게 목록 및 지도에 마커 표시];
+        P -- 사용자가 특정 가게 선택 --> Q[화면: 가게 상세 정보 페이지로 이동<br>(/store/:id)];
+    end
+
+    style L fill:#FFDEAD,stroke:#333,stroke-width:2px
+    style M fill:#ADD8E6,stroke:#333,stroke-width:2px
+    style N fill:#FFFACD,stroke:#333,stroke-width:2px
+    style O fill:#ADD8E6,stroke:#333,stroke-width:2px
+    style P fill:#90EE90,stroke:#333,stroke-width:2px
+    style Q fill:#90EE90,stroke:#333,stroke-width:2px
+```
+
+**흐름 설명:**
+
+1.  **키워드 입력 (`⌨️`):** 사용자가 헤더의 검색창에 원하는 가게 이름, 주소, 또는 관련 키워드를 입력하고 검색을 실행합니다.
+2.  **검색 요청 처리 (`🔍`):**
+    *   프론트엔드는 입력된 키워드를 포함하여 백엔드 검색 API (`/api/stores/search` - *API 경로는 예시이며, 실제 구현에 따라 `/api/stores`에 query 파라미터를 사용할 수도 있음*)로 요청을 보냅니다.
+    *   API 서버는 데이터베이스에서 해당 키워드와 관련성이 높은 가게 정보를 검색합니다.
+    *   검색 결과를 JSON 형태로 프론트엔드에 응답합니다.
+3.  **검색 결과 표시 (`🖥️`):**
+    *   프론트엔드는 받은 데이터를 화면에 목록 및 지도 마커로 표시합니다.
+    *   사용자는 결과 중 하나를 선택하여 상세 페이지로 이동할 수 있습니다.
+
+### 3. 사용자 인증 흐름 (로그인/회원가입)
+
+사용자가 로그인 또는 회원가입을 시도할 때의 상호작용입니다.
+
+```mermaid
+graph TD
+    subgraph "사용자 시작"
+        R[👤 사용자: 로그인 또는 회원가입 시도]
+    end
+
+    subgraph "🔐 1단계: 인증 정보 제출"
+        R -- 이메일/비밀번호 또는 소셜 로그인 정보 --> S{Supabase Auth API 호출};
+    end
+
+    subgraph "🛡️ 2단계: 인증 처리 및 결과 반환"
+        S <--> T((Supabase Auth 서비스));
+        T -- 인증 성공/실패 결과 --> S;
+        S -- 인증 결과 --> U[프론트엔드: 인증 상태 업데이트];
+    end
+
+    subgraph "🎉 3단계: 후속 조치"
+        U -- 인증 성공 시 --> V[화면: 로그인 상태로 변경, 개인화 기능 활성화 (예: 즐겨찾기)];
+        U -- 인증 실패 시 --> W[화면: 오류 메시지 표시];
+    end
+
+    style R fill:#FFDEAD,stroke:#333,stroke-width:2px
+    style S fill:#ADD8E6,stroke:#333,stroke-width:2px
+    style T fill:#FFFACD,stroke:#333,stroke-width:2px
+    style U fill:#ADD8E6,stroke:#333,stroke-width:2px
+    style V fill:#90EE90,stroke:#333,stroke-width:2px
+    style W fill:#FFB6C1,stroke:#333,stroke-width:2px
+```
+
+**흐름 설명:**
+
+1.  **인증 시도 (`👤`):** 사용자가 로그인 또는 회원가입 버튼을 클릭하고 필요한 정보를 입력합니다.
+2.  **인증 정보 제출 (`🔐`):** 프론트엔드는 사용자가 입력한 정보(이메일/비밀번호) 또는 소셜 로그인 요청을 Supabase Auth API로 전달합니다.
+3.  **인증 처리 (`🛡️`):** Supabase Auth 서비스가 제출된 정보를 검증하여 인증을 처리하고, 그 결과를 프론트엔드에 반환합니다.
+4.  **후속 조치 (`🎉`):**
+    *   **인증 성공 시:** 프론트엔드는 사용자 인증 상태를 업데이트하고, 화면을 로그인된 상태로 변경합니다. 즐겨찾기 같은 개인화된 기능이 활성화될 수 있습니다.
+    *   **인증 실패 시:** 사용자에게 적절한 오류 메시지를 표시합니다.
+
+이러한 흐름들은 Refill Spot의 핵심적인 사용자 경험을 구성하며, 각 단계는 사용자가 원하는 정보를 쉽고 빠르게 찾을 수 있도록 설계되었습니다.

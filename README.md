@@ -214,30 +214,30 @@ pnpm start   # 빌드된 애플리케이션 실행
 ```mermaid
 graph TD
     subgraph "사용자 시작"
-        A[📱 사용자: Refill Spot 접속]
+        A["📱 사용자: Refill Spot 접속"]
     end
 
     subgraph "📍 1단계: 위치 정보 확보"
         A --> B{사용자 위치 확인 방법 결정};
-        B -- GPS 우선 --> C[자동: GPS 현재 위치 파악];
-        B -- 저장된 위치 --> D[자동: 이전 사용 위치 불러오기];
-        B -- 수동 설정/기본값 --> E[수동: 주소 검색 또는 기본 위치 사용];
+        B -- GPS 우선 --> C["자동: GPS 현재 위치 파악"];
+        B -- 저장된 위치 --> D["자동: 이전 사용 위치 불러오기"];
+        B -- 수동 설정/기본값 --> E["수동: 주소 검색 또는 기본 위치 사용"];
     end
 
     subgraph "📡 2단계: 주변 가게 정보 요청 및 응답"
-        F[프론트엔드: 위치 좌표 준비]
+        F["프론트엔드: 위치 좌표 준비"]
         C --> F;
         D --> F;
         E --> F;
-        F --> G{API 서버에 주변 가게 요청<br>(/api/stores?lat=...&lng=...)};
+        F --> G["API 서버에 주변 가게 요청<br>(/api/stores?lat=...&lng=...)"];
         G --> H[(Supabase DB)];
         H -- 가게 데이터 목록 --> G;
-        G -- JSON 응답 --> I[프론트엔드: 가게 목록 수신];
+        G -- JSON 응답 --> I["프론트엔드: 가게 목록 수신"];
     end
 
     subgraph "🖥️ 3단계: 가게 정보 표시"
-        I --> J[화면: 가게 목록 및 지도에 마커 표시];
-        J -- 사용자가 특정 가게 선택 --> K[화면: 가게 상세 정보 페이지로 이동<br>(/store/:id)];
+        I --> J["화면: 가게 목록 및 지도에 마커 표시"];
+        J -- 사용자가 특정 가게 선택 --> K["화면: 가게 상세 정보 페이지로 이동<br>(/store/:id)"];
     end
 
     style A fill:#FFDEAD,stroke:#333,stroke-width:2px
@@ -271,19 +271,19 @@ graph TD
 ```mermaid
 graph TD
     subgraph "사용자 시작"
-        L[⌨️ 사용자: 헤더 검색창에 키워드 입력 및 검색 실행]
+        L["⌨️ 사용자: 헤더 검색창에 키워드 입력 및 검색 실행"]
     end
 
     subgraph "🔍 1단계: 검색 요청 처리"
-        L --> M{검색 요청 API 전달<br>(/api/stores/search?query=...)};
+        L --> M["검색 요청 API 전달<br>(/api/stores/search?query=...)"];
         M --> N[(Supabase DB)];
         N -- 검색 조건에 맞는 가게 데이터 --> M;
-        M -- JSON 응답 --> O[프론트엔드: 검색 결과 수신];
+        M -- JSON 응답 --> O["프론트엔드: 검색 결과 수신"];
     end
 
     subgraph "🖥️ 2단계: 검색 결과 표시"
-        O --> P[화면: 검색된 가게 목록 및 지도에 마커 표시];
-        P -- 사용자가 특정 가게 선택 --> Q[화면: 가게 상세 정보 페이지로 이동<br>(/store/:id)];
+        O --> P["화면: 검색된 가게 목록 및 지도에 마커 표시"];
+        P -- 사용자가 특정 가게 선택 --> Q["화면: 가게 상세 정보 페이지로 이동<br>(/store/:id)"];
     end
 
     style L fill:#FFDEAD,stroke:#333,stroke-width:2px
@@ -312,7 +312,7 @@ graph TD
 ```mermaid
 graph TD
     subgraph "사용자 시작"
-        R[👤 사용자: 로그인 또는 회원가입 시도]
+        R["👤 사용자: 로그인 또는 회원가입 시도"]
     end
 
     subgraph "🔐 1단계: 인증 정보 제출"
@@ -322,12 +322,12 @@ graph TD
     subgraph "🛡️ 2단계: 인증 처리 및 결과 반환"
         S <--> T((Supabase Auth 서비스));
         T -- 인증 성공/실패 결과 --> S;
-        S -- 인증 결과 --> U[프론트엔드: 인증 상태 업데이트];
+        S -- 인증 결과 --> U["프론트엔드: 인증 상태 업데이트"];
     end
 
     subgraph "🎉 3단계: 후속 조치"
-        U -- 인증 성공 시 --> V[화면: 로그인 상태로 변경, 개인화 기능 활성화 (예: 즐겨찾기)];
-        U -- 인증 실패 시 --> W[화면: 오류 메시지 표시];
+        U -- 인증 성공 시 --> V["화면: 로그인 상태로 변경, 개인화 기능 활성화 (예: 즐겨찾기)"];
+        U -- 인증 실패 시 --> W["화면: 오류 메시지 표시"];
     end
 
     style R fill:#FFDEAD,stroke:#333,stroke-width:2px

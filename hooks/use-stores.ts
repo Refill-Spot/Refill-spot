@@ -109,13 +109,13 @@ export function useFetchStores(initialFilters?: StoreFilters) {
       const storesWithRatings = await Promise.all(
         storeData.map(async (store) => {
           // store가 undefined인 경우 건너뛰기
-          if (!store || !store.rating) {
+          if (!store) {
             console.warn("잘못된 가게 데이터:", store);
             return null;
           }
 
-          // 별점 정보가 없거나 0인 경우에만 별도 API 호출
-          if (store.rating.naver === 0 && store.rating.kakao === 0) {
+          // 별점 정보가 없거나 0인 경우, 혹은 rating 필드가 없는 경우 별도 API 호출
+          if (!store.rating || (store.rating.naver === 0 && store.rating.kakao === 0)) {
             try {
               // 별점 정보 가져오기
               const ratingData = await fetchStoreRating(

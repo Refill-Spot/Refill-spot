@@ -22,7 +22,7 @@ function StoreList({ stores = [] }: StoreListProps) {
   const handleStoreClick = (store: Store) => {
     setSelectedStore(store);
 
-    // 현재 위치 정보를 URL 파라미터로 전달
+    // 현재 위치 정보를 URL 파라미터로 전달하여 새 탭에서 열기
     const savedLocation = getUserLocation();
     if (savedLocation && isLocationValid(savedLocation)) {
       const params = new URLSearchParams({
@@ -31,10 +31,10 @@ function StoreList({ stores = [] }: StoreListProps) {
         lng: savedLocation.lng.toString(),
         source: savedLocation.source,
       });
-      router.push(`/store/${store.id}?${params.toString()}`);
+      window.open(`/store/${store.id}?${params.toString()}`, "_blank");
     } else {
-      // 위치 정보가 없으면 기본 이동
-      router.push(`/store/${store.id}`);
+      // 위치 정보가 없으면 기본으로 새 탭에서 열기
+      window.open(`/store/${store.id}`, "_blank");
     }
   };
 

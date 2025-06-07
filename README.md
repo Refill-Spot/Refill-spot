@@ -173,7 +173,7 @@ pnpm start   # 빌드된 애플리케이션 실행
 │   ├── store-item.tsx        # 가게 목록 내 개별 가게 아이템 컴포넌트
 │   ├── store-details.tsx     # 가게의 상세 정보를 표시하는 컴포넌트
 │   ├── naver-map.tsx         # Naver 지도를 렌더링하고 상호작용하는 핵심 컴포넌트
-│   ├── google-map.tsx        # Google 지도를 렌더링하고 상호작용하는 컴포넌트 (또는 GoogleMapsLoader)
+│   ├── GoogleMapsLoader.tsx        # Google 지도를 렌더링하고 상호작용하는 컴포넌트
 │   └── skeleton-loader.tsx   # 데이터 로딩 중 표시되는 스켈레톤 UI 컴포넌트
 ├── contexts/                 # React Context API를 사용한 전역 상태 관리
 │   └── AuthContext.tsx       # 사용자 인증 상태(로그인 여부, 사용자 정보)를 관리하는 컨텍스트

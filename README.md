@@ -93,23 +93,25 @@ pnpm install
 
 **3. 환경 변수 설정 (Setup Environment Variables):**
 
-프로젝트 루트에 `.env.local` 파일을 생성하고, 제공된 `.env.sample` 파일을 참고하여 다음 환경 변수들을 설정합니다.
+프로젝트 루트에 `.env` 파일을 생성하고, 제공된 `.env.sample` 파일을 참고하여 다음 환경 변수들을 설정합니다.
 
 ```env
 # Supabase
 NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_project_anon_key
-# SUPABASE_SERVICE_ROLE_KEY=your_supabase_project_service_role_key (서버 측 로직에 필요한 경우)
+
+SUPABASE_URL=your_supabase_project_url
+SUPABASE_ANON_KEY=your_supabase_project_anon_key
 
 # Naver Maps API
-NEXT_PUBLIC_NAVER_MAP_CLIENT_ID=your_naver_maps_api_client_id
-# NAVER_CLIENT_SECRET=your_naver_maps_api_client_secret (서버 사이드에서 네이버 API를 직접 호출하는 경우)
+NAVER_MAP_CLIENT_ID=your_naver_maps_api_client_id
+NAVER_CLIENT_SECRET=your_naver_maps_api_client_secret (서버 사이드에서 네이버 API를 직접 호출하는 경우)
 
 # Google Maps API
 NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=your_google_maps_api_key
 
 # Kakao Login API
-NEXT_PUBLIC_KAKAO_CLIENT_ID=your_kakao_login_client_id
+KAKAO_CLIENT_ID=your_kakao_login_client_id
 # 또는 KAKAO_REST_API_KEY, KAKAO_JAVASCRIPT_KEY 등 카카오 설정에 따라 필요한 키
 ```
 

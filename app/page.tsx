@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState, memo } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import StoreList from "@/components/store-list";
 import Sidebar from "@/components/sidebar";
 import Header from "@/components/header";
@@ -15,12 +15,14 @@ import {
   isLocationValid,
   UserLocation,
 } from "@/lib/location-storage";
+import { isOnboardingCompleted } from "@/lib/onboarding-storage";
 
 // 메모이제이션된 StoreList 컴포넌트
 const MemoizedStoreList = memo(StoreList);
 
 export default function Home() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const [stores, setStores] = useState<Store[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -28,6 +30,7 @@ export default function Home() {
     lat: number;
     lng: number;
   } | null>(null);
+  const [isCheckingOnboarding, setIsCheckingOnboarding] = useState(true);
 
   const { toast } = useToast();
 
@@ -109,8 +112,30 @@ export default function Home() {
     [toast]
   );
 
+  // 온보딩 체크
+  useEffect(() => {
+    // 온보딩 완료 여부 확인
+    const checkOnboarding = () => {
+      if (!isOnboardingCompleted()) {
+        router.push("/onboarding");
+        return;
+      }
+      setIsCheckingOnboarding(false);
+    };
+
+    // 클라이언트 사이드에서만 실행
+    if (typeof window !== "undefined") {
+      checkOnboarding();
+    }
+  }, [router]);
+
   // 초기 로드
   useEffect(() => {
+    // 온보딩 체크가 완료되지 않았으면 대기
+    if (isCheckingOnboarding) {
+      return;
+    }
+
     // URL 파라미터에서 위치 정보 확인
     const urlLat = searchParams.get("lat");
     const urlLng = searchParams.get("lng");
@@ -193,7 +218,7 @@ export default function Home() {
           "서울 강남역 주변의 가게를 표시합니다. 위치 버튼을 눌러 현재 위치로 변경할 수 있습니다.",
       });
     }
-  }, [searchParams, fetchStores, toast]);
+  }, [searchParams, fetchStores, toast, isCheckingOnboarding]);
 
   // 현재 위치 가져오기 요청
   const handleGetCurrentLocation = () => {
@@ -316,6 +341,36 @@ export default function Home() {
     },
     [fetchStores, userLocation]
   );
+
+  // 온보딩 체크 중이면 로딩 화면 표시
+  if (isCheckingOnboarding) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 bg-gradient-to-br from-orange-500 to-red-500 rounded-2xl flex items-center justify-center mb-4 mx-auto animate-pulse">
+            <svg
+              className="w-8 h-8 text-white"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 6v6l4 2"
+              />
+              <circle cx="12" cy="12" r="10" />
+            </svg>
+          </div>
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">
+            Refill Spot
+          </h2>
+          <p className="text-gray-500">로딩 중...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <ErrorBoundary fallback={<div className="p-4">오류가 발생했습니다.</div>}>

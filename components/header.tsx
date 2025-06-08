@@ -56,6 +56,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { POPULAR_LOCATIONS } from "@/lib/geocoding";
 import { useToast } from "@/hooks/use-toast";
 import GooglePlacesAutocomplete from "react-google-places-autocomplete";
+import { resetOnboardingStatus } from "@/lib/onboarding-storage";
 
 // Google Maps API 타입 선언
 declare global {
@@ -595,12 +596,32 @@ export default function Header({
 
       {!loading && (
         <div className="flex items-center gap-3">
-          {/* 문의하기 링크 */}
+          {/* 온보딩 및 문의하기 링크 */}
+          <Link href="/onboarding">
+            <Button variant="ghost" className="text-sm">
+              서비스 소개
+            </Button>
+          </Link>
           <Link href="/contact">
             <Button variant="ghost" className="text-sm">
               문의하기
             </Button>
           </Link>
+
+          {/* 개발 모드에서만 표시되는 온보딩 리셋 버튼 */}
+          {process.env.NODE_ENV === "development" && (
+            <Button
+              variant="ghost"
+              className="text-sm text-gray-400 hover:text-gray-600"
+              onClick={() => {
+                resetOnboardingStatus();
+                window.location.reload();
+              }}
+              title="온보딩 상태 리셋 (개발용)"
+            >
+              🔄
+            </Button>
+          )}
 
           {user ? (
             // 로그인된 경우

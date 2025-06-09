@@ -68,6 +68,8 @@ Refill Spot은 다음과 같은 현대적이고 효율적인 기술들을 활용
 *   **개발 도구 (Dev Tools):**
     *   **PNPM:** 빠르고 효율적인 디스크 공간 사용을 특징으로 하는 패키지 매니저입니다.
     *   **ESLint:** 코드 스타일을 일관되게 유지하고 잠재적인 오류를 사전에 발견하여 코드 품질을 향상합니다.
+    *   **Prettier:** 코드 포맷팅을 자동화하여 일관된 코드 스타일을 유지합니다.
+    *   **TypeScript:** 정적 타입 검사를 통해 런타임 오류를 사전에 방지하고 개발 생산성을 향상합니다.
 
 *   **데이터베이스 (Database):**
     *   **PostgreSQL:** 강력하고 안정적인 오픈소스 관계형 데이터베이스입니다. Supabase를 통해 관리되거나 Vercel Postgres와 같은 호스팅 서비스를 통해 운영될 수 있으며, Prisma ORM과 함께 사용됩니다.
@@ -137,6 +139,42 @@ pnpm dev
 ```
 
 애플리케이션은 기본적으로 `http://localhost:3000` 에서 실행됩니다.
+
+## 🔧 코드 품질 관리 (Code Quality)
+
+이 프로젝트는 일관된 코드 품질과 스타일을 유지하기 위해 다음 도구들을 사용합니다:
+
+**Linting 및 Formatting:**
+
+```bash
+# ESLint로 코드 검사
+pnpm lint
+
+# ESLint로 자동 수정 가능한 문제들 수정
+pnpm lint:fix
+
+# Prettier로 코드 포맷팅
+pnpm format
+
+# Prettier로 포맷팅 검사 (CI/CD에서 사용)
+pnpm format:check
+
+# TypeScript 타입 검사
+pnpm type-check
+
+# 모든 검사 실행 (타입 체크 + 린트 + 포맷 검사)
+pnpm check-all
+```
+
+**개발 환경 설정:**
+
+VS Code를 사용하는 경우, 다음 확장 프로그램들이 자동으로 추천됩니다:
+- ESLint
+- Prettier
+- Tailwind CSS IntelliSense
+- TypeScript and JavaScript Language Features
+
+저장 시 자동으로 ESLint 수정과 Prettier 포맷팅이 적용되도록 설정되어 있습니다.
 
 **6. 빌드 및 프로덕션 실행 (Build and Run for Production):**
 

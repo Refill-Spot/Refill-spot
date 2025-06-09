@@ -1,8 +1,8 @@
-import { NextRequest, NextResponse } from "next/server";
-import { StoreFromDb, FormattedStore } from "@/types/store";
-import { successResponse, errorResponse } from "@/lib/api-response";
+import { errorResponse } from "@/lib/api-response";
+import { calculateDistance } from "@/lib/distance";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
-import { calculateDistance } from "@/lib/geo";
+import { FormattedStore, StoreFromDb } from "@/types/store";
+import { NextRequest, NextResponse } from "next/server";
 
 // 가게 데이터 포맷팅 함수
 function formatStoreData(store: StoreFromDb): FormattedStore {

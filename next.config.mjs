@@ -1,10 +1,13 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // ESLint와 TypeScript 오류를 빌드 시 체크하도록 설정
   eslint: {
-    ignoreDuringBuilds: true,
+    // 빌드 시 ESLint 실행
+    ignoreDuringBuilds: false,
   },
   typescript: {
-    ignoreBuildErrors: true,
+    // 빌드 시 TypeScript 오류 체크
+    ignoreBuildErrors: false,
   },
   images: {
     remotePatterns: [

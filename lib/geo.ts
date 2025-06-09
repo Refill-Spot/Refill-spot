@@ -18,27 +18,8 @@ export const getCurrentPosition = (): Promise<GeolocationPosition> => {
   });
 };
 
-// 거리 계산 함수 (하버사인 공식)
-export const calculateDistance = (
-  lat1: number,
-  lng1: number,
-  lat2: number,
-  lng2: number
-): number => {
-  const R = 6371e3; // 지구 반지름 (미터)
-  const φ1 = (lat1 * Math.PI) / 180;
-  const φ2 = (lat2 * Math.PI) / 180;
-  const Δφ = ((lat2 - lat1) * Math.PI) / 180;
-  const Δλ = ((lng2 - lng1) * Math.PI) / 180;
-
-  const a =
-    Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
-    Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  const d = R * c;
-
-  return Math.round(d); // 미터 단위로 반환
-};
+// 거리 계산 함수를 공통 유틸리티에서 가져옴
+export { calculateDistance } from "@/lib/distance";
 
 // 주변 가게 찾기
 export const findNearbyStores = async (

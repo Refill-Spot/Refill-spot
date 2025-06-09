@@ -1,9 +1,9 @@
-import { NextRequest } from "next/server";
-import { StoreFromDb, FormattedStore } from "@/types/store";
-import { successResponse, errorResponse } from "@/lib/api-response";
-import { storeFilterSchema } from "@/lib/validations";
+import { errorResponse, successResponse } from "@/lib/api-response";
+import { calculateDistance } from "@/lib/distance";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
-import { calculateDistance } from "@/lib/geo";
+import { storeFilterSchema } from "@/lib/validations";
+import { FormattedStore, StoreFromDb } from "@/types/store";
+import { NextRequest } from "next/server";
 
 export async function POST(request: NextRequest) {
   try {

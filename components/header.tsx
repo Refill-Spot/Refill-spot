@@ -494,7 +494,10 @@ export default function Header({
             </Button>
           </SheetTrigger>
           <SheetContent side="left" className="p-0 w-80">
-            <Sidebar onApplyFilters={handleApplyFilters} />
+            <Sidebar
+              onApplyFilters={handleApplyFilters}
+              userLocation={userLocation}
+            />
           </SheetContent>
         </Sheet>
 
@@ -676,7 +679,10 @@ export default function Header({
               </Button>
             </SheetTrigger>
             <SheetContent side="left" className="p-0 w-80">
-              <Sidebar onApplyFilters={handleApplyFilters} />
+              <Sidebar
+                onApplyFilters={handleApplyFilters}
+                userLocation={userLocation}
+              />
             </SheetContent>
           </Sheet>
 

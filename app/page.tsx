@@ -36,14 +36,34 @@ export default function Home() {
 
   // 가게 목록 가져오기 (실제 API 사용)
   const fetchStores = useCallback(
-    async (lat?: number, lng?: number, radius?: number) => {
+    async (
+      lat?: number,
+      lng?: number,
+      radius?: number,
+      minRating?: number,
+      categories?: string[]
+    ) => {
       setLoading(true);
       setError(null);
 
       try {
         let url = "/api/stores";
         if (lat && lng) {
-          url += `?lat=${lat}&lng=${lng}&radius=${radius || 5}`;
+          const params = new URLSearchParams({
+            lat: lat.toString(),
+            lng: lng.toString(),
+            radius: (radius || 5).toString(),
+          });
+
+          if (minRating && minRating > 0) {
+            params.append("minRating", minRating.toString());
+          }
+
+          if (categories && categories.length > 0) {
+            params.append("categories", categories.join(","));
+          }
+
+          url += `?${params.toString()}`;
         }
 
         // 타임아웃 설정 (10초)
@@ -333,13 +353,49 @@ export default function Home() {
     [stores, fetchStores, userLocation, toast]
   );
 
-  // 사이드바 필터 적용 (간단한 버전)
+  // 사이드바 필터 적용
   const handleApplyFilters = useCallback(
-    (filters: any) => {
-      // 현재는 기본 목록 다시 로드
-      fetchStores(userLocation?.lat, userLocation?.lng, 5);
+    (filters: {
+      categories?: string[];
+      maxDistance?: number;
+      minRating?: number;
+      latitude?: number;
+      longitude?: number;
+    }) => {
+      console.log("필터 적용:", filters);
+
+      // 위치 정보 결정 (필터에서 제공된 위치 또는 현재 사용자 위치)
+      const lat = filters.latitude || userLocation?.lat;
+      const lng = filters.longitude || userLocation?.lng;
+      const radius = filters.maxDistance || 5;
+
+      if (lat && lng) {
+        // 필터가 적용된 조건으로 가게 목록 다시 로드
+        fetchStores(lat, lng, radius, filters.minRating, filters.categories);
+
+        const filterDesc = [];
+        if (radius !== 5) filterDesc.push(`반경 ${radius}km`);
+        if (filters.minRating && filters.minRating > 0)
+          filterDesc.push(`평점 ${filters.minRating}점 이상`);
+        if (filters.categories && filters.categories.length > 0)
+          filterDesc.push(`카테고리: ${filters.categories.join(", ")}`);
+
+        toast({
+          title: "필터 적용 완료",
+          description:
+            filterDesc.length > 0
+              ? filterDesc.join(", ") + " 조건으로 검색합니다."
+              : "모든 조건으로 검색합니다.",
+        });
+      } else {
+        toast({
+          title: "위치 정보 필요",
+          description: "필터를 적용하려면 위치 정보가 필요합니다.",
+          variant: "destructive",
+        });
+      }
     },
-    [fetchStores, userLocation]
+    [fetchStores, userLocation, toast]
   );
 
   // 온보딩 체크 중이면 로딩 화면 표시
@@ -384,7 +440,10 @@ export default function Home() {
         <div className="flex flex-1 overflow-hidden">
           {/* 사이드바 - 데스크톱에서만 표시 */}
           <div className="hidden lg:block w-80 border-r border-gray-200 overflow-y-auto bg-white">
-            <Sidebar onApplyFilters={handleApplyFilters} />
+            <Sidebar
+              onApplyFilters={handleApplyFilters}
+              userLocation={userLocation}
+            />
           </div>
 
           {/* 메인 콘텐츠 영역 - 가게 목록 전체 화면 */}

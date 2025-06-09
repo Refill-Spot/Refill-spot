@@ -82,7 +82,7 @@ export default function ClientSearchPage() {
       <div className="flex flex-1 overflow-hidden">
         {/* 사이드바 - 데스크톱에서만 표시 */}
         <aside className="hidden lg:block w-80 border-r border-gray-200 overflow-y-auto bg-white">
-          <Sidebar onApplyFilters={setFilters} />
+          <Sidebar onApplyFilters={setFilters} userLocation={userLocation} />
         </aside>
 
         {/* 메인 콘텐츠 영역 */}
@@ -153,7 +153,7 @@ export default function ClientSearchPage() {
             </div>
           ) : (
             <div className="h-full">
-              <StoreList stores={stores} onViewMap={handleViewInNaverMap} />
+              <StoreList stores={stores} />
             </div>
           )}
         </div>

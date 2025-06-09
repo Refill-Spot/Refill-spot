@@ -1,7 +1,17 @@
 "use client";
 
 import React, { useState, useCallback, memo } from "react";
-import { Utensils, Fish, Beef, Pizza, Star, Coffee, Soup, Info, MessageCircle } from "lucide-react";
+import {
+  Utensils,
+  Fish,
+  Beef,
+  Pizza,
+  Star,
+  Coffee,
+  Soup,
+  Info,
+  MessageCircle,
+} from "lucide-react";
 import { Slider } from "@/components/ui/slider";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
@@ -21,6 +31,7 @@ interface FilterOptions {
 // Sidebar 컴포넌트의 props 타입 정의
 interface SidebarProps {
   onApplyFilters: (filters: FilterOptions) => void;
+  userLocation?: { lat: number; lng: number } | null;
 }
 
 // 메모이제이션된 카테고리 체크박스 컴포넌트
@@ -60,7 +71,7 @@ const CategoryCheckbox = memo(
 
 CategoryCheckbox.displayName = "CategoryCheckbox";
 
-function Sidebar({ onApplyFilters }: SidebarProps) {
+function Sidebar({ onApplyFilters, userLocation }: SidebarProps) {
   const [radius, setRadius] = useState([3]);
   const [minRating, setMinRating] = useState(0);
   const [categories, setCategories] = useState({
@@ -89,32 +100,44 @@ function Sidebar({ onApplyFilters }: SidebarProps) {
       .filter(([_, isSelected]) => isSelected)
       .map(([category]) => category);
 
-    // 위치 정보 가져오기 - 현재 위치를 사용하도록 수정 가능
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        const { latitude, longitude } = position.coords;
+    // 현재 사용자 위치가 있으면 사용, 없으면 GPS 요청
+    if (userLocation) {
+      // 기존 사용자 위치 사용
+      onApplyFilters({
+        categories: selectedCategories,
+        maxDistance: radius[0],
+        minRating: minRating,
+        latitude: userLocation.lat,
+        longitude: userLocation.lng,
+      });
+    } else {
+      // GPS로 현재 위치 가져오기
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const { latitude, longitude } = position.coords;
 
-        // 필터 적용
-        onApplyFilters({
-          categories: selectedCategories,
-          maxDistance: radius[0],
-          minRating: minRating,
-          latitude,
-          longitude,
-        });
-      },
-      (error) => {
-        console.error("위치 정보를 가져올 수 없습니다:", error);
+          // 필터 적용
+          onApplyFilters({
+            categories: selectedCategories,
+            maxDistance: radius[0],
+            minRating: minRating,
+            latitude,
+            longitude,
+          });
+        },
+        (error) => {
+          console.error("위치 정보를 가져올 수 없습니다:", error);
 
-        // 위치 정보 없이 필터 적용
-        onApplyFilters({
-          categories: selectedCategories,
-          maxDistance: radius[0],
-          minRating: minRating,
-        });
-      }
-    );
-  }, [categories, radius, minRating, onApplyFilters]);
+          // 위치 정보 없이 필터 적용
+          onApplyFilters({
+            categories: selectedCategories,
+            maxDistance: radius[0],
+            minRating: minRating,
+          });
+        }
+      );
+    }
+  }, [categories, radius, minRating, onApplyFilters, userLocation]);
 
   const handleResetFilters = useCallback(() => {
     setRadius([3]);

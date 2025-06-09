@@ -59,6 +59,8 @@ export async function GET(request: NextRequest) {
   const latitudeStr = searchParams.get("lat");
   const longitudeStr = searchParams.get("lng");
   const radiusStr = searchParams.get("radius");
+  const minRatingStr = searchParams.get("minRating");
+  const categoriesStr = searchParams.get("categories");
 
   try {
     const supabase = await createServerSupabaseClient();
@@ -68,6 +70,8 @@ export async function GET(request: NextRequest) {
       const latitude = parseFloat(latitudeStr);
       const longitude = parseFloat(longitudeStr);
       const radiusKm = radiusStr ? parseFloat(radiusStr) : 5;
+      const minRating = minRatingStr ? parseFloat(minRatingStr) : 0;
+      const selectedCategories = categoriesStr ? categoriesStr.split(",") : [];
 
       // 최적화된 쿼리: 필요한 컬럼만 선택하고 제한 추가
       const { data: stores, error: storeError } = await supabase
@@ -126,6 +130,21 @@ export async function GET(request: NextRequest) {
             store.store_categories
               ?.map((sc: any) => sc.categories?.name)
               .filter(Boolean) || [];
+
+          // 평점 필터링 (네이버 또는 카카오 평점 중 하나라도 조건 만족)
+          const naverRating = store.naver_rating || 0;
+          const kakaoRating = store.kakao_rating || 0;
+          const maxRating = Math.max(naverRating, kakaoRating);
+
+          if (minRating > 0 && maxRating < minRating) return null;
+
+          // 카테고리 필터링
+          if (selectedCategories.length > 0) {
+            const hasMatchingCategory = selectedCategories.some((category) =>
+              categories.includes(category)
+            );
+            if (!hasMatchingCategory) return null;
+          }
 
           return {
             id: store.id,

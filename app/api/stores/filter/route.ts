@@ -3,6 +3,7 @@ import { StoreFromDb, FormattedStore } from "@/types/store";
 import { successResponse, errorResponse } from "@/lib/api-response";
 import { storeFilterSchema } from "@/lib/validations";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { calculateDistance } from "@/lib/geo";
 
 export async function POST(request: NextRequest) {
   try {
@@ -78,18 +79,14 @@ export async function POST(request: NextRequest) {
         const maxDistanceKm = maxDistance || 5; // 기본값 5km
 
         filteredStores = filteredStores.filter((store: StoreFromDb) => {
-          // 간단한 거리 계산 (Haversine formula)
-          const R = 6371; // 지구 반지름 (km)
-          const dLat = ((store.position_lat - latitude) * Math.PI) / 180;
-          const dLon = ((store.position_lng - longitude) * Math.PI) / 180;
-          const a =
-            Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-            Math.cos((latitude * Math.PI) / 180) *
-              Math.cos((store.position_lat * Math.PI) / 180) *
-              Math.sin(dLon / 2) *
-              Math.sin(dLon / 2);
-          const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-          const distance = R * c;
+          // 거리 계산 (미터 단위로 반환되므로 km로 변환)
+          const distanceInMeters = calculateDistance(
+            latitude,
+            longitude,
+            store.position_lat,
+            store.position_lng
+          );
+          const distance = distanceInMeters / 1000; // km로 변환
 
           // 거리 정보를 store 객체에 추가
           (store as any).distance = distance;

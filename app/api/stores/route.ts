@@ -2,26 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { StoreFromDb, FormattedStore } from "@/types/store";
 import { successResponse, errorResponse } from "@/lib/api-response";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
-
-// 거리 계산 함수 (Haversine formula)
-function calculateDistance(
-  lat1: number,
-  lng1: number,
-  lat2: number,
-  lng2: number
-): number {
-  const R = 6371; // 지구 반지름 (km)
-  const dLat = ((lat2 - lat1) * Math.PI) / 180;
-  const dLng = ((lng2 - lng1) * Math.PI) / 180;
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLng / 2) *
-      Math.sin(dLng / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return R * c;
-}
+import { calculateDistance } from "@/lib/geo";
 
 // 가게 데이터 포맷팅 함수
 function formatStoreData(store: StoreFromDb): FormattedStore {
@@ -115,13 +96,14 @@ export async function GET(request: NextRequest) {
           // 대략적인 필터링으로 먼저 제외
           if (roughDistance > radiusKm * 1.5) return null;
 
-          // 정확한 거리 계산
-          const distance = calculateDistance(
+          // 정확한 거리 계산 (미터 단위로 반환되므로 km로 변환)
+          const distanceInMeters = calculateDistance(
             latitude,
             longitude,
             store.position_lat,
             store.position_lng
           );
+          const distance = distanceInMeters / 1000; // km로 변환
 
           if (distance > radiusKm) return null;
 

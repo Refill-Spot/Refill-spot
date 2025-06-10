@@ -8,6 +8,38 @@ interface CategoryItem {
   };
 }
 
+// 공통 매핑 함수 - StoreFromDb를 Store로 변환
+export function mapStoreFromDb(
+  store: StoreFromDb,
+  distance?: number | string | null
+): Store {
+  const categories =
+    store.categories?.map((item: CategoryItem) => item.category.name) || [];
+
+  return {
+    id: store.id,
+    name: store.name,
+    address: store.address,
+    distance: distance ? String(distance) : null,
+    categories,
+    rating: {
+      naver: store.naver_rating || 0,
+      kakao: store.kakao_rating || 0,
+    },
+    position: {
+      lat: store.position_lat,
+      lng: store.position_lng,
+      x: store.position_x,
+      y: store.position_y,
+    },
+    refillItems: store.refill_items || [],
+    description: store.description,
+    openHours: store.open_hours,
+    price: store.price,
+    imageUrls: store.image_urls || [],
+  };
+}
+
 // 가게 목록 조회
 export async function getStores(): Promise<Store[]> {
   const { data, error } = await supabaseBrowser
@@ -27,36 +59,8 @@ export async function getStores(): Promise<Store[]> {
     return [];
   }
 
-  // 응답 데이터 가공
-  return data.map((store: StoreFromDb) => {
-    // item 파라미터의 타입을 명시적으로 지정
-    const categories = store.categories.map(
-      (item: CategoryItem) => item.category.name
-    );
-
-    return {
-      id: store.id,
-      name: store.name,
-      address: store.address,
-      distance: store.distance ? String(store.distance) : null,
-      categories,
-      rating: {
-        naver: store.naver_rating || 0,
-        kakao: store.kakao_rating || 0,
-      },
-      position: {
-        lat: store.position_lat,
-        lng: store.position_lng,
-        x: store.position_x,
-        y: store.position_y,
-      },
-      refillItems: store.refill_items || [],
-      description: store.description,
-      openHours: store.open_hours,
-      price: store.price,
-      imageUrls: store.image_urls || [],
-    };
-  });
+  // 공통 매핑 함수 사용
+  return data.map((store: StoreFromDb) => mapStoreFromDb(store));
 }
 
 // 현재 위치 기반 가게 조회
@@ -82,36 +86,10 @@ export async function getNearbyStores(
     return [];
   }
 
-  // 응답 데이터 가공
-  return data.map((store: StoreFromDb) => {
-    // item 파라미터의 타입을 명시적으로 지정
-    const categories = store.categories.map(
-      (item: CategoryItem) => item.category.name
-    );
-
-    return {
-      id: store.id,
-      name: store.name,
-      address: store.address,
-      distance: store.distance ? String(store.distance) : null,
-      categories,
-      rating: {
-        naver: store.naver_rating || 0,
-        kakao: store.kakao_rating || 0,
-      },
-      position: {
-        lat: store.position_lat,
-        lng: store.position_lng,
-        x: store.position_x,
-        y: store.position_y,
-      },
-      refillItems: store.refill_items || [],
-      description: store.description,
-      openHours: store.open_hours,
-      price: store.price,
-      imageUrls: store.image_urls || [],
-    };
-  });
+  // 공통 매핑 함수 사용
+  return data.map((store: StoreFromDb) =>
+    mapStoreFromDb(store, store.distance)
+  );
 }
 
 // 가게 상세 정보 조회
@@ -134,31 +112,6 @@ export async function getStoreById(id: number): Promise<Store | null> {
     return null;
   }
 
-  // 카테고리 배열 추출
-  const categories = data.categories.map(
-    (item: CategoryItem) => item.category.name
-  );
-
-  // 응답 데이터 가공
-  return {
-    id: data.id,
-    name: data.name,
-    address: data.address,
-    description: data.description,
-    position: {
-      lat: data.position_lat,
-      lng: data.position_lng,
-      x: data.position_x,
-      y: data.position_y,
-    },
-    categories,
-    rating: {
-      naver: data.naver_rating || 0,
-      kakao: data.kakao_rating || 0,
-    },
-    refillItems: data.refill_items || [],
-    openHours: data.open_hours,
-    price: data.price,
-    imageUrls: data.image_urls || [],
-  };
+  // 공통 매핑 함수 사용
+  return mapStoreFromDb(data);
 }

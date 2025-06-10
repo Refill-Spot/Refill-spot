@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { Store } from "@/types/store";
 import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from "@/hooks/use-translation";
+import { Store } from "@/types/store";
+import { useEffect, useState } from "react";
 
 export function useStoreDetail(storeId: number | string) {
   const [store, setStore] = useState<Store | null>(null);
@@ -26,13 +26,13 @@ export function useStoreDetail(storeId: number | string) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
 
-        const data = await response.json();
+        const response_data = await response.json();
 
-        if (data.error) {
-          throw new Error(data.error);
+        if (response_data.error) {
+          throw new Error(response_data.error);
         }
 
-        setStore(data);
+        setStore(response_data.data);
       } catch (err) {
         console.error("가게 상세 정보 로드 오류:", err);
         const errorMessage = err instanceof Error ? err.message : String(err);

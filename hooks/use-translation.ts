@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 // 지원 언어 정의
 export type SupportedLocale = "ko" | "en";
@@ -73,6 +73,8 @@ const koTranslations = {
   seafood: "해산물",
   western: "양식",
   korean: "한식",
+  cafe: "카페",
+  dessert: "디저트",
 
   // 리뷰 관련
   reviews: "리뷰",
@@ -208,6 +210,8 @@ const enTranslations = {
   seafood: "Seafood",
   western: "Western",
   korean: "Korean",
+  cafe: "Cafe",
+  dessert: "Dessert",
 
   // 리뷰 관련
   reviews: "Reviews",

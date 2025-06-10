@@ -1,28 +1,10 @@
-import { NextRequest, NextResponse } from "next/server";
-import { StoreFromDb, ReviewFromDb } from "@/types/store";
+import { errorResponse, successResponse } from "@/lib/api-response";
+import { mapStoreFromDb } from "@/lib/stores";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
-import { successResponse, errorResponse } from "@/lib/api-response";
+import { ReviewFromDb, Store } from "@/types/store";
+import { NextRequest } from "next/server";
 
-interface FormattedStore {
-  id: number;
-  name: string;
-  address: string;
-  description: string | null;
-  position: {
-    lat: number;
-    lng: number;
-    x: number;
-    y: number;
-  };
-  categories: string[];
-  rating: {
-    naver: number;
-    kakao: number;
-  };
-  refillItems: string[] | null;
-  openHours: string | null;
-  price: string | null;
-  imageUrls: string[] | null;
+interface FormattedStore extends Store {
   reviews: Array<{
     id: number;
     rating: number;
@@ -94,32 +76,12 @@ export async function GET(
       // 리뷰 조회 실패해도 가게 정보는 반환
     }
 
-    // 카테고리 배열 추출
-    const categories = store.categories.map(
-      (item: { category: { name: string } }) => item.category.name
-    );
+    // 공통 매핑 함수 사용하여 기본 Store 정보 생성
+    const baseStore = mapStoreFromDb(store);
 
-    // 응답 데이터 가공
+    // 리뷰 정보 추가하여 FormattedStore 생성
     const formattedStore: FormattedStore = {
-      id: store.id,
-      name: store.name,
-      address: store.address,
-      description: store.description,
-      position: {
-        lat: store.position_lat,
-        lng: store.position_lng,
-        x: store.position_x,
-        y: store.position_y,
-      },
-      categories,
-      rating: {
-        naver: store.naver_rating || 0,
-        kakao: store.kakao_rating || 0,
-      },
-      refillItems: store.refill_items || [],
-      openHours: store.open_hours,
-      price: store.price,
-      imageUrls: store.image_urls || [],
+      ...baseStore,
       reviews: (reviews || []).map((review: ReviewFromDb) => ({
         id: review.id,
         rating: review.rating,

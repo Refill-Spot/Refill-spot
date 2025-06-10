@@ -1,23 +1,24 @@
 "use client";
 
-import React, { useState, useCallback, memo } from "react";
-import {
-  Utensils,
-  Fish,
-  Beef,
-  Pizza,
-  Star,
-  Coffee,
-  Soup,
-  Info,
-  MessageCircle,
-} from "lucide-react";
-import { Slider } from "@/components/ui/slider";
+import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
-import { Button } from "@/components/ui/button";
+import { Slider } from "@/components/ui/slider";
+import { useTranslation } from "@/hooks/use-translation";
+import {
+  Beef,
+  Coffee,
+  Fish,
+  Info,
+  MessageCircle,
+  Pizza,
+  Soup,
+  Star,
+  Utensils,
+} from "lucide-react";
 import Link from "next/link";
+import React, { memo, useCallback, useState } from "react";
 
 // 필터 타입 정의
 interface FilterOptions {
@@ -72,6 +73,7 @@ const CategoryCheckbox = memo(
 CategoryCheckbox.displayName = "CategoryCheckbox";
 
 function Sidebar({ onApplyFilters, userLocation }: SidebarProps) {
+  const { t } = useTranslation();
   const [radius, setRadius] = useState([3]);
   const [minRating, setMinRating] = useState(0);
   const [categories, setCategories] = useState({
@@ -254,49 +256,49 @@ function Sidebar({ onApplyFilters, userLocation }: SidebarProps) {
               checked={categories.고기}
               onChange={handleMeatChange}
               icon={<Beef className="h-4 w-4 text-[#FF5722]" />}
-              label="고기"
+              label={t("meat")}
             />
             <CategoryCheckbox
               id="seafood"
               checked={categories.해산물}
               onChange={handleSeafoodChange}
               icon={<Fish className="h-4 w-4 text-[#2196F3]" />}
-              label="해산물"
+              label={t("seafood")}
             />
             <CategoryCheckbox
               id="western"
               checked={categories.양식}
               onChange={handleWesternChange}
               icon={<Pizza className="h-4 w-4 text-[#FFC107]" />}
-              label="양식"
+              label={t("western")}
             />
             <CategoryCheckbox
               id="korean"
               checked={categories.한식}
               onChange={handleKoreanChange}
               icon={<Utensils className="h-4 w-4 text-[#4CAF50]" />}
-              label="한식"
+              label={t("korean")}
             />
             <CategoryCheckbox
               id="chinese"
               checked={categories.중식}
               onChange={handleChineseChange}
               icon={<Soup className="h-4 w-4 text-[#FF9800]" />}
-              label="중식"
+              label={t("chinese")}
             />
             <CategoryCheckbox
               id="japanese"
               checked={categories.일식}
               onChange={handleJapaneseChange}
               icon={<Fish className="h-4 w-4 text-[#E91E63]" />}
-              label="일식"
+              label={t("japanese")}
             />
             <CategoryCheckbox
               id="dessert"
               checked={categories.디저트}
               onChange={handleDessertChange}
               icon={<Coffee className="h-4 w-4 text-[#795548]" />}
-              label="디저트"
+              label={t("dessert")}
             />
           </div>
         </div>

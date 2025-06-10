@@ -1,5 +1,6 @@
 import { errorResponse, successResponse } from "@/lib/api-response";
 import { calculateDistance } from "@/lib/distance";
+import { mapStoreFromDb } from "@/lib/stores";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { storeFilterSchema } from "@/lib/validations";
 import { FormattedStore, StoreFromDb } from "@/types/store";
@@ -110,37 +111,13 @@ export async function POST(request: NextRequest) {
         });
       }
 
-      // 응답 데이터 가공
+      // 공통 매핑 함수 사용
       const formattedStores: FormattedStore[] = filteredStores.map(
         (store: StoreFromDb) => {
-          const storeCategories = store.categories.map(
-            (item: { category: { name: string } }) => item.category.name
-          );
-
-          return {
-            id: store.id,
-            name: store.name,
-            address: store.address,
-            distance: (store as any).distance
-              ? Math.round((store as any).distance * 100) / 100 + ""
-              : null,
-            categories: storeCategories,
-            rating: {
-              naver: store.naver_rating || 0,
-              kakao: store.kakao_rating || 0,
-            },
-            position: {
-              lat: store.position_lat,
-              lng: store.position_lng,
-              x: store.position_x,
-              y: store.position_y,
-            },
-            refillItems: store.refill_items || [],
-            description: store.description,
-            openHours: store.open_hours,
-            price: store.price,
-            imageUrls: store.image_urls || [],
-          };
+          const distance = (store as any).distance
+            ? Math.round((store as any).distance * 100) / 100 + ""
+            : null;
+          return mapStoreFromDb(store, distance);
         }
       );
 

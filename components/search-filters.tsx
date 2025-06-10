@@ -1,31 +1,28 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import {
-  MenuIcon,
-  Search,
-  X,
-  User,
-  MapPin,
-  Utensils,
-  Fish,
-  Beef,
-  Pizza,
-  Star,
-} from "lucide-react";
-import { Slider } from "@/components/ui/slider";
+import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { useTranslation } from "@/hooks/use-translation";
+import { Slider } from "@/components/ui/slider";
 import { StoreFilters } from "@/hooks/use-stores";
-import { useRouter, useSearchParams } from "next/navigation";
-import { getCurrentPosition } from "@/lib/geo";
 import { useToast } from "@/hooks/use-toast";
-import { useStoreStore } from "@/lib/store";
+import { useTranslation } from "@/hooks/use-translation";
 import { filtersToURLParams } from "@/lib/api-utils";
+import { getCurrentPosition } from "@/lib/geo";
+import { useStoreStore } from "@/lib/store";
+import {
+  Beef,
+  Coffee,
+  Fish,
+  MapPin,
+  Pizza,
+  Star,
+  Utensils,
+} from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useCallback, useEffect, useState } from "react";
 
 interface SearchFiltersProps {
   onApplyFilters?: (filters: StoreFilters) => void;
@@ -421,6 +418,34 @@ export default function SearchFilters({
               >
                 <Utensils className="h-4 w-4 text-[#9C27B0]" />
                 <span>{t("japanese")}</span>
+              </Label>
+            </div>
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="cafe"
+                checked={categories.카페}
+                onCheckedChange={() => handleCategoryChange("카페")}
+              />
+              <Label
+                htmlFor="cafe"
+                className="flex items-center gap-2 cursor-pointer"
+              >
+                <Coffee className="h-4 w-4 text-[#795548]" />
+                <span>{t("cafe")}</span>
+              </Label>
+            </div>
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="dessert"
+                checked={categories.디저트}
+                onCheckedChange={() => handleCategoryChange("디저트")}
+              />
+              <Label
+                htmlFor="dessert"
+                className="flex items-center gap-2 cursor-pointer"
+              >
+                <Coffee className="h-4 w-4 text-[#E91E63]" />
+                <span>{t("dessert")}</span>
               </Label>
             </div>
           </div>

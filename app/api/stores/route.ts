@@ -1,39 +1,9 @@
 import { errorResponse } from "@/lib/api-response";
 import { calculateDistance } from "@/lib/distance";
+import { mapStoreFromDb } from "@/lib/stores";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
-import { FormattedStore, StoreFromDb } from "@/types/store";
+import { StoreFromDb } from "@/types/store";
 import { NextRequest, NextResponse } from "next/server";
-
-// 가게 데이터 포맷팅 함수
-function formatStoreData(store: StoreFromDb): FormattedStore {
-  const categories =
-    store.categories?.map(
-      (item: { category: { name: string } }) => item.category.name
-    ) || [];
-
-  return {
-    id: store.id,
-    name: store.name,
-    address: store.address,
-    distance: null,
-    categories,
-    rating: {
-      naver: store.naver_rating || 0,
-      kakao: store.kakao_rating || 0,
-    },
-    position: {
-      lat: store.position_lat,
-      lng: store.position_lng,
-      x: store.position_x,
-      y: store.position_y,
-    },
-    refillItems: store.refill_items || [],
-    description: store.description,
-    openHours: store.open_hours,
-    price: store.price,
-    imageUrls: store.image_urls || [],
-  };
-}
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -59,22 +29,9 @@ export async function GET(request: NextRequest) {
         .from("stores")
         .select(
           `
-          id,
-          name,
-          address,
-          position_lat,
-          position_lng,
-          position_x,
-          position_y,
-          naver_rating,
-          kakao_rating,
-          refill_items,
-          description,
-          open_hours,
-          price,
-          image_urls,
-          store_categories!inner(
-            categories!inner(name)
+          *,
+          categories:store_categories(
+            category:categories(name)
           )
         `
         )
@@ -109,9 +66,9 @@ export async function GET(request: NextRequest) {
 
           // 카테고리 정보 추출
           const categories =
-            store.store_categories
-              ?.map((sc: any) => sc.categories?.name)
-              .filter(Boolean) || [];
+            store.categories?.map(
+              (item: { category: { name: string } }) => item.category.name
+            ) || [];
 
           // 평점 필터링 (네이버 또는 카카오 평점 중 하나라도 조건 만족)
           const naverRating = store.naver_rating || 0;
@@ -128,31 +85,11 @@ export async function GET(request: NextRequest) {
             if (!hasMatchingCategory) return null;
           }
 
-          return {
-            id: store.id,
-            name: store.name,
-            address: store.address,
-            distance: distance.toFixed(2),
-            categories,
-            rating: {
-              naver: store.naver_rating || 0,
-              kakao: store.kakao_rating || 0,
-            },
-            position: {
-              lat: store.position_lat,
-              lng: store.position_lng,
-              x: store.position_x,
-              y: store.position_y,
-            },
-            refillItems: store.refill_items || [],
-            description: store.description,
-            openHours: store.open_hours,
-            price: store.price,
-            imageUrls: store.image_urls || [],
-          };
+          // 공통 매핑 함수 사용
+          return mapStoreFromDb(store, distance.toFixed(2));
         })
         .filter((store): store is NonNullable<typeof store> => store !== null)
-        .sort((a, b) => parseFloat(a.distance) - parseFloat(b.distance))
+        .sort((a, b) => parseFloat(a.distance!) - parseFloat(b.distance!))
         .slice(0, 20); // 최대 20개만 반환
 
       return NextResponse.json(
@@ -170,20 +107,10 @@ export async function GET(request: NextRequest) {
         .from("stores")
         .select(
           `
-          id,
-          name,
-          address,
-          position_lat,
-          position_lng,
-          position_x,
-          position_y,
-          naver_rating,
-          kakao_rating,
-          refill_items,
-          description,
-          open_hours,
-          price,
-          image_urls
+          *,
+          categories:store_categories(
+            category:categories(name)
+          )
         `
         )
         .limit(30) // 더 적은 수로 제한
@@ -191,49 +118,10 @@ export async function GET(request: NextRequest) {
 
       if (error) throw error;
 
-      // 카테고리 정보를 별도로 조회 (병렬 처리)
-      const storeIds = stores.map((store) => store.id);
-      const { data: categoriesData } = await supabase
-        .from("store_categories")
-        .select(
-          `
-          store_id,
-          categories!inner(name)
-        `
-        )
-        .in("store_id", storeIds);
-
-      // 카테고리 정보 매핑
-      const categoryMap = new Map<number, string[]>();
-      categoriesData?.forEach((item) => {
-        if (!categoryMap.has(item.store_id)) {
-          categoryMap.set(item.store_id, []);
-        }
-        categoryMap.get(item.store_id)!.push((item.categories as any).name);
-      });
-
-      const formattedStores = stores.map((store) => ({
-        id: store.id,
-        name: store.name,
-        address: store.address,
-        distance: null,
-        categories: categoryMap.get(store.id) || [],
-        rating: {
-          naver: store.naver_rating || 0,
-          kakao: store.kakao_rating || 0,
-        },
-        position: {
-          lat: store.position_lat,
-          lng: store.position_lng,
-          x: store.position_x,
-          y: store.position_y,
-        },
-        refillItems: store.refill_items || [],
-        description: store.description,
-        openHours: store.open_hours,
-        price: store.price,
-        imageUrls: store.image_urls || [],
-      }));
+      // 공통 매핑 함수 사용
+      const formattedStores = stores.map((store: StoreFromDb) =>
+        mapStoreFromDb(store)
+      );
 
       return NextResponse.json(
         { success: true, data: formattedStores },

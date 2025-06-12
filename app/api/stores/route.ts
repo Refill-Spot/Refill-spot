@@ -90,10 +90,28 @@ export async function GET(request: NextRequest) {
         })
         .filter((store): store is NonNullable<typeof store> => store !== null)
         .sort((a, b) => parseFloat(a.distance!) - parseFloat(b.distance!))
-        .slice(0, 20); // 최대 20개만 반환
+        .slice(0, 50); // 더 많은 데이터를 미리 계산해두고
+
+      const page = parseInt(searchParams.get("page") || "1");
+      const limit = parseInt(searchParams.get("limit") || "20");
+      const startIndex = (page - 1) * limit;
+      const endIndex = startIndex + limit;
+
+      const paginatedStores = storesWithDistance.slice(startIndex, endIndex);
+      const hasMore = endIndex < storesWithDistance.length;
 
       return NextResponse.json(
-        { success: true, data: storesWithDistance },
+        {
+          success: true,
+          data: paginatedStores,
+          pagination: {
+            page,
+            limit,
+            total: storesWithDistance.length,
+            hasMore,
+            totalPages: Math.ceil(storesWithDistance.length / limit),
+          },
+        },
         {
           status: 200,
           headers: {

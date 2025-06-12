@@ -1,21 +1,22 @@
 "use client";
 
-import { useCallback, useEffect, useState, memo } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
-import StoreList from "@/components/store-list";
-import Sidebar from "@/components/sidebar";
-import Header from "@/components/header";
 import { ErrorBoundary } from "@/components/error-boundary";
+import Header from "@/components/header";
+import KakaoMap from "@/components/kakao-map";
+import Sidebar from "@/components/sidebar";
 import { StoreListSkeleton } from "@/components/skeleton-loader";
+import StoreList from "@/components/store-list";
+import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { Store } from "@/types/store";
 import {
-  saveUserLocation,
   getUserLocation,
   isLocationValid,
-  UserLocation,
+  saveUserLocation,
 } from "@/lib/location-storage";
 import { isOnboardingCompleted } from "@/lib/onboarding-storage";
+import { Store } from "@/types/store";
+import { useRouter, useSearchParams } from "next/navigation";
+import { memo, useCallback, useEffect, useState } from "react";
 
 // 메모이제이션된 StoreList 컴포넌트
 const MemoizedStoreList = memo(StoreList);
@@ -32,19 +33,33 @@ export default function Home() {
   } | null>(null);
   const [isCheckingOnboarding, setIsCheckingOnboarding] = useState(true);
 
+  // 지도 및 페이지네이션 관련 상태
+  const [viewMode, setViewMode] = useState<"list" | "map">("list");
+  const [selectedStore, setSelectedStore] = useState<Store | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [allStores, setAllStores] = useState<Store[]>([]);
+
   const { toast } = useToast();
 
-  // 가게 목록 가져오기 (실제 API 사용)
+  // 가게 목록 가져오기 (페이지네이션 지원)
   const fetchStores = useCallback(
     async (
       lat?: number,
       lng?: number,
       radius?: number,
       minRating?: number,
-      categories?: string[]
+      categories?: string[],
+      page: number = 1,
+      append: boolean = false
     ) => {
-      setLoading(true);
-      setError(null);
+      if (!append) {
+        setLoading(true);
+        setError(null);
+      } else {
+        setLoadingMore(true);
+      }
 
       try {
         let url = "/api/stores";
@@ -53,6 +68,8 @@ export default function Home() {
             lat: lat.toString(),
             lng: lng.toString(),
             radius: (radius || 5).toString(),
+            page: page.toString(),
+            limit: "20",
           });
 
           if (minRating && minRating > 0) {
@@ -96,9 +113,20 @@ export default function Home() {
         }
 
         const storeData = data.data || [];
-        setStores(storeData);
+        const pagination = data.pagination || {};
 
-        if (storeData.length === 0) {
+        if (append) {
+          setStores((prevStores) => [...prevStores, ...storeData]);
+          setAllStores((prevStores) => [...prevStores, ...storeData]);
+        } else {
+          setStores(storeData);
+          setAllStores(storeData);
+        }
+
+        setHasMore(pagination.hasMore || false);
+        setCurrentPage(pagination.page || 1);
+
+        if (storeData.length === 0 && !append) {
           toast({
             title: "알림",
             description: "해당 지역에 등록된 가게가 없습니다.",
@@ -127,10 +155,27 @@ export default function Home() {
         }
       } finally {
         setLoading(false);
+        setLoadingMore(false);
       }
     },
     [toast]
   );
+
+  // 더보기 함수
+  const loadMoreStores = useCallback(() => {
+    if (!userLocation || loadingMore || !hasMore) return;
+
+    const nextPage = currentPage + 1;
+    fetchStores(
+      userLocation.lat,
+      userLocation.lng,
+      5,
+      undefined,
+      undefined,
+      nextPage,
+      true
+    );
+  }, [userLocation, loadingMore, hasMore, currentPage, fetchStores]);
 
   // 온보딩 체크
   useEffect(() => {
@@ -172,7 +217,9 @@ export default function Home() {
 
       if (!isNaN(lat) && !isNaN(lng)) {
         setUserLocation({ lat, lng });
-        fetchStores(lat, lng, 5);
+        setCurrentPage(1);
+        setHasMore(false);
+        fetchStores(lat, lng, 5, undefined, undefined, 1, false);
 
         // URL 파라미터의 위치 정보를 저장
         saveUserLocation({
@@ -185,8 +232,8 @@ export default function Home() {
           urlSource === "gps"
             ? "현재 위치"
             : urlSource === "manual"
-            ? "설정한 위치"
-            : "이전 위치";
+              ? "설정한 위치"
+              : "이전 위치";
 
         toast({
           title: "위치 복원 완료",
@@ -208,8 +255,8 @@ export default function Home() {
         savedLocation.source === "gps"
           ? "현재 위치"
           : savedLocation.source === "manual"
-          ? "설정한 위치"
-          : "기본 위치";
+            ? "설정한 위치"
+            : "기본 위치";
 
       toast({
         title: "위치 복원 완료",
@@ -370,8 +417,18 @@ export default function Home() {
       const radius = filters.maxDistance || 5;
 
       if (lat && lng) {
-        // 필터가 적용된 조건으로 가게 목록 다시 로드
-        fetchStores(lat, lng, radius, filters.minRating, filters.categories);
+        // 필터가 적용된 조건으로 가게 목록 다시 로드 (페이지 초기화)
+        setCurrentPage(1);
+        setHasMore(false);
+        fetchStores(
+          lat,
+          lng,
+          radius,
+          filters.minRating,
+          filters.categories,
+          1,
+          false
+        );
 
         const filterDesc = [];
         if (radius !== 5) filterDesc.push(`반경 ${radius}km`);
@@ -446,16 +503,23 @@ export default function Home() {
             />
           </div>
 
-          {/* 메인 콘텐츠 영역 - 가게 목록 전체 화면 */}
-          <div className="flex-1 relative">
-            {/* 가게 목록 */}
-            <div className="h-full">
+          {/* 메인 콘텐츠 영역 - 지도와 가게 목록 */}
+          <div className="flex-1 relative flex flex-col md:flex-row">
+            {/* 지도 영역 */}
+            <div className="w-full md:w-1/2 h-1/2 md:h-full">
               {loading ? (
-                <StoreListSkeleton />
-              ) : error ? (
-                <div className="flex items-center justify-center h-full">
+                <div className="w-full h-full bg-gray-200 flex items-center justify-center">
                   <div className="text-center">
-                    <p className="text-red-500 mb-4">{error}</p>
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#FF5722] mx-auto mb-4"></div>
+                    <p className="text-gray-600">지도 로딩 중...</p>
+                  </div>
+                </div>
+              ) : error ? (
+                <div className="w-full h-full bg-gray-100 flex items-center justify-center">
+                  <div className="text-center">
+                    <p className="text-red-500 mb-4">
+                      지도를 불러올 수 없습니다
+                    </p>
                     <button
                       onClick={() =>
                         fetchStores(userLocation?.lat, userLocation?.lng, 5)
@@ -467,20 +531,76 @@ export default function Home() {
                   </div>
                 </div>
               ) : (
-                <MemoizedStoreList stores={stores} />
+                <KakaoMap
+                  stores={allStores}
+                  userLocation={userLocation}
+                  enableClustering={true}
+                  selectedStore={selectedStore}
+                  onStoreSelect={setSelectedStore}
+                />
+              )}
+            </div>
+
+            {/* 가게 목록 영역 */}
+            <div className="w-full md:w-1/2 h-1/2 md:h-full flex flex-col">
+              <div className="flex-1 overflow-hidden">
+                {loading ? (
+                  <StoreListSkeleton />
+                ) : error ? (
+                  <div className="flex items-center justify-center h-full">
+                    <div className="text-center">
+                      <p className="text-red-500 mb-4">{error}</p>
+                      <button
+                        onClick={() =>
+                          fetchStores(userLocation?.lat, userLocation?.lng, 5)
+                        }
+                        className="px-4 py-2 bg-[#FF5722] text-white rounded-md hover:bg-[#E64A19] transition-colors"
+                      >
+                        다시 시도
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <MemoizedStoreList stores={stores} />
+                )}
+              </div>
+
+              {/* 더보기 버튼 */}
+              {hasMore && !loading && !error && (
+                <div className="p-4 border-t bg-white">
+                  <Button
+                    onClick={loadMoreStores}
+                    disabled={loadingMore}
+                    className="w-full bg-[#FF5722] hover:bg-[#E64A19]"
+                  >
+                    {loadingMore ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                        로딩 중...
+                      </>
+                    ) : (
+                      `더보기 (${stores.length}개 표시됨)`
+                    )}
+                  </Button>
+                </div>
               )}
             </div>
 
             {/* 결과 요약 */}
             {stores.length > 0 && (
-              <div className="absolute top-4 right-4 bg-white/90 backdrop-blur-sm px-3 py-2 rounded-lg shadow-sm border">
+              <div className="absolute top-4 right-4 bg-white/90 backdrop-blur-sm px-3 py-2 rounded-lg shadow-sm border z-10">
                 <p className="text-sm text-gray-700">
                   총{" "}
                   <span className="font-semibold text-[#FF5722]">
                     {stores.length}
                   </span>
-                  개의 가게
+                  개의 가게 표시
                 </p>
+                {hasMore && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    더 많은 가게가 있습니다
+                  </p>
+                )}
               </div>
             )}
           </div>

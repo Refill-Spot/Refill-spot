@@ -1,15 +1,14 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
-import { Store } from "@/types/store";
 import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from "@/hooks/use-translation";
-import { ApiError } from "@/lib/api-response";
 import {
   fetchAllStores,
   fetchFilteredStores,
   fetchStoreRating,
 } from "@/lib/api-utils";
+import { Store } from "@/types/store";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 // 필터 타입 정의
 export interface StoreFilters {
@@ -53,34 +52,39 @@ export function useFetchStores(initialFilters?: StoreFilters) {
 
       if (hasFilters) {
         try {
-          // 필터링된 가게 목록 가져오기 시도
+          // 필터링된 가게 목록 가져오기
           storeData = await fetchFilteredStores(filters);
         } catch (filterError) {
           console.error("필터링된 가게 목록 조회 실패:", filterError);
 
-          // 재시도 제한 (최대 2회)
-          if (retryCount.current < 2) {
+          // 재시도 제한 (최대 1회)
+          if (retryCount.current < 1) {
             retryCount.current++;
-            console.log(`필터링 재시도 (${retryCount.current}/2)...`);
+            console.log(`필터링 재시도 (${retryCount.current}/1)...`);
 
-            // 검색어만 있는 경우 기본 목록 가져오기
-            if (filters.query && !filters.latitude && !filters.longitude) {
-              console.log("검색어 기반 필터링 실패, 기본 목록으로 대체");
-              storeData = await fetchAllStores();
-            } else {
-              // 위치 기반 필터링 실패 시 필터 제거하고 재시도
-              const simplifiedFilters = { ...filters };
-              delete simplifiedFilters.latitude;
-              delete simplifiedFilters.longitude;
-              delete simplifiedFilters.maxDistance;
-
-              if (Object.keys(simplifiedFilters).length > 0) {
-                console.log("위치 기반 필터링 제외하고 재시도");
-                storeData = await fetchFilteredStores(simplifiedFilters);
-              } else {
-                console.log("모든 필터 제거하고 기본 목록으로 대체");
+            try {
+              // 검색어만 있는 경우 기본 목록 가져오기
+              if (filters.query && !filters.latitude && !filters.longitude) {
+                console.log("검색어 기반 필터링 실패, 기본 목록으로 대체");
                 storeData = await fetchAllStores();
+              } else {
+                // 위치 기반 필터링 실패 시 필터 제거하고 재시도
+                const simplifiedFilters = { ...filters };
+                delete simplifiedFilters.latitude;
+                delete simplifiedFilters.longitude;
+                delete simplifiedFilters.maxDistance;
+
+                if (Object.keys(simplifiedFilters).length > 0) {
+                  console.log("위치 기반 필터링 제외하고 재시도");
+                  storeData = await fetchFilteredStores(simplifiedFilters);
+                } else {
+                  console.log("모든 필터 제거하고 기본 목록으로 대체");
+                  storeData = await fetchAllStores();
+                }
               }
+            } catch (retryError) {
+              console.log("재시도도 실패, 기본 목록으로 대체");
+              storeData = await fetchAllStores();
             }
           } else {
             console.log("최대 재시도 횟수 초과, 기본 목록으로 대체");
@@ -115,7 +119,10 @@ export function useFetchStores(initialFilters?: StoreFilters) {
           }
 
           // 별점 정보가 없거나 0인 경우, 혹은 rating 필드가 없는 경우 별도 API 호출
-          if (!store.rating || (store.rating.naver === 0 && store.rating.kakao === 0)) {
+          if (
+            !store.rating ||
+            (store.rating.naver === 0 && store.rating.kakao === 0)
+          ) {
             try {
               // 별점 정보 가져오기
               const ratingData = await fetchStoreRating(

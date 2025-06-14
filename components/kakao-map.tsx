@@ -261,7 +261,7 @@ export default function KakaoMap({
 
       return cluster;
     },
-    [enableClustering, markerClusters]
+    [enableClustering]
   );
 
   // 가게 마커 추가
@@ -317,7 +317,9 @@ export default function KakaoMap({
 
         // 마커 클릭 이벤트
         window.kakao.maps.event.addListener(marker, "click", (e: any) => {
-          e.stopPropagation();
+          if (e && typeof e.stopPropagation === 'function') {
+            e.stopPropagation();
+          }
           setSelectedStore(store);
           onStoreSelect?.(store);
           map.panTo(markerPosition);
@@ -367,7 +369,6 @@ export default function KakaoMap({
     map,
     stores,
     userLocation,
-    setupMarkerClustering,
     enableClustering,
     toast,
     onStoreSelect,

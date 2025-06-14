@@ -165,8 +165,8 @@ export default function SearchFilters({
     }
   }, [
     searchParams,
-    categories,
-    radius,
+    Object.values(categories).join(","),
+    radius.join(","),
     minRating,
     searchQuery,
     onApplyFilters,

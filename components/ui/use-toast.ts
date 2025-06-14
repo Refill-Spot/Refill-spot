@@ -175,7 +175,7 @@ function useToast() {
   // setState 함수가 변경될 때마다 ref 업데이트
   React.useEffect(() => {
     setStateRef.current = setState;
-  });
+  }, [setState]);
 
   React.useEffect(() => {
     const stableSetState = (newState: State) => {

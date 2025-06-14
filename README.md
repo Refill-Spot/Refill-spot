@@ -36,7 +36,18 @@ Refill Spot은 다음과 같은 편리한 기능들을 제공하여 최적의 �
     *   **정보 업데이트:** 사용자의 닉네임 등 개인 정보를 프로필 페이지에서 직접 수정하고 관리할 수 있습니다.
     *   **(향후 추가 예정) 활동 내역:** 작성한 리뷰나 평가 내역을 모아볼 수 있는 기능을 추가할 예정입니다.
 
-*   **🗺️ 상세한 가게 정보 및 지도 연동:**
+*   **🗺️ 인터랙티브 지도 기능:**
+    *   **카카오맵 통합:** 카카오맵을 활용하여 가게 위치를 직관적으로 확인할 수 있으며, 커스텀 마커와 클러스터링 기능을 제공합니다.
+    *   **스마트 로딩:** 처음에는 20개 가게만 표시하여 빠른 로딩을 제공하며, "더보기" 버튼을 통해 추가 가게를 점진적으로 로드할 수 있습니다.
+    *   **현재 위치 표시:** 사용자의 현재 위치를 지도에 표시하고, 가게까지의 거리 정보를 제공합니다.
+    *   **마커 상호작용:** 지도 마커를 클릭하면 가게의 기본 정보를 팝업으로 확인할 수 있으며, 클릭하여 상세 페이지로 이동할 수 있습니다.
+
+*   **📋 효율적인 데이터 관리:**
+    *   **페이지네이션:** API에서 페이지별로 가게 데이터를 효율적으로 로드하여 성능을 최적화합니다.
+    *   **상태 관리:** React Query와 커스텀 훅을 활용하여 가게 데이터와 로딩 상태를 체계적으로 관리합니다.
+    *   **캐싱:** 한 번 로드된 데이터는 캐시되어 재요청 시 빠른 응답을 제공합니다.
+
+*   **🔍 고급 검색 및 필터링:**
     *   **종합 정보:** 각 가게의 주소, 전화번호, 운영 시간, 평균 가격대, 제공되는 리필 항목, 사용자 평점 및 리뷰 등 상세 정보를 제공합니다.
     *   **지도 표시:** Google Maps 및 Naver Maps와 연동하여 가게 위치를 지도에서 직관적으로 확인하고, 길 찾기 기능을 바로 이용할 수 있습니다.
     *   **이미지 갤러리:** 가게의 분위기나 음식 사진을 미리 볼 수 있도록 이미지 갤러리를 제공합니다.
@@ -62,8 +73,9 @@ Refill Spot은 다음과 같은 현대적이고 효율적인 기술들을 활용
     *   **[TypeScript](https://www.typescriptlang.org/):** JavaScript에 정적 타입을 추가한 언어로, 코드의 안정성과 가독성을 높이며 대규모 애플리케이션 개발에 적합합니다.
 
 *   **지도 (Maps):**
-    *   **Google Maps API:** `@react-google-places-autocomplete` (장소 자동 완성) 및 `GoogleMapsLoader.tsx` (지도 로딩)를 통해 Google 지도를 통합하고, 사용자에게 익숙한 지도 인터페이스와 장소 검색 기능을 제공합니다.
-    *   **Naver Maps API:** 국내 사용자에게 친숙한 네이버 지도를 통해 위치 기반 서비스 및 가게 정보 시각화를 제공합니다. 마커 클러스터링 등 고급 기능을 활용합니다.
+    *   **Kakao Maps API:** 메인 지도 서비스로 카카오맵을 활용하여 사용자에게 친숙한 지도 인터페이스를 제공합니다. 커스텀 마커, 클러스터링, 현재 위치 표시 등 고급 기능을 지원합니다.
+    *   **Google Maps API:** `@react-google-places-autocomplete` (장소 자동 완성) 및 `GoogleMapsLoader.tsx` (지도 로딩)를 통해 장소 검색 기능을 제공합니다.
+    *   **Naver Maps API:** 보조 지도 서비스로 네이버 지도를 통해 위치 기반 서비스 및 가게 정보 시각화를 제공합니다.
 
 *   **개발 도구 (Dev Tools):**
     *   **PNPM:** 빠르고 효율적인 디스크 공간 사용을 특징으로 하는 패키지 매니저입니다.
@@ -212,19 +224,23 @@ pnpm start   # 빌드된 애플리케이션 실행
 │   ├── store-list.tsx        # 가게 목록을 아이템 형태로 표시하는 컴포넌트
 │   ├── store-item.tsx        # 가게 목록 내 개별 가게 아이템 컴포넌트
 │   ├── store-details.tsx     # 가게의 상세 정보를 표시하는 컴포넌트
-│   ├── naver-map.tsx         # Naver 지도를 렌더링하고 상호작용하는 핵심 컴포넌트
-│   ├── GoogleMapsLoader.tsx        # Google 지도를 렌더링하고 상호작용하는 컴포넌트
+│   ├── kakao-map.tsx         # Kakao 지도를 렌더링하고 상호작용하는 메인 지도 컴포넌트
+│   ├── naver-map.tsx         # Naver 지도를 렌더링하고 상호작용하는 보조 지도 컴포넌트
+│   ├── GoogleMapsLoader.tsx  # Google 지도를 렌더링하고 상호작용하는 컴포넌트
 │   └── skeleton-loader.tsx   # 데이터 로딩 중 표시되는 스켈레톤 UI 컴포넌트
 ├── contexts/                 # React Context API를 사용한 전역 상태 관리
 │   └── AuthContext.tsx       # 사용자 인증 상태(로그인 여부, 사용자 정보)를 관리하는 컨텍스트
 ├── hooks/                    # 재사용 가능한 커스텀 React Hooks
-│   ├── use-stores.ts         # 가게 데이터 fetching 및 상태 관리 관련 훅
+│   ├── use-stores.ts         # 가게 데이터 fetching, 페이지네이션 및 상태 관리 관련 훅
 │   ├── use-map-view.ts       # 지도 화면 제어 관련 로직을 담은 훅
+│   ├── use-map-markers.ts    # 지도 마커 클러스터링 및 상호작용 관련 훅
 │   └── use-toast.ts          # 사용자 알림(토스트 메시지)을 쉽게 사용할 수 있도록 하는 훅
 ├── lib/                      # 애플리케이션 전반에서 사용되는 유틸리티 함수, API 클라이언트, 공통 로직
 │   ├── supabase/             # Supabase 클라이언트 초기화 및 관련 헬퍼 함수 (client.ts, server.ts 등)
+│   ├── api-utils.ts          # API 요청/응답 처리를 위한 공통 유틸리티 함수
 │   ├── api-response.ts       # API 응답 포맷을 일관되게 관리하기 위한 유틸리티
 │   ├── stores.ts             # 가게 데이터 가공 및 필터링 등 관련 유틸리티 함수
+│   ├── map-integration.ts    # 다양한 지도 서비스 통합 및 공통 지도 로직
 │   ├── location-storage.ts   # 사용자의 위치 정보를 브라우저 저장소에 저장하고 불러오는 로직
 │   └── utils.ts              # 기타 범용 유틸리티 함수 (날짜 포맷팅, 문자열 처리 등)
 ├── prisma/                   # Prisma ORM 관련 파일
@@ -269,14 +285,16 @@ graph TD
         C --> F;
         D --> F;
         E --> F;
-        F --> G["API 서버에 주변 가게 요청<br>(/api/stores?lat=...&lng=...)"];
+        F --> G["API 서버에 주변 가게 요청<br>(/api/stores?page=1&limit=20&lat=...&lng=...)"];
         G --> H[(Supabase DB)];
-        H -- 가게 데이터 목록 --> G;
-        G -- JSON 응답 --> I["프론트엔드: 가게 목록 수신"];
+        H -- 페이지네이션된 가게 데이터 --> G;
+        G -- JSON 응답 (가게 목록 + 페이지 정보) --> I["프론트엔드: 가게 목록 수신"];
     end
 
     subgraph "🖥️ 3단계: 가게 정보 표시"
-        I --> J["화면: 가게 목록 및 지도에 마커 표시"];
+        I --> J["화면: 카카오맵에 20개 가게 마커 표시<br>+ 가게 목록 렌더링"];
+        J -- 사용자가 더보기 버튼 클릭 --> L["API: 다음 페이지 가게 로드"];
+        L --> J;
         J -- 사용자가 특정 가게 선택 --> K["화면: 가게 상세 정보 페이지로 이동<br>(/store/:id)"];
     end
 
@@ -297,12 +315,14 @@ graph TD
     *   애플리케이션은 사용자의 위치를 파악하려 시도합니다.
     *   **우선순위:** GPS > 이전에 저장된 위치 > 사용자의 수동 입력 또는 시스템 기본 위치(예: 강남역).
 3.  **주변 가게 정보 요청 (`📡`):**
-    *   확보된 위치 좌표를 사용하여, 프론트엔드는 백엔드 API (`/api/stores`)로 주변 가게 목록을 요청합니다.
-    *   API 서버는 이 요청을 받아 Supabase 데이터베이스에서 조건에 맞는 가게 정보를 조회합니다.
-    *   조회된 가게 목록은 JSON 형태로 프론트엔드에 응답으로 전달됩니다.
+    *   확보된 위치 좌표를 사용하여, 프론트엔드는 백엔드 API (`/api/stores`)로 페이지네이션된 가게 목록을 요청합니다.
+    *   첫 번째 요청은 `page=1&limit=20` 형태로 처음 20개 가게만 요청합니다.
+    *   API 서버는 이 요청을 받아 Supabase 데이터베이스에서 조건에 맞는 가게 정보를 페이지별로 조회합니다.
+    *   조회된 가게 목록과 페이지네이션 정보(`hasMore`, `totalPages` 등)를 JSON 형태로 프론트엔드에 응답으로 전달됩니다.
 4.  **가게 정보 표시 (`🖥️`):**
-    *   프론트엔드는 수신된 가게 데이터를 사용자 화면에 목록 형태로 보여주고, 지도(Naver/Google) 위에도 마커로 위치를 표시합니다.
-    *   사용자가 목록이나 지도에서 특정 가게를 선택하면, 해당 가게의 상세 정보를 볼 수 있는 페이지로 이동합니다.
+    *   프론트엔드는 수신된 가게 데이터를 카카오맵에 마커로 표시하고, 화면에 목록 형태로 보여줍니다.
+    *   사용자가 "더보기" 버튼을 클릭하면 다음 페이지의 가게들을 추가로 로드하여 기존 목록에 추가합니다.
+    *   사용자가 목록이나 지도 마커에서 특정 가게를 선택하면, 해당 가게의 상세 정보를 볼 수 있는 페이지로 이동합니다.
 
 ### 2. 키워드 검색 흐름
 
@@ -388,3 +408,242 @@ graph TD
     *   **인증 실패 시:** 사용자에게 적절한 오류 메시지를 표시합니다.
 
 이러한 흐름들은 Refill Spot의 핵심적인 사용자 경험을 구성하며, 각 단계는 사용자가 원하는 정보를 쉽고 빠르게 찾을 수 있도록 설계되었습니다.
+
+## 🗺️ 카카오맵 통합 (Kakao Map Integration)
+
+Refill Spot의 메인 지도 서비스로 카카오맵을 활용하여 사용자에게 직관적이고 강력한 지도 경험을 제공합니다.
+
+### 주요 기능
+
+*   **🎯 커스텀 마커:** 가게 위치를 나타내는 맞춤형 SVG 마커로 시각적 일관성을 제공합니다.
+*   **📍 현재 위치 표시:** 사용자의 현재 위치를 지도에 표시하여 주변 가게와의 위치 관계를 쉽게 파악할 수 있습니다.
+*   **🔍 마커 클러스터링:** 비슷한 위치의 여러 가게들을 클러스터로 그룹화하여 지도를 깔끔하게 유지합니다.
+*   **💬 정보 팝업:** 마커 클릭 시 가게의 기본 정보(이름, 주소, 평점)를 팝업으로 표시합니다.
+*   **🎮 지도 컨트롤:** 확대/축소, 현재 위치로 이동 등의 직관적인 지도 조작 버튼을 제공합니다.
+*   **📱 반응형 디자인:** 모바일과 데스크톱 환경에서 모두 최적화된 지도 인터페이스를 제공합니다.
+
+### 기술적 구현
+
+*   **TypeScript:** 전체 컴포넌트가 TypeScript로 구현되어 타입 안전성을 보장합니다.
+*   **React Hooks:** `useEffect`, `useCallback` 등의 훅을 활용하여 효율적인 상태 관리와 성능 최적화를 달성합니다.
+*   **동적 스크립트 로딩:** 카카오맵 JavaScript SDK를 동적으로 로드하여 초기 번들 크기를 최적화합니다.
+*   **이벤트 처리:** 마커 클릭, 지도 이동 등의 사용자 상호작용을 체계적으로 처리합니다.
+
+## 📊 스마트 페이지네이션 (Smart Pagination)
+
+성능 최적화와 사용자 경험 향상을 위해 스마트 페이지네이션 시스템을 구현했습니다.
+
+### 핵심 특징
+
+*   **🚀 빠른 초기 로딩:** 처음에는 20개 가게만 로드하여 빠른 초기 로딩 시간을 제공합니다.
+*   **🔄 점진적 로딩:** "더보기" 버튼을 통해 사용자가 원할 때만 추가 데이터를 로드합니다.
+*   **💾 상태 관리:** React Query와 커스텀 훅을 활용하여 효율적인 데이터 캐싱과 상태 관리를 구현합니다.
+*   **📱 무한 스크롤 대안:** 사용자가 제어할 수 있는 더보기 버튼으로 예측 가능한 로딩 경험을 제공합니다.
+
+### API 응답 구조
+
+```json
+{
+  "success": true,
+  "data": [...], // 가게 목록 배열
+  "pagination": {
+    "page": 1,
+    "limit": 20,
+    "total": 150,
+    "hasMore": true,
+    "totalPages": 8
+  }
+}
+```
+
+### 구현된 유틸리티
+
+*   **`fetchStoresWithPagination`:** 페이지네이션이 포함된 가게 데이터를 안전하게 가져오는 유틸리티 함수
+*   **`useStores` 훅:** 가게 데이터 로딩, 페이지네이션, 에러 처리를 통합 관리하는 커스텀 훅
+*   **자동 에러 처리:** API 요청 실패 시 사용자에게 친화적인 에러 메시지 표시
+
+## 🔧 코드 품질 및 아키텍처 개선 (Code Quality & Architecture)
+
+프로젝트 전반의 코드 품질과 유지보수성을 높이기 위한 다양한 개선 사항들을 적용했습니다.
+
+### 유틸리티 함수 체계화
+
+*   **`lib/api-utils.ts`:** API 요청 처리를 위한 공통 유틸리티 함수들을 제공합니다.
+*   **타입 안전성:** 모든 API 응답과 요청에 대한 TypeScript 타입 정의를 강화했습니다.
+*   **에러 핸들링:** 일관된 에러 처리 패턴으로 사용자 경험을 개선했습니다.
+
+### 모듈화된 지도 통합
+
+*   **`lib/map-integration.ts`:** 여러 지도 서비스(카카오, 네이버, 구글)를 위한 공통 인터페이스를 제공합니다.
+*   **확장 가능한 아키텍처:** 새로운 지도 서비스 추가 시 최소한의 코드 변경으로 통합 가능합니다.
+
+### 성능 최적화
+
+*   **지연 로딩:** 필요한 시점에만 지도 스크립트와 마커를 로드합니다.
+*   **메모이제이션:** React.memo와 useCallback을 활용하여 불필요한 리렌더링을 방지합니다.
+*   **번들 최적화:** 동적 임포트를 활용하여 초기 번들 크기를 최소화합니다.
+
+## 📍 중앙화된 위치 서비스 (Centralized Geolocation)
+
+모든 위치 관련 기능을 일관되게 관리하기 위해 `useGeolocation` 커스텀 훅을 구현했습니다.
+
+### 주요 장점
+
+*   **코드 중복 제거:** 여러 컴포넌트에서 반복되던 `navigator.geolocation` 로직을 중앙화
+*   **일관된 에러 처리:** 모든 위치 요청에서 동일한 에러 메시지와 처리 방식 적용
+*   **유연한 옵션 설정:** 컴포넌트별 요구사항에 맞는 맞춤형 옵션 제공
+*   **타입 안전성:** TypeScript를 통한 완전한 타입 지원
+
+### 사용 방법
+
+```typescript
+import { useGeolocation } from "@/hooks/use-geolocation";
+
+function MyComponent() {
+  const geolocation = useGeolocation();
+
+  const handleGetLocation = async () => {
+    try {
+      // 기본 사용법
+      const coordinates = await geolocation.getCurrentPosition();
+      console.log(coordinates); // { lat: number, lng: number }
+
+      // 옵션과 함께 사용
+      const coordinates = await geolocation.getCurrentPosition({
+        saveToStorage: true,
+        source: "gps",
+        showToast: true,
+        customSuccessMessage: "위치를 성공적으로 가져왔습니다!",
+        timeout: 15000,
+      });
+    } catch (error) {
+      // 에러는 자동으로 사용자에게 표시됨
+      console.error("위치 가져오기 실패:", error);
+    }
+  };
+
+  // 편의 메서드 사용
+  const handleQuickLocation = async () => {
+    try {
+      const coordinates = await geolocation.getLocationQuick(); // 기본 설정으로 빠른 위치 가져오기
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  return (
+    <div>
+      <button onClick={handleGetLocation}>현재 위치 가져오기</button>
+      <button onClick={handleQuickLocation}>빠른 위치 가져오기</button>
+      
+      {geolocation.isLoading && <p>위치를 가져오는 중...</p>}
+      {geolocation.error && <p>오류: {geolocation.error}</p>}
+      {geolocation.coordinates && (
+        <p>현재 위치: {geolocation.coordinates.lat}, {geolocation.coordinates.lng}</p>
+      )}
+    </div>
+  );
+}
+```
+
+### 훅 기능
+
+*   **getCurrentPosition:** 현재 위치를 가져오는 메인 함수
+*   **watchPosition:** 실시간 위치 추적 (선택적)
+*   **clearWatch:** 위치 추적 중지
+*   **getLocationQuick:** 기본 설정으로 빠른 위치 가져오기
+*   **getLocationSilent:** 토스트 없이 조용히 위치 가져오기
+*   **isSupported:** 브라우저 지원 여부 확인
+*   **reset:** 상태 초기화
+
+### 마이그레이션 가이드
+
+기존 코드에서 새로운 훅으로 마이그레이션하는 방법:
+
+```typescript
+// 기존 방식 (deprecated)
+navigator.geolocation.getCurrentPosition(
+  (position) => {
+    const { latitude, longitude } = position.coords;
+    // 성공 처리
+  },
+  (error) => {
+    // 에러 처리
+  },
+  {
+    enableHighAccuracy: true,
+    timeout: 10000,
+    maximumAge: 0,
+  }
+);
+
+// 새로운 방식 (권장)
+const geolocation = useGeolocation();
+
+try {
+  const coordinates = await geolocation.getCurrentPosition({
+    enableHighAccuracy: true,
+    timeout: 10000,
+    maximumAge: 0,
+    showToast: true,
+  });
+  // coordinates = { lat: number, lng: number }
+} catch (error) {
+  // 에러는 자동으로 처리됨
+}
+```
+
+## 🚀 향후 개발 계획 (Future Development Plans)
+
+### 단기 계획 (1-2개월)
+
+*   **🔍 고급 검색 필터:** 가격대, 음식 종류, 거리별 필터링 기능 추가
+*   **⭐ 리뷰 시스템:** 사용자 리뷰 작성 및 평점 시스템 구현
+*   **📱 PWA 지원:** 모바일 앱과 같은 경험을 제공하는 PWA 기능 추가
+*   **🔔 알림 기능:** 새로운 가게 추가 시 사용자 맞춤형 알림 제공
+
+### 중기 계획 (3-6개월)
+
+*   **🤖 AI 추천 시스템:** 사용자 선호도 기반 개인화된 가게 추천
+*   **📊 데이터 분석:** 가게 이용 패턴 분석 및 트렌드 정보 제공
+*   **🗺️ 오프라인 지도:** 네트워크 연결 없이도 기본 지도 기능 사용 가능
+*   **🎯 광고 시스템:** 가게 사업자를 위한 프로모션 및 광고 플랫폼
+
+### 장기 계획 (6개월 이상)
+
+*   **🌐 다국어 지원:** 영어, 중국어 등 다국어 인터페이스 제공
+*   **📍 실시간 정보:** 가게 혼잡도, 대기시간 등 실시간 정보 제공
+*   **🤝 소셜 기능:** 친구와 가게 정보 공유, 그룹 방문 계획 기능
+*   **💳 결제 연동:** 온라인 예약 및 선결제 시스템 구축
+
+## 🤝 기여하기 (Contributing)
+
+Refill Spot 프로젝트에 기여해주셔서 감사합니다! 다음 방법들로 프로젝트에 참여하실 수 있습니다.
+
+### 기여 방법
+
+1. **이슈 신고:** 버그 발견이나 기능 제안은 [GitHub Issues](https://github.com/Refill-Spot/ex_refill/issues)에서 등록해주세요.
+2. **Pull Request:** 코드 개선이나 새로운 기능 추가는 PR을 통해 제출해주세요.
+3. **문서 개선:** README나 코드 주석 개선도 큰 도움이 됩니다.
+4. **테스트:** 다양한 환경에서의 테스트 결과를 공유해주세요.
+
+### 개발 가이드라인
+
+*   **코드 스타일:** ESLint와 Prettier 설정을 따라주세요.
+*   **커밋 메시지:** 명확하고 설명적인 커밋 메시지를 작성해주세요.
+*   **타입 안전성:** TypeScript 타입 정의를 철저히 해주세요.
+*   **테스트:** 새로운 기능에 대한 테스트 코드를 포함해주세요.
+
+## 📄 라이선스 (License)
+
+이 프로젝트는 MIT 라이선스 하에 배포됩니다. 자세한 내용은 [LICENSE](LICENSE) 파일을 참조하세요.
+
+## 📞 문의 및 지원 (Contact & Support)
+
+*   **GitHub Issues:** [프로젝트 이슈 페이지](https://github.com/Refill-Spot/ex_refill/issues)
+*   **이메일:** refillspot@example.com
+*   **개발팀:** Refill Spot Development Team
+
+---
+
+**Refill Spot**과 함께 더 나은 무한리필 식당 검색 경험을 만들어가요! 🎉

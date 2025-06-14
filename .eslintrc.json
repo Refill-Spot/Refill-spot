@@ -29,7 +29,7 @@
     "eqeqeq": ["error", "always"],
     "curly": ["error", "all"],
     "brace-style": ["error", "1tbs"],
-    "comma-dangle": ["error", "es5"],
+    "comma-dangle": ["error", "always-multiline"],
     "quotes": ["error", "double", { "avoidEscape": true }],
     "semi": ["error", "always"]
   },

@@ -1,5 +1,5 @@
-import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { NextRequest, NextResponse } from "next/server";
 
 export interface StoreTestResult {
   storesCount: number;
@@ -14,7 +14,7 @@ export interface StoreTestResult {
   };
 }
 
-export async function runStoreHealthCheck(
+async function runStoreHealthCheck(
   supabaseClient?: any
 ): Promise<StoreTestResult> {
   const supabase = supabaseClient ?? (await createServerSupabaseClient());
@@ -27,7 +27,9 @@ export async function runStoreHealthCheck(
     .select("id", { count: "exact" });
 
   if (countError) {
-    throw new Error(`stores 테이블 조회 오류: ${countError.message || countError}`);
+    throw new Error(
+      `stores 테이블 조회 오류: ${countError.message || countError}`
+    );
   }
 
   console.log("stores 테이블 레코드 수:", storesCount?.length || 0);
@@ -39,7 +41,9 @@ export async function runStoreHealthCheck(
     .limit(5);
 
   if (sampleError) {
-    throw new Error(`샘플 데이터 조회 오류: ${sampleError.message || sampleError}`);
+    throw new Error(
+      `샘플 데이터 조회 오류: ${sampleError.message || sampleError}`
+    );
   }
 
   console.log("샘플 데이터:", sampleStores);

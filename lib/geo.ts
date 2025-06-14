@@ -3,7 +3,12 @@
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { FormattedStore } from "@/types/store";
 
-// 현재 위치 가져오기
+/**
+ * @deprecated 이 함수는 더 이상 사용되지 않습니다.
+ * 대신 hooks/use-geolocation.ts의 useGeolocation 훅을 사용하세요.
+ *
+ * 현재 위치 가져오기
+ */
 export const getCurrentPosition = (): Promise<GeolocationPosition> => {
   return new Promise((resolve, reject) => {
     if (typeof navigator !== "undefined" && navigator.geolocation) {

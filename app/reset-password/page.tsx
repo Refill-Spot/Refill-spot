@@ -1,9 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   Card,
   CardContent,
@@ -12,12 +10,13 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useToast } from "@/components/ui/use-toast";
 import { supabaseBrowser } from "@/lib/supabase/client";
-import { toast } from "@/components/ui/use-toast";
-import { useToast } from "@/hooks/use-toast";
-import { Lock, AlertCircle, CheckCircle } from "lucide-react";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { AlertCircle, CheckCircle, Lock } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 
 export default function ResetPasswordPage() {
   const [password, setPassword] = useState("");
@@ -209,10 +208,10 @@ export default function ResetPasswordPage() {
                                   ? score === 1
                                     ? "bg-red-500"
                                     : score === 2
-                                    ? "bg-orange-500"
-                                    : score === 3
-                                    ? "bg-yellow-500"
-                                    : "bg-green-500"
+                                      ? "bg-orange-500"
+                                      : score === 3
+                                        ? "bg-yellow-500"
+                                        : "bg-green-500"
                                   : "bg-gray-200"
                               }`}
                             />

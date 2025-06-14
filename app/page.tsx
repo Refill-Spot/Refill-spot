@@ -7,7 +7,8 @@ import Sidebar from "@/components/sidebar";
 import { StoreListSkeleton } from "@/components/skeleton-loader";
 import StoreList from "@/components/store-list";
 import { Button } from "@/components/ui/button";
-import { useToast } from "@/hooks/use-toast";
+import { useToast } from "@/components/ui/use-toast";
+import { useGeolocation } from "@/hooks/use-geolocation";
 import {
   getUserLocation,
   isLocationValid,
@@ -16,14 +17,15 @@ import {
 import { isOnboardingCompleted } from "@/lib/onboarding-storage";
 import { Store } from "@/types/store";
 import { useRouter, useSearchParams } from "next/navigation";
-import { memo, useCallback, useEffect, useState } from "react";
+import { memo, Suspense, useCallback, useEffect, useState } from "react";
 
 // 메모이제이션된 StoreList 컴포넌트
 const MemoizedStoreList = memo(StoreList);
 
-export default function Home() {
+function HomeContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
+  const geolocation = useGeolocation();
   const [stores, setStores] = useState<Store[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -175,7 +177,7 @@ export default function Home() {
       nextPage,
       true
     );
-  }, [userLocation, loadingMore, hasMore, currentPage, fetchStores]);
+  }, [userLocation, loadingMore, hasMore, currentPage]);
 
   // 온보딩 체크
   useEffect(() => {
@@ -201,154 +203,112 @@ export default function Home() {
       return;
     }
 
-    // URL 파라미터에서 위치 정보 확인
-    const urlLat = searchParams.get("lat");
-    const urlLng = searchParams.get("lng");
-    const urlSource = searchParams.get("source") as
-      | "gps"
-      | "manual"
-      | "default"
-      | null;
+    const loadInitialData = async () => {
+      // URL 파라미터에서 위치 정보 확인
+      const urlLat = searchParams.get("lat");
+      const urlLng = searchParams.get("lng");
+      const urlSource = searchParams.get("source") as
+        | "gps"
+        | "manual"
+        | "default"
+        | null;
 
-    if (urlLat && urlLng) {
-      // URL 파라미터에 위치 정보가 있으면 사용
-      const lat = parseFloat(urlLat);
-      const lng = parseFloat(urlLng);
+      if (urlLat && urlLng) {
+        // URL 파라미터에 위치 정보가 있으면 사용
+        const lat = parseFloat(urlLat);
+        const lng = parseFloat(urlLng);
 
-      if (!isNaN(lat) && !isNaN(lng)) {
-        setUserLocation({ lat, lng });
-        setCurrentPage(1);
-        setHasMore(false);
-        fetchStores(lat, lng, 5, undefined, undefined, 1, false);
+        if (!isNaN(lat) && !isNaN(lng)) {
+          setUserLocation({ lat, lng });
+          setCurrentPage(1);
+          setHasMore(false);
+          await fetchStores(lat, lng, 5, undefined, undefined, 1, false);
 
-        // URL 파라미터의 위치 정보를 저장
-        saveUserLocation({
-          lat,
-          lng,
-          source: urlSource || "manual",
-        });
+          // URL 파라미터의 위치 정보를 저장
+          saveUserLocation({
+            lat,
+            lng,
+            source: urlSource || "manual",
+          });
+
+          const sourceText =
+            urlSource === "gps"
+              ? "현재 위치"
+              : urlSource === "manual"
+                ? "설정한 위치"
+                : "이전 위치";
+
+          toast({
+            title: "위치 복원 완료",
+            description: `${sourceText} 주변의 가게를 표시합니다.`,
+          });
+          return;
+        }
+      }
+
+      // URL 파라미터가 없으면 저장된 위치 정보 복원 시도
+      const savedLocation = getUserLocation();
+
+      if (savedLocation && isLocationValid(savedLocation)) {
+        // 저장된 위치 정보가 있으면 사용
+        setUserLocation({ lat: savedLocation.lat, lng: savedLocation.lng });
+        await fetchStores(savedLocation.lat, savedLocation.lng, 5);
 
         const sourceText =
-          urlSource === "gps"
+          savedLocation.source === "gps"
             ? "현재 위치"
-            : urlSource === "manual"
+            : savedLocation.source === "manual"
               ? "설정한 위치"
-              : "이전 위치";
+              : "기본 위치";
 
         toast({
           title: "위치 복원 완료",
-          description: `${sourceText} 주변의 가게를 표시합니다.`,
+          description: `이전에 설정한 ${sourceText} 주변의 가게를 표시합니다.`,
         });
-        return;
+      } else {
+        // 저장된 위치 정보가 없으면 기본 위치 사용
+        const defaultLocation = {
+          lat: 37.498095,
+          lng: 127.02761,
+        };
+
+        setUserLocation(defaultLocation);
+        await fetchStores(defaultLocation.lat, defaultLocation.lng, 5);
+
+        // 기본 위치 저장
+        saveUserLocation({
+          lat: defaultLocation.lat,
+          lng: defaultLocation.lng,
+          source: "default",
+        });
+
+        toast({
+          title: "기본 위치 적용",
+          description:
+            "서울 강남역 주변의 가게를 표시합니다. 위치 버튼을 눌러 현재 위치로 변경할 수 있습니다.",
+        });
       }
-    }
+    };
 
-    // URL 파라미터가 없으면 저장된 위치 정보 복원 시도
-    const savedLocation = getUserLocation();
-
-    if (savedLocation && isLocationValid(savedLocation)) {
-      // 저장된 위치 정보가 있으면 사용
-      setUserLocation({ lat: savedLocation.lat, lng: savedLocation.lng });
-      fetchStores(savedLocation.lat, savedLocation.lng, 5);
-
-      const sourceText =
-        savedLocation.source === "gps"
-          ? "현재 위치"
-          : savedLocation.source === "manual"
-            ? "설정한 위치"
-            : "기본 위치";
-
-      toast({
-        title: "위치 복원 완료",
-        description: `이전에 설정한 ${sourceText} 주변의 가게를 표시합니다.`,
-      });
-    } else {
-      // 저장된 위치 정보가 없으면 기본 위치 사용
-      const defaultLocation = {
-        lat: 37.498095,
-        lng: 127.02761,
-      };
-
-      setUserLocation(defaultLocation);
-      fetchStores(defaultLocation.lat, defaultLocation.lng, 5);
-
-      // 기본 위치 저장
-      saveUserLocation({
-        lat: defaultLocation.lat,
-        lng: defaultLocation.lng,
-        source: "default",
-      });
-
-      toast({
-        title: "기본 위치 적용",
-        description:
-          "서울 강남역 주변의 가게를 표시합니다. 위치 버튼을 눌러 현재 위치로 변경할 수 있습니다.",
-      });
-    }
-  }, [searchParams, fetchStores, toast, isCheckingOnboarding]);
+    loadInitialData();
+  }, [searchParams, toast, isCheckingOnboarding]);
 
   // 현재 위치 가져오기 요청
-  const handleGetCurrentLocation = () => {
-    if (!navigator.geolocation) {
-      toast({
-        title: "위치 정보 오류",
-        description: "이 브라우저에서는 위치 정보를 지원하지 않습니다.",
-        variant: "destructive",
+  const handleGetCurrentLocation = async () => {
+    try {
+      const coordinates = await geolocation.getCurrentPosition({
+        saveToStorage: true,
+        source: "gps",
+        showToast: true,
+        customSuccessMessage: "현재 위치 주변의 가게를 표시합니다.",
       });
-      return;
+
+      setUserLocation(coordinates);
+      fetchStores(coordinates.lat, coordinates.lng, 5);
+    } catch (error) {
+      // 에러는 useGeolocation 훅에서 이미 처리됨
+      console.error("위치 정보 가져오기 실패:", error);
     }
-
-    toast({
-      title: "위치 정보",
-      description: "현재 위치를 확인 중입니다...",
-    });
-
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        const { latitude, longitude } = position.coords;
-
-        setUserLocation({ lat: latitude, lng: longitude });
-        fetchStores(latitude, longitude, 5);
-
-        // GPS 위치 정보 저장
-        saveUserLocation({
-          lat: latitude,
-          lng: longitude,
-          source: "gps",
-        });
-
-        toast({
-          title: "위치 확인 완료",
-          description: `현재 위치 주변의 가게를 표시합니다.`,
-        });
-      },
-      (error) => {
-        let errorMessage = "위치 정보를 가져올 수 없습니다.";
-        switch (error.code) {
-          case error.PERMISSION_DENIED:
-            errorMessage =
-              "위치 접근 권한이 거부되었습니다. 브라우저 설정에서 위치 권한을 허용해주세요.";
-            break;
-          case error.POSITION_UNAVAILABLE:
-            errorMessage = "위치 정보를 사용할 수 없습니다.";
-            break;
-          case error.TIMEOUT:
-            errorMessage = "위치 정보 요청 시간이 초과되었습니다.";
-            break;
-        }
-
-        toast({
-          title: "위치 정보 확인 불가",
-          description: errorMessage + " 기본 지역의 가게를 표시합니다.",
-          variant: "destructive",
-        });
-      },
-      {
-        enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 0,
-      }
-    );
   };
 
   // 사용자 지정 위치 설정
@@ -369,7 +329,7 @@ export default function Home() {
         description: "설정한 위치 주변의 가게를 표시합니다.",
       });
     },
-    [fetchStores, toast]
+    [toast]
   );
 
   // 검색 처리
@@ -397,7 +357,7 @@ export default function Home() {
         });
       }
     },
-    [stores, fetchStores, userLocation, toast]
+    [stores, userLocation, toast]
   );
 
   // 사이드바 필터 적용
@@ -452,7 +412,7 @@ export default function Home() {
         });
       }
     },
-    [fetchStores, userLocation, toast]
+    [userLocation, toast]
   );
 
   // 온보딩 체크 중이면 로딩 화면 표시
@@ -607,5 +567,13 @@ export default function Home() {
         </div>
       </main>
     </ErrorBoundary>
+  );
+}
+
+export default function Home() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <HomeContent />
+    </Suspense>
   );
 }

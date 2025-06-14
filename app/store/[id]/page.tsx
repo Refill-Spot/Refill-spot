@@ -1,23 +1,21 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
+import { useToast } from "@/components/ui/use-toast";
+import { getUserLocation, isLocationValid } from "@/lib/location-storage";
+import { Store } from "@/types/store";
 import {
-  MapPin,
-  Clock,
-  Star,
-  Phone,
   ArrowLeft,
+  Clock,
   ExternalLink,
+  MapPin,
+  Star,
   Utensils,
 } from "lucide-react";
-import { Store } from "@/types/store";
-import { useToast } from "@/hooks/use-toast";
-import { getUserLocation, isLocationValid } from "@/lib/location-storage";
+import { useParams, useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 
 export default function StorePage() {
   const params = useParams();

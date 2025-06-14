@@ -1,18 +1,18 @@
 "use client";
 
+import { useToast } from "@/components/ui/use-toast";
+import { useTranslation } from "@/hooks/use-translation";
+import { supabaseBrowser } from "@/lib/supabase/client";
+import { AuthError, User } from "@supabase/supabase-js";
+import { useRouter } from "next/navigation";
 import {
   createContext,
-  useContext,
-  useState,
-  useEffect,
   ReactNode,
   useCallback,
+  useContext,
+  useEffect,
+  useState,
 } from "react";
-import { User, AuthError } from "@supabase/supabase-js";
-import { supabaseBrowser } from "@/lib/supabase/client";
-import { useRouter } from "next/navigation";
-import { useToast } from "@/hooks/use-toast";
-import { useTranslation } from "@/hooks/use-translation";
 
 type AuthContextType = {
   user: User | null;

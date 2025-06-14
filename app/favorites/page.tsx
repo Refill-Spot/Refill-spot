@@ -1,24 +1,5 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import Image from "next/image";
-import { useAuth } from "@/contexts/AuthContext";
-import { useToast } from "@/hooks/use-toast";
-import { Store } from "@/types/store";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
-import {
-  ChevronLeft,
-  Heart,
-  MapPin,
-  Star,
-  Utensils,
-  Navigation,
-  Trash2,
-} from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -30,13 +11,32 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { useToast } from "@/components/ui/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
 import { useStoreStore } from "@/lib/store";
+import { Store } from "@/types/store";
+import {
+  ChevronLeft,
+  Heart,
+  MapPin,
+  Navigation,
+  Star,
+  Trash2,
+  Utensils,
+} from "lucide-react";
+import Image from "next/image";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 
 export default function FavoritesPage() {
   const { user, loading } = useAuth();

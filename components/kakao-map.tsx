@@ -3,7 +3,8 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { useToast } from "@/hooks/use-toast";
+import { useToast } from "@/components/ui/use-toast";
+import { useGeolocation } from "@/hooks/use-geolocation";
 import { Store } from "@/types/store";
 import { MapPin, Star, X } from "lucide-react";
 import Link from "next/link";
@@ -40,7 +41,20 @@ export default function KakaoMap({
   const [markerClusters, setMarkerClusters] = useState<any>(null);
   const [selectedStore, setSelectedStore] = useState<Store | null>(null);
   const { toast } = useToast();
+  const geolocation = useGeolocation();
   const [locationError, setLocationError] = useState<string | null>(null);
+
+  // API 키 확인
+  const kakaoApiKey = process.env.NEXT_PUBLIC_KAKAO_API_KEY;
+
+  useEffect(() => {
+    if (!kakaoApiKey || kakaoApiKey === "demo") {
+      console.warn("카카오 지도 API 키가 설정되지 않았습니다.");
+      setLocationError(
+        "카카오 지도 API 키가 필요합니다. .env.local 파일에 NEXT_PUBLIC_KAKAO_API_KEY를 설정해주세요."
+      );
+    }
+  }, [kakaoApiKey]);
 
   // props로 전달된 selectedStore가 변경되면 내부 상태 업데이트
   useEffect(() => {
@@ -51,55 +65,54 @@ export default function KakaoMap({
 
   // 카카오 지도 API 로드 완료 핸들러
   const handleKakaoMapLoaded = () => {
-    setKakaoMapLoaded(true);
+    console.log("카카오 지도 스크립트 로드 완료");
+    if (window.kakao && window.kakao.maps) {
+      console.log("카카오 지도 API 사용 가능");
+      setKakaoMapLoaded(true);
+    } else {
+      console.error("카카오 지도 API가 로드되지 않았습니다.");
+      setLocationError("카카오 지도 API 로드 실패");
+    }
   };
 
   // 사용자 위치 가져오기
-  const getCurrentLocation = useCallback(() => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const { latitude, longitude } = position.coords;
-          if (map) {
-            map.setCenter(new window.kakao.maps.LatLng(latitude, longitude));
-            // 현재 위치 마커 추가
-            new window.kakao.maps.Marker({
-              position: new window.kakao.maps.LatLng(latitude, longitude),
-              map: map,
-              image: new window.kakao.maps.MarkerImage(
-                "data:image/svg+xml;utf8," +
-                  encodeURIComponent(`
-                  <svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 30 30">
-                    <circle cx="15" cy="15" r="8" fill="#2196F3" stroke="white" stroke-width="3"/>
-                    <circle cx="15" cy="15" r="4" fill="white"/>
-                  </svg>
-                `),
-                new window.kakao.maps.Size(30, 30),
-                { offset: new window.kakao.maps.Point(15, 15) }
-              ),
-            });
-          }
-          setLocationError(null);
-        },
-        (error) => {
-          console.error("위치 정보 오류:", error);
-          toast({
-            title: "위치 오류",
-            description: "위치 정보를 가져올 수 없습니다.",
-            variant: "destructive",
-          });
-          setLocationError("위치 정보를 가져올 수 없습니다.");
-        }
-      );
-    } else {
-      toast({
-        title: "위치 지원 안함",
-        description: "이 브라우저는 위치 서비스를 지원하지 않습니다.",
-        variant: "destructive",
+  const getCurrentLocation = useCallback(async () => {
+    try {
+      const coordinates = await geolocation.getCurrentPosition({
+        showToast: true,
+        customSuccessMessage: "현재 위치로 지도를 이동합니다.",
       });
-      setLocationError("이 브라우저는 위치 서비스를 지원하지 않습니다.");
+
+      if (map) {
+        map.setCenter(
+          new window.kakao.maps.LatLng(coordinates.lat, coordinates.lng)
+        );
+        // 현재 위치 마커 추가
+        new window.kakao.maps.Marker({
+          position: new window.kakao.maps.LatLng(
+            coordinates.lat,
+            coordinates.lng
+          ),
+          map: map,
+          image: new window.kakao.maps.MarkerImage(
+            "data:image/svg+xml;utf8," +
+              encodeURIComponent(`
+              <svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 30 30">
+                <circle cx="15" cy="15" r="8" fill="#2196F3" stroke="white" stroke-width="3"/>
+                <circle cx="15" cy="15" r="4" fill="white"/>
+              </svg>
+            `),
+            new window.kakao.maps.Size(30, 30),
+            { offset: new window.kakao.maps.Point(15, 15) }
+          ),
+        });
+      }
+      setLocationError(null);
+    } catch (error) {
+      console.error("위치 정보 오류:", error);
+      setLocationError("위치 정보를 가져올 수 없습니다.");
     }
-  }, [map, toast]);
+  }, [map, geolocation]);
 
   // 지도 초기화
   useEffect(() => {
@@ -303,7 +316,8 @@ export default function KakaoMap({
         marker.store = store;
 
         // 마커 클릭 이벤트
-        window.kakao.maps.event.addListener(marker, "click", () => {
+        window.kakao.maps.event.addListener(marker, "click", (e: any) => {
+          e.stopPropagation();
           setSelectedStore(store);
           onStoreSelect?.(store);
           map.panTo(markerPosition);
@@ -359,10 +373,46 @@ export default function KakaoMap({
     onStoreSelect,
   ]);
 
+  // API 키가 없으면 에러 화면 표시
+  if (!kakaoApiKey || kakaoApiKey === "demo") {
+    return (
+      <div className="w-full h-full bg-gray-100 flex items-center justify-center">
+        <div className="text-center p-8 bg-white rounded-lg shadow-lg max-w-md">
+          <div className="text-red-500 text-6xl mb-4">🗺️</div>
+          <h3 className="text-xl font-bold text-gray-800 mb-2">
+            지도 설정 필요
+          </h3>
+          <p className="text-gray-600 mb-4">
+            카카오 지도를 사용하려면 API 키가 필요합니다.
+          </p>
+          <div className="text-left bg-gray-50 p-4 rounded text-sm">
+            <p className="font-semibold mb-2">설정 방법:</p>
+            <ol className="list-decimal list-inside space-y-1 text-gray-700">
+              <li>
+                <a
+                  href="https://developers.kakao.com/console/app"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-600 hover:underline"
+                >
+                  카카오 개발자 콘솔
+                </a>
+                에서 API 키 발급
+              </li>
+              <li>프로젝트 루트에 .env.local 파일 생성</li>
+              <li>NEXT_PUBLIC_KAKAO_API_KEY=발급받은키 추가</li>
+              <li>개발 서버 재시작</li>
+            </ol>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="w-full h-full bg-gray-100 relative">
       {/* 위치 에러 안내 메시지 */}
-      {locationError && (
+      {locationError && !locationError.includes("API 키") && (
         <div className="absolute top-16 left-1/2 transform -translate-x-1/2 z-50 bg-white border border-red-300 rounded shadow-lg p-4 flex flex-col items-center max-w-xs w-full">
           <div className="text-red-500 font-bold mb-2">위치 정보 오류</div>
           <div className="text-sm text-gray-700 mb-3 text-center">
@@ -377,19 +427,26 @@ export default function KakaoMap({
       {/* 카카오 지도 스크립트 */}
       <Script
         strategy="afterInteractive"
-        src={`//dapi.kakao.com/v2/maps/sdk.js?appkey=${
-          process.env.NEXT_PUBLIC_KAKAO_API_KEY || ""
-        }&libraries=services,clusterer&autoload=false`}
+        src={`//dapi.kakao.com/v2/maps/sdk.js?appkey=${kakaoApiKey}&libraries=services,clusterer&autoload=false`}
         onLoad={() => {
-          window.kakao.maps.load(() => {
-            handleKakaoMapLoaded();
-          });
+          console.log("카카오 지도 스크립트 로드됨");
+          if (window.kakao && window.kakao.maps) {
+            window.kakao.maps.load(() => {
+              console.log("카카오 지도 API 초기화 완료");
+              handleKakaoMapLoaded();
+            });
+          } else {
+            console.error("window.kakao.maps가 정의되지 않음");
+            setLocationError("카카오 지도 API 초기화 실패");
+          }
         }}
         onError={(e) => {
           console.error("카카오 지도 스크립트 로딩 오류:", e);
+          setLocationError("카카오 지도 스크립트 로드 실패");
           toast({
             title: "지도 로드 오류",
-            description: "지도를 로드하는데 실패했습니다.",
+            description:
+              "지도를 로드하는데 실패했습니다. API 키를 확인해주세요.",
             variant: "destructive",
           });
         }}

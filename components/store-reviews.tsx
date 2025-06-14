@@ -1,21 +1,20 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { Star, ThumbsUp, Flag } from "lucide-react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Separator } from "@/components/ui/separator";
-import { FormattedReview } from "@/types/store";
+import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
-import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from "@/hooks/use-translation";
 import { supabaseBrowser } from "@/lib/supabase/client";
-import Link from "next/link";
+import { FormattedReview } from "@/types/store";
 import { formatDistanceToNow } from "date-fns";
-import { ko, enUS } from "date-fns/locale";
+import { enUS, ko } from "date-fns/locale";
+import { Flag, Star, ThumbsUp } from "lucide-react";
+import Link from "next/link";
+import { useEffect, useState } from "react";
 
 interface StoreReviewsProps {
   storeId: number;
@@ -234,8 +233,8 @@ export default function StoreReviews({
           i < Math.floor(rating)
             ? "fill-[#FFA726] text-[#FFA726]"
             : i < rating
-            ? "fill-[#FFA726]/50 text-[#FFA726]"
-            : "fill-none text-gray-300"
+              ? "fill-[#FFA726]/50 text-[#FFA726]"
+              : "fill-none text-gray-300"
         }`}
       />
     ));

@@ -1,11 +1,12 @@
-import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const storeId = parseInt(params.id);
+  const { id } = await params;
+  const storeId = parseInt(id);
 
   if (isNaN(storeId)) {
     return NextResponse.json(
@@ -162,9 +163,10 @@ export async function POST(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const storeId = parseInt(params.id);
+  const { id } = await params;
+  const storeId = parseInt(id);
   const reviewId = parseInt(request.nextUrl.searchParams.get("reviewId") || "");
 
   if (isNaN(storeId) || isNaN(reviewId)) {

@@ -1,18 +1,16 @@
-import "./globals.css";
-import type { Metadata } from "next";
-import Image from "next/image";
-import { Inter } from "next/font/google";
-import { ThemeProvider } from "@/components/theme-provider";
-import { AuthProvider } from "@/contexts/AuthContext";
 import GoogleMapsLoader from "@/components/GoogleMapsLoader";
-import { ReactNode } from "react";
+import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/toaster";
+import { AuthProvider } from "@/contexts/AuthContext";
+import { Inter } from "next/font/google";
+import { ReactNode } from "react";
+import "./globals.css";
 
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata = {
-  title: "Refill Spot - 무한리필 식당 찾기",
-  description: "주변의 무한리필 식당을 쉽게 찾아보세요",
+  title: "Refill-spot - 무한리필 가게 찾기",
+  description: "주변의 무한리필 가게를 쉽게 찾아보세요",
   generator: "v0.dev",
 };
 

@@ -261,9 +261,9 @@ export default function ResetPasswordPage() {
             )}
           </CardContent>
           <CardFooter className="flex justify-center">
-            <p className="text-xs text-gray-500">
-              Refill Spot &copy; {new Date().getFullYear()}
-            </p>
+            <div className="text-center text-sm text-gray-500 mt-8">
+              Refill-spot &copy; {new Date().getFullYear()}
+            </div>
           </CardFooter>
         </Card>
       </div>

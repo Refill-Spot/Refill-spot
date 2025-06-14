@@ -15,7 +15,6 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "@/components/ui/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
-import { Utensils } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
@@ -146,11 +145,23 @@ function AuthPageContent() {
         <div className="text-center mb-6">
           <div className="flex justify-center mb-2">
             <div className="bg-[#FF5722] p-3 rounded-full">
-              <Utensils className="h-8 w-8 text-white" />
+              <svg
+                className="h-8 w-8 text-white"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                />
+              </svg>
             </div>
           </div>
-          <h1 className="text-2xl font-bold text-[#FF5722]">Refill Spot</h1>
-          <p className="text-gray-500 mt-1">무한리필 식당을 찾아보세요</p>
+          <h1 className="text-2xl font-bold text-[#FF5722]">Refill-spot</h1>
+          <p className="text-gray-500 mt-1">무한리필 가게 찾기</p>
         </div>
 
         {error && (

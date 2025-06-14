@@ -51,17 +51,14 @@ export async function GET(req: NextRequest) {
                 width="48"
                 height="48"
                 viewBox="0 0 24 24"
-                fill="#FF5722"
+                fill="none"
                 stroke="#FF5722"
                 strokeWidth="2"
                 strokeLinecap="round"
                 strokeLinejoin="round"
                 style={{ marginRight: "16px" }}
               >
-                <circle cx="12" cy="12" r="10" />
-                <path d="M8 14s1.5 2 4 2 4-2 4-2" />
-                <line x1="9" y1="9" x2="9.01" y2="9" />
-                <line x1="15" y1="9" x2="15.01" y2="9" />
+                <path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
               </svg>
               <span
                 style={{
@@ -70,7 +67,7 @@ export async function GET(req: NextRequest) {
                   color: "#FF5722",
                 }}
               >
-                Refill Spot
+                Refill-spot
               </span>
             </div>
             <h1

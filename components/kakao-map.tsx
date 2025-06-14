@@ -24,6 +24,7 @@ interface KakaoMapProps {
   center?: { lat: number; lng: number } | null;
   selectedStore?: Store | null;
   onStoreSelect?: (store: Store | null) => void;
+  isVisible?: boolean;
 }
 
 export default function KakaoMap({
@@ -33,6 +34,7 @@ export default function KakaoMap({
   center,
   selectedStore: propSelectedStore,
   onStoreSelect,
+  isVisible = true,
 }: KakaoMapProps) {
   const mapRef = useRef<HTMLDivElement>(null);
   const [kakaoMapLoaded, setKakaoMapLoaded] = useState(false);
@@ -195,6 +197,31 @@ export default function KakaoMap({
       map.setCenter(new window.kakao.maps.LatLng(center.lat, center.lng));
     }
   }, [center, map]);
+
+  // 지도 가시성 변경 시 리사이즈 처리
+  useEffect(() => {
+    if (map && isVisible) {
+      // 지도가 보이게 될 때 약간의 지연 후 리사이즈 실행
+      const timeoutId = setTimeout(() => {
+        try {
+          // 지도 리사이즈
+          map.relayout();
+          
+          // 현재 중심점 재설정 (지도가 제대로 표시되도록)
+          const currentCenter = map.getCenter();
+          if (currentCenter) {
+            map.setCenter(currentCenter);
+          }
+          
+          console.log("지도 리사이즈 완료");
+        } catch (error) {
+          console.error("지도 리사이즈 오류:", error);
+        }
+      }, 100);
+
+      return () => clearTimeout(timeoutId);
+    }
+  }, [map, isVisible]);
 
   // 마커 클러스터링 설정
   const setupMarkerClustering = useCallback(

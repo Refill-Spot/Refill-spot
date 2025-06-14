@@ -17,7 +17,14 @@ import {
 import { isOnboardingCompleted } from "@/lib/onboarding-storage";
 import { Store } from "@/types/store";
 import { useRouter, useSearchParams } from "next/navigation";
-import { memo, Suspense, useCallback, useEffect, useState } from "react";
+import {
+  memo,
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 
 // 메모이제이션된 StoreList 컴포넌트
 const MemoizedStoreList = memo(StoreList);
@@ -36,7 +43,7 @@ function HomeContent() {
   const [isCheckingOnboarding, setIsCheckingOnboarding] = useState(true);
 
   // 지도 및 페이지네이션 관련 상태
-  const [viewMode, setViewMode] = useState<"list" | "map">("list");
+  const [viewMode, setViewMode] = useState<"list" | "map">("map");
   const [selectedStore, setSelectedStore] = useState<Store | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [hasMore, setHasMore] = useState(false);
@@ -415,6 +422,98 @@ function HomeContent() {
     [userLocation, toast]
   );
 
+  // 뷰 모드별 컴포넌트 메모이제이션
+  const MapView = useMemo(() => {
+    return (
+      <div className={`w-full h-full ${viewMode !== "map" ? "hidden" : ""}`}>
+        {loading ? (
+          <div className="w-full h-full bg-gray-200 flex items-center justify-center">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#FF5722] mx-auto mb-4"></div>
+              <p className="text-gray-600">지도 로딩 중...</p>
+            </div>
+          </div>
+        ) : error ? (
+          <div className="w-full h-full bg-gray-100 flex items-center justify-center">
+            <div className="text-center">
+              <p className="text-red-500 mb-4">지도를 불러올 수 없습니다</p>
+              <button
+                onClick={() =>
+                  fetchStores(userLocation?.lat, userLocation?.lng, 5)
+                }
+                className="px-4 py-2 bg-[#FF5722] text-white rounded-md hover:bg-[#E64A19] transition-colors"
+              >
+                다시 시도
+              </button>
+            </div>
+          </div>
+        ) : (
+          <KakaoMap
+            stores={allStores}
+            userLocation={userLocation}
+            enableClustering={true}
+            selectedStore={selectedStore}
+            onStoreSelect={setSelectedStore}
+            isVisible={viewMode === "map"}
+          />
+        )}
+      </div>
+    );
+  }, [viewMode, loading, error, allStores, userLocation, selectedStore]);
+
+  const ListView = useMemo(() => {
+    return (
+      <div className={`w-full h-full flex flex-col ${viewMode !== "list" ? "hidden" : ""}`}>
+        <div className="flex-1 overflow-hidden">
+          {loading ? (
+            <StoreListSkeleton />
+          ) : error ? (
+            <div className="flex items-center justify-center h-full">
+              <div className="text-center">
+                <p className="text-red-500 mb-4">{error}</p>
+                <button
+                  onClick={() =>
+                    fetchStores(userLocation?.lat, userLocation?.lng, 5)
+                  }
+                  className="px-4 py-2 bg-[#FF5722] text-white rounded-md hover:bg-[#E64A19] transition-colors"
+                >
+                  다시 시도
+                </button>
+              </div>
+            </div>
+          ) : (
+            <MemoizedStoreList stores={stores} />
+          )}
+        </div>
+
+        {/* 더보기 버튼 */}
+        {hasMore && !loading && !error && (
+          <div className="p-4 border-t bg-white">
+            <Button
+              onClick={loadMoreStores}
+              disabled={loadingMore}
+              className="w-full bg-[#FF5722] hover:bg-[#E64A19]"
+            >
+              {loadingMore ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  로딩 중...
+                </>
+              ) : (
+                `더보기 (${stores.length}개 표시됨)`
+              )}
+            </Button>
+          </div>
+        )}
+      </div>
+    );
+  }, [viewMode, loading, error, stores, hasMore, loadingMore, userLocation]);
+
+  // 뷰 모드 변경 핸들러 최적화
+  const handleViewModeChange = useCallback((mode: "list" | "map") => {
+    setViewMode(mode);
+  }, []);
+
   // 온보딩 체크 중이면 로딩 화면 표시
   if (isCheckingOnboarding) {
     return (
@@ -454,6 +553,61 @@ function HomeContent() {
           onCustomLocationSet={setCustomLocation}
           userLocation={userLocation}
         />
+
+        {/* 뷰 모드 선택 토글 */}
+        <div className="bg-white border-b border-gray-200 px-4 py-3">
+          <div className="flex items-center justify-center">
+            <div className="bg-gray-100 rounded-lg p-1 flex">
+              <button
+                onClick={() => handleViewModeChange("list")}
+                className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
+                  viewMode === "list"
+                    ? "bg-white text-[#FF5722] shadow-sm"
+                    : "text-gray-600 hover:text-gray-900"
+                }`}
+              >
+                <svg
+                  className="w-4 h-4 inline-block mr-2"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M4 6h16M4 10h16M4 14h16M4 18h16"
+                  />
+                </svg>
+                목록
+              </button>
+              <button
+                onClick={() => handleViewModeChange("map")}
+                className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
+                  viewMode === "map"
+                    ? "bg-white text-[#FF5722] shadow-sm"
+                    : "text-gray-600 hover:text-gray-900"
+                }`}
+              >
+                <svg
+                  className="w-4 h-4 inline-block mr-2"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"
+                  />
+                </svg>
+                지도
+              </button>
+            </div>
+          </div>
+        </div>
+
         <div className="flex flex-1 overflow-hidden">
           {/* 사이드바 - 데스크톱에서만 표시 */}
           <div className="hidden lg:block w-80 border-r border-gray-200 overflow-y-auto bg-white">
@@ -463,88 +617,10 @@ function HomeContent() {
             />
           </div>
 
-          {/* 메인 콘텐츠 영역 - 지도와 가게 목록 */}
-          <div className="flex-1 relative flex flex-col md:flex-row">
-            {/* 지도 영역 */}
-            <div className="w-full md:w-1/2 h-1/2 md:h-full">
-              {loading ? (
-                <div className="w-full h-full bg-gray-200 flex items-center justify-center">
-                  <div className="text-center">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#FF5722] mx-auto mb-4"></div>
-                    <p className="text-gray-600">지도 로딩 중...</p>
-                  </div>
-                </div>
-              ) : error ? (
-                <div className="w-full h-full bg-gray-100 flex items-center justify-center">
-                  <div className="text-center">
-                    <p className="text-red-500 mb-4">
-                      지도를 불러올 수 없습니다
-                    </p>
-                    <button
-                      onClick={() =>
-                        fetchStores(userLocation?.lat, userLocation?.lng, 5)
-                      }
-                      className="px-4 py-2 bg-[#FF5722] text-white rounded-md hover:bg-[#E64A19] transition-colors"
-                    >
-                      다시 시도
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <KakaoMap
-                  stores={allStores}
-                  userLocation={userLocation}
-                  enableClustering={true}
-                  selectedStore={selectedStore}
-                  onStoreSelect={setSelectedStore}
-                />
-              )}
-            </div>
-
-            {/* 가게 목록 영역 */}
-            <div className="w-full md:w-1/2 h-1/2 md:h-full flex flex-col">
-              <div className="flex-1 overflow-hidden">
-                {loading ? (
-                  <StoreListSkeleton />
-                ) : error ? (
-                  <div className="flex items-center justify-center h-full">
-                    <div className="text-center">
-                      <p className="text-red-500 mb-4">{error}</p>
-                      <button
-                        onClick={() =>
-                          fetchStores(userLocation?.lat, userLocation?.lng, 5)
-                        }
-                        className="px-4 py-2 bg-[#FF5722] text-white rounded-md hover:bg-[#E64A19] transition-colors"
-                      >
-                        다시 시도
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <MemoizedStoreList stores={stores} />
-                )}
-              </div>
-
-              {/* 더보기 버튼 */}
-              {hasMore && !loading && !error && (
-                <div className="p-4 border-t bg-white">
-                  <Button
-                    onClick={loadMoreStores}
-                    disabled={loadingMore}
-                    className="w-full bg-[#FF5722] hover:bg-[#E64A19]"
-                  >
-                    {loadingMore ? (
-                      <>
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                        로딩 중...
-                      </>
-                    ) : (
-                      `더보기 (${stores.length}개 표시됨)`
-                    )}
-                  </Button>
-                </div>
-              )}
-            </div>
+          {/* 메인 콘텐츠 영역 - 선택된 뷰 모드에 따라 지도 또는 목록만 표시 */}
+          <div className="flex-1 relative">
+            {MapView}
+            {ListView}
 
             {/* 결과 요약 */}
             {stores.length > 0 && (

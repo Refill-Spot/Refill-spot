@@ -51,13 +51,13 @@ export function useGooglePlaces({
   // Google Places API 초기화
   useEffect(() => {
     if (window.google && window.google.maps && window.google.maps.places) {
-      autocompleteService.current =
-        new window.google.maps.places.AutocompleteService();
+      // AutocompleteSuggestion API는 인스턴스 생성이 필요하지 않음
+      autocompleteService.current = true;
     }
   }, []);
 
   // 예측 결과 가져오기
-  const fetchPredictions = useCallback((input: string) => {
+  const fetchPredictions = useCallback(async (input: string) => {
     if (!autocompleteService.current || input.length < 2) {
       setPredictions([]);
       setShowPredictions(false);
@@ -66,27 +66,43 @@ export function useGooglePlaces({
 
     setIsLoading(true);
 
-    autocompleteService.current.getPlacePredictions(
-      {
+    try {
+      const { suggestions } = await window.google.maps.places.AutocompleteSuggestion.fetchAutocompleteSuggestions({
         input: input,
-        componentRestrictions: { country: "kr" },
-        types: ["establishment", "geocode"],
-      },
-      (results: any, status: any) => {
-        setIsLoading(false);
+        includedPrimaryTypes: ["establishment"],
+        includedRegionCodes: ["kr"],
+        locationRestriction: {
+          circle: {
+            center: { lat: 37.5665, lng: 126.9780 }, // 서울 중심
+            radius: 100000, // 100km
+          },
+        },
+      });
 
-        if (
-          status === window.google.maps.places.PlacesServiceStatus.OK &&
-          results
-        ) {
-          setPredictions(results);
-          setShowPredictions(true);
-        } else {
-          setPredictions([]);
-          setShowPredictions(false);
-        }
+      setIsLoading(false);
+
+      if (suggestions && suggestions.length > 0) {
+        // 새로운 API 형식에 맞게 변환
+        const convertedResults = suggestions.map((suggestion: any) => ({
+          place_id: suggestion.placePrediction?.placeId || suggestion.queryPrediction?.text?.text,
+          description: suggestion.placePrediction?.text?.text || suggestion.queryPrediction?.text?.text,
+          structured_formatting: {
+            main_text: suggestion.placePrediction?.structuredFormat?.mainText?.text || suggestion.queryPrediction?.text?.text,
+            secondary_text: suggestion.placePrediction?.structuredFormat?.secondaryText?.text || "",
+          },
+        }));
+        setPredictions(convertedResults);
+        setShowPredictions(true);
+      } else {
+        setPredictions([]);
+        setShowPredictions(false);
       }
-    );
+    } catch (error) {
+      console.error("AutocompleteSuggestion API error:", error);
+      setIsLoading(false);
+      setPredictions([]);
+      setShowPredictions(false);
+    }
   }, []);
 
   // 입력 변경 핸들러 (디바운스 적용)

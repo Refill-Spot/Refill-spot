@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -113,6 +114,9 @@ export function MobileHeader({
               <Search className="h-5 w-5" />
               <span>가게 검색</span>
             </DialogTitle>
+            <DialogDescription>
+              지역이나 주소를 입력하여 주변 무한리필 가게를 검색하세요.
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <SearchInput

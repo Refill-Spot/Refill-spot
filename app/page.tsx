@@ -63,6 +63,8 @@ function HomeContent() {
       page: number = 1,
       append: boolean = false
     ) => {
+      console.log("🔍 fetchStores 호출됨:", { lat, lng, radius, page, append });
+
       if (!append) {
         setLoading(true);
         setError(null);
@@ -92,6 +94,8 @@ function HomeContent() {
           url += `?${params.toString()}`;
         }
 
+        console.log("📡 API 요청 URL:", url);
+
         // 타임아웃 설정 (10초)
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 10000);
@@ -105,6 +109,8 @@ function HomeContent() {
 
         clearTimeout(timeoutId);
 
+        console.log("📥 API 응답 상태:", response.status);
+
         if (!response.ok) {
           const errorText = await response.text();
           throw new Error(
@@ -113,6 +119,7 @@ function HomeContent() {
         }
 
         const data = await response.json();
+        console.log("📦 API 응답 데이터:", data);
 
         if (!data.success || data.error) {
           throw new Error(
@@ -123,6 +130,8 @@ function HomeContent() {
 
         const storeData = data.data || [];
         const pagination = data.pagination || {};
+
+        console.log("🏪 가게 데이터 개수:", storeData.length);
 
         if (append) {
           setStores((prevStores) => [...prevStores, ...storeData]);
@@ -142,6 +151,7 @@ function HomeContent() {
           });
         }
       } catch (err) {
+        console.error("❌ fetchStores 오류:", err);
         if (err instanceof Error && err.name === "AbortError") {
           setError("요청 시간이 초과되었습니다. 다시 시도해주세요.");
           toast({
@@ -301,7 +311,7 @@ function HomeContent() {
   }, [searchParams, toast, isCheckingOnboarding]);
 
   // 현재 위치 가져오기 요청
-  const handleGetCurrentLocation = async () => {
+  const handleGetCurrentLocation = useCallback(async () => {
     try {
       const coordinates = await geolocation.getCurrentPosition({
         saveToStorage: true,
@@ -312,16 +322,32 @@ function HomeContent() {
 
       setUserLocation(coordinates);
       fetchStores(coordinates.lat, coordinates.lng, 5);
+
+      // 지도 뷰로 자동 전환 (현재 위치 설정 후)
+      if (viewMode !== "map") {
+        setTimeout(() => {
+          setViewMode("map");
+        }, 100);
+      }
     } catch (error) {
       // 에러는 useGeolocation 훅에서 이미 처리됨
       console.error("위치 정보 가져오기 실패:", error);
     }
-  };
+  }, [geolocation, fetchStores, viewMode]);
 
   // 사용자 지정 위치 설정
   const setCustomLocation = useCallback(
     (lat: number, lng: number, radius: number = 5) => {
+      console.log("📍 위치 설정 시작:", {
+        lat,
+        lng,
+        radius,
+        currentViewMode: viewMode,
+      });
+
       setUserLocation({ lat, lng });
+
+      console.log("🔄 fetchStores 호출 예정...");
       fetchStores(lat, lng, radius);
 
       // 수동 설정 위치 정보 저장
@@ -331,12 +357,22 @@ function HomeContent() {
         source: "manual",
       });
 
+      // 지도 뷰로 자동 전환 (위치 설정 후)
+      if (viewMode !== "map") {
+        console.log("🗺️ 지도 뷰로 전환 예정...");
+        // 약간의 지연을 두고 지도 뷰로 전환하여 지도가 제대로 렌더링되도록 함
+        setTimeout(() => {
+          console.log("🗺️ 지도 뷰로 전환 실행");
+          setViewMode("map");
+        }, 100);
+      }
+
       toast({
         title: "위치 설정 완료",
         description: "설정한 위치 주변의 가게를 표시합니다.",
       });
     },
-    [toast]
+    [toast, viewMode, fetchStores]
   );
 
   // 검색 처리
@@ -514,6 +550,14 @@ function HomeContent() {
   // 뷰 모드 변경 핸들러 최적화
   const handleViewModeChange = useCallback((mode: "list" | "map") => {
     setViewMode(mode);
+
+    // 지도 뷰로 변경할 때 지도가 제대로 표시되도록 약간의 지연 추가
+    if (mode === "map") {
+      // 지도 컴포넌트가 렌더링된 후 리사이즈 트리거
+      setTimeout(() => {
+        // 지도 컴포넌트 내부에서 relayout이 호출됨
+      }, 150);
+    }
   }, []);
 
   // 온보딩 체크 중이면 로딩 화면 표시

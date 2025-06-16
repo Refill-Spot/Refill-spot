@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -50,6 +51,7 @@ export function LocationDialog({
     try {
       const position = await getLocationQuick();
       if (position && onCustomLocationSet) {
+        console.log("위치 다이얼로그에서 현재 위치 설정:", position);
         onCustomLocationSet(position.lat, position.lng, radiusInput);
         onClose();
       }
@@ -73,6 +75,9 @@ export function LocationDialog({
             <MapPin className="h-5 w-5" />
             <span>위치 설정</span>
           </DialogTitle>
+          <DialogDescription>
+            현재 위치를 사용하거나 특정 지역을 검색하여 주변 가게를 찾아보세요.
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-6">

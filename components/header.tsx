@@ -80,14 +80,8 @@ export default function Header({
 
   // 현재 위치 정보 업데이트
   useEffect(() => {
-    if (userLocation) {
-      // 여기서 userLocation을 기반으로 주소를 역지오코딩하여 currentLocationInfo를 설정할 수 있습니다
-      // 현재는 간단히 좌표만 표시
-      setCurrentLocationInfo({
-        address: `${userLocation.lat.toFixed(4)}, ${userLocation.lng.toFixed(4)}`,
-        distance: 5, // 기본값
-      });
-    }
+    // 위치가 설정되어 있어도 항상 "위치 설정"으로 표시
+    setCurrentLocationInfo(null);
   }, [userLocation]);
 
   const handleMobileSearch = (e: React.FormEvent) => {
@@ -113,7 +107,17 @@ export default function Header({
       if (position && onCustomLocationSet) {
         onCustomLocationSet(position.lat, position.lng, 5);
       } else if (position) {
-        router.push(`/?lat=${position.lat}&lng=${position.lng}&distance=5`);
+        // URL 업데이트로 위치 변경 (페이지 리로드 없이)
+        const url = new URL(window.location.href);
+        url.searchParams.set("lat", position.lat.toString());
+        url.searchParams.set("lng", position.lng.toString());
+        url.searchParams.set("source", "gps");
+        window.history.pushState({}, "", url.toString());
+
+        // 페이지 리로드 대신 직접 위치 설정 함수 호출
+        if (onCustomLocationSet) {
+          onCustomLocationSet(position.lat, position.lng, 5);
+        }
       }
     } catch (error) {
       console.error("현재 위치 가져오기 실패:", error);

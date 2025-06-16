@@ -17,16 +17,33 @@ export interface PlaceResult {
   name?: string;
 }
 
-export interface AutocompleteService {
-  getPlacePredictions: (
-    request: {
-      input: string;
-      sessionToken?: any;
-      componentRestrictions?: { country: string };
-      types?: string[];
-    },
-    callback: (predictions: PlaceResult[] | null, status: string) => void
-  ) => void;
+export interface AutocompleteSuggestion {
+  fetchAutocompleteSuggestions: (request: {
+    input: string;
+    sessionToken?: any;
+    includedRegionCodes?: string[];
+    includedPrimaryTypes?: string[];
+    locationRestriction?: {
+      circle: {
+        center: { lat: number; lng: number };
+        radius: number;
+      };
+    };
+  }) => Promise<{
+    suggestions: Array<{
+      placePrediction?: {
+        placeId: string;
+        text: { text: string };
+        structuredFormat: {
+          mainText: { text: string };
+          secondaryText: { text: string };
+        };
+      };
+      queryPrediction?: {
+        text: { text: string };
+      };
+    }>;
+  }>;
 }
 
 export interface PlacesService {
@@ -86,26 +103,19 @@ export const POPULAR_LOCATIONS = [
 ];
 
 // Places API 서비스 인스턴스들
-let autocompleteService: AutocompleteService | null = null;
 let placesService: PlacesService | null = null;
 let sessionToken: any = null;
 
-// AutocompleteService 초기화
-export const getAutocompleteService =
-  async (): Promise<AutocompleteService> => {
-    if (autocompleteService) {
-      return autocompleteService;
-    }
+// AutocompleteSuggestion API 사용 가능 여부 확인
+export const getAutocompleteSuggestion = async (): Promise<AutocompleteSuggestion> => {
+  const google = await loadGoogleMapsAPI();
+  
+  if (!google.maps.places.AutocompleteSuggestion) {
+    throw new Error("AutocompleteSuggestion API is not available");
+  }
 
-    const google = await loadGoogleMapsAPI();
-    autocompleteService = new google.maps.places.AutocompleteService();
-
-    if (!autocompleteService) {
-      throw new Error("Failed to create AutocompleteService");
-    }
-
-    return autocompleteService;
-  };
+  return google.maps.places.AutocompleteSuggestion;
+};
 
 // PlacesService 초기화
 export const getPlacesService = async (): Promise<PlacesService> => {
@@ -147,33 +157,35 @@ export const searchPlaces = async (input: string): Promise<PlaceResult[]> => {
   }
 
   try {
-    const service = await getAutocompleteService();
+    const autocompleteSuggestion = await getAutocompleteSuggestion();
 
-    if (!sessionToken) {
-      await createSessionToken();
+    const { suggestions } = await autocompleteSuggestion.fetchAutocompleteSuggestions({
+      input: input.trim(),
+      includedRegionCodes: ["kr"], // 한국으로 제한
+      includedPrimaryTypes: ["establishment"], // 시설 타입
+      locationRestriction: {
+        circle: {
+          center: { lat: 37.5665, lng: 126.9780 }, // 서울 중심
+          radius: 100000, // 100km
+        },
+      },
+    });
+
+    if (suggestions && suggestions.length > 0) {
+      // 새로운 API 형식에서 기존 형식으로 변환
+      return suggestions.map((suggestion) => ({
+        place_id: suggestion.placePrediction?.placeId || suggestion.queryPrediction?.text?.text || "",
+        description: suggestion.placePrediction?.text?.text || suggestion.queryPrediction?.text?.text || "",
+        structured_formatting: {
+          main_text: suggestion.placePrediction?.structuredFormat?.mainText?.text || suggestion.queryPrediction?.text?.text || "",
+          secondary_text: suggestion.placePrediction?.structuredFormat?.secondaryText?.text || "",
+        },
+      }));
     }
 
-    return new Promise((resolve, reject) => {
-      service.getPlacePredictions(
-        {
-          input: input.trim(),
-          sessionToken,
-          componentRestrictions: { country: "kr" }, // 한국으로 제한
-          types: ["establishment", "geocode"], // 시설과 주소 모두 포함
-        },
-        (predictions, status) => {
-          if (status === "OK" && predictions) {
-            resolve(predictions);
-          } else if (status === "ZERO_RESULTS") {
-            resolve([]);
-          } else {
-            reject(new Error(`Places API error: ${status}`));
-          }
-        }
-      );
-    });
+    return [];
   } catch (error) {
-    console.error("Places search error:", error);
+    console.error("AutocompleteSuggestion search error:", error);
     throw error;
   }
 };

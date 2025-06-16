@@ -36,15 +36,26 @@ export default function KakaoMap({
   onStoreSelect,
   isVisible = true,
 }: KakaoMapProps) {
+  console.log("🗺️ KakaoMap 컴포넌트 렌더링:", {
+    storeCount: stores.length,
+    userLocation,
+    isVisible,
+    enableClustering,
+  });
+
   const mapRef = useRef<HTMLDivElement>(null);
   const [kakaoMapLoaded, setKakaoMapLoaded] = useState(false);
   const [map, setMap] = useState<any>(null);
   const [markers, setMarkers] = useState<any[]>([]);
   const [markerClusters, setMarkerClusters] = useState<any>(null);
-  const [selectedStore, setSelectedStore] = useState<Store | null>(null);
+  const [isMapInitialized, setIsMapInitialized] = useState(false);
+  const [selectedStore, setSelectedStore] = useState<Store | null>(
+    propSelectedStore || null
+  );
   const { toast } = useToast();
   const geolocation = useGeolocation();
   const [locationError, setLocationError] = useState<string | null>(null);
+  const [userLocationMarker, setUserLocationMarker] = useState<any>(null);
 
   // API 키 확인
   const kakaoApiKey = process.env.NEXT_PUBLIC_KAKAO_API_KEY;
@@ -64,6 +75,14 @@ export default function KakaoMap({
       setSelectedStore(propSelectedStore);
     }
   }, [propSelectedStore]);
+
+  // stores props 변경 감지
+  useEffect(() => {
+    console.log("📦 stores props 변경됨:", {
+      storeCount: stores.length,
+      stores: stores.slice(0, 2), // 처음 2개만 로그로 출력
+    });
+  }, [stores]);
 
   // 카카오 지도 API 로드 완료 핸들러
   const handleKakaoMapLoaded = () => {
@@ -116,9 +135,15 @@ export default function KakaoMap({
     }
   }, [map, geolocation]);
 
-  // 지도 초기화
+  // 지도 초기화 (한 번만 실행)
   useEffect(() => {
-    if (!kakaoMapLoaded || !mapRef.current) return;
+    if (!kakaoMapLoaded || !mapRef.current || map) return;
+
+    // 컨테이너가 보이는 상태에서만 초기화
+    if (!isVisible) {
+      console.log("지도 컨테이너가 보이지 않아 초기화 지연");
+      return;
+    }
 
     try {
       // window.kakao가 정의되어 있는지 확인
@@ -130,9 +155,11 @@ export default function KakaoMap({
         return;
       }
 
-      // 초기 좌표 설정 (사용자 위치 또는 기본값)
-      const initialLat = userLocation?.lat || center?.lat || 37.5665;
-      const initialLng = userLocation?.lng || center?.lng || 126.978;
+      console.log("지도 초기화 시작", { isVisible });
+
+      // 초기 좌표 설정 (서울 중심)
+      const initialLat = 37.5665;
+      const initialLng = 126.978;
 
       // 지도 옵션
       const mapOptions = {
@@ -144,33 +171,28 @@ export default function KakaoMap({
       const newMap = new window.kakao.maps.Map(mapRef.current, mapOptions);
       setMap(newMap);
 
-      // 현재 위치 마커 추가 (사용자 위치가 있는 경우)
-      if (userLocation) {
-        new window.kakao.maps.Marker({
-          position: new window.kakao.maps.LatLng(
-            userLocation.lat,
-            userLocation.lng
-          ),
-          map: newMap,
-          image: new window.kakao.maps.MarkerImage(
-            "data:image/svg+xml;utf8," +
-              encodeURIComponent(`
-              <svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 30 30">
-                <circle cx="15" cy="15" r="8" fill="#2196F3" stroke="white" stroke-width="3"/>
-                <circle cx="15" cy="15" r="4" fill="white"/>
-              </svg>
-            `),
-            new window.kakao.maps.Size(30, 30),
-            { offset: new window.kakao.maps.Point(15, 15) }
-          ),
-        });
-      }
+      console.log("지도 초기화 완료:", newMap);
 
       // 지도 클릭 이벤트 - 선택된 가게 초기화
       window.kakao.maps.event.addListener(newMap, "click", () => {
         setSelectedStore(null);
         onStoreSelect?.(null);
       });
+
+      // 지도 초기화 완료를 알리는 상태 설정
+      setIsMapInitialized(true);
+
+      // 지도 초기화 완료 후 약간의 지연을 두고 기존 stores 데이터 확인
+      setTimeout(() => {
+        if (stores.length > 0) {
+          console.log(
+            "🔄 지도 초기화 완료 후 기존 가게 데이터 확인:",
+            stores.length,
+            "개"
+          );
+          // stores useEffect가 다시 실행되어 마커가 추가됨
+        }
+      }, 100);
 
       return () => {
         // 이벤트 리스너 제거 로직
@@ -189,14 +211,75 @@ export default function KakaoMap({
         variant: "destructive",
       });
     }
-  }, [kakaoMapLoaded, userLocation, center, toast, onStoreSelect]);
+  }, [kakaoMapLoaded, toast, onStoreSelect, isVisible]);
 
   // center props로 지도 중심 이동
   useEffect(() => {
     if (map && center) {
+      console.log("center props로 지도 중심 이동:", center);
       map.setCenter(new window.kakao.maps.LatLng(center.lat, center.lng));
     }
   }, [center, map]);
+
+  // userLocation 변경 시 지도 중심 업데이트 및 마커 추가
+  useEffect(() => {
+    if (map && userLocation && window.kakao?.maps) {
+      console.log(
+        "사용자 위치 변경으로 지도 중심 이동:",
+        userLocation,
+        "isVisible:",
+        isVisible
+      );
+
+      // 기존 사용자 위치 마커 제거
+      if (userLocationMarker) {
+        userLocationMarker.setMap(null);
+        console.log("기존 사용자 위치 마커 제거됨");
+      }
+
+      // 지도 중심을 사용자 위치로 이동
+      const userLatLng = new window.kakao.maps.LatLng(
+        userLocation.lat,
+        userLocation.lng
+      );
+
+      // 지도 중심 이동 (항상 실행)
+      map.setCenter(userLatLng);
+      console.log("지도 중심 이동 완료:", userLocation);
+
+      // 지도 리사이즈 강제 실행 (위치 변경 후 지도가 제대로 표시되도록)
+      setTimeout(() => {
+        try {
+          map.relayout();
+          // 리사이즈 후 다시 한번 중심점 설정 (안정성 향상)
+          map.setCenter(userLatLng);
+          console.log("지도 리사이즈 및 중심점 재설정 완료");
+        } catch (error) {
+          console.error("지도 리사이즈 오류:", error);
+        }
+      }, 100);
+
+      // 새로운 사용자 위치 마커 생성
+      const newUserMarker = new window.kakao.maps.Marker({
+        position: userLatLng,
+        map: map,
+        image: new window.kakao.maps.MarkerImage(
+          "data:image/svg+xml;utf8," +
+            encodeURIComponent(`
+            <svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 30 30">
+              <circle cx="15" cy="15" r="8" fill="#2196F3" stroke="white" stroke-width="3"/>
+              <circle cx="15" cy="15" r="4" fill="white"/>
+            </svg>
+          `),
+          new window.kakao.maps.Size(30, 30),
+          { offset: new window.kakao.maps.Point(15, 15) }
+        ),
+      });
+
+      setUserLocationMarker(newUserMarker);
+      console.log("새 사용자 위치 마커 생성됨");
+    }
+  }, [map, userLocation]); // isVisible 의존성 제거로 더 안정적인 동작
 
   // 지도 가시성 변경 시 리사이즈 처리
   useEffect(() => {
@@ -204,24 +287,31 @@ export default function KakaoMap({
       // 지도가 보이게 될 때 약간의 지연 후 리사이즈 실행
       const timeoutId = setTimeout(() => {
         try {
+          console.log("지도 리사이즈 시작");
+
           // 지도 리사이즈
           map.relayout();
-          
-          // 현재 중심점 재설정 (지도가 제대로 표시되도록)
-          const currentCenter = map.getCenter();
-          if (currentCenter) {
-            map.setCenter(currentCenter);
+
+          // 사용자 위치가 있으면 해당 위치로 중심점 설정
+          if (userLocation) {
+            console.log("사용자 위치로 지도 중심 설정:", userLocation);
+            map.setCenter(
+              new window.kakao.maps.LatLng(userLocation.lat, userLocation.lng)
+            );
+          } else if (center) {
+            console.log("센터 위치로 지도 중심 설정:", center);
+            map.setCenter(new window.kakao.maps.LatLng(center.lat, center.lng));
           }
-          
+
           console.log("지도 리사이즈 완료");
         } catch (error) {
           console.error("지도 리사이즈 오류:", error);
         }
-      }, 100);
+      }, 150); // 지연 시간을 조금 늘림
 
       return () => clearTimeout(timeoutId);
     }
-  }, [map, isVisible]);
+  }, [map, isVisible, userLocation, center]); // center 의존성 추가
 
   // 마커 클러스터링 설정
   const setupMarkerClustering = useCallback(
@@ -293,105 +383,167 @@ export default function KakaoMap({
 
   // 가게 마커 추가
   useEffect(() => {
-    if (!map || !stores.length || !window.kakao || !window.kakao.maps) return;
+    console.log("🔍 마커 추가 useEffect 실행됨:", {
+      hasMap: !!map,
+      storeCount: stores.length,
+      hasKakao: !!window.kakao,
+      hasKakaoMaps: !!(window.kakao && window.kakao.maps),
+      stores: stores.slice(0, 1), // 첫 번째 가게 데이터만 확인
+    });
 
-    try {
-      // 기존 마커 제거
-      markers.forEach((marker) => marker.setMap(null));
-
-      // 새 마커 배열
-      const newMarkers = [];
-
-      // 각 가게별 마커 생성
-      for (const store of stores) {
-        if (
-          !store ||
-          !store.position ||
-          !store.position.lat ||
-          !store.position.lng
-        ) {
-          console.warn("유효하지 않은 가게 데이터:", store);
-          continue;
-        }
-
-        const markerPosition = new window.kakao.maps.LatLng(
-          store.position.lat,
-          store.position.lng
-        );
-
-        // 커스텀 마커 이미지 생성
-        const markerImage = new window.kakao.maps.MarkerImage(
-          "data:image/svg+xml;utf8," +
-            encodeURIComponent(`
-            <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 40 40">
-              <circle cx="20" cy="20" r="18" fill="#FF5722" stroke="white" stroke-width="3"/>
-              <path d="M20 8c-4.4 0-8 3.6-8 8 0 5.3 8 16 8 16s8-10.7 8-16c0-4.4-3.6-8-8-8zm0 11c-1.7 0-3-1.3-3-3s1.3-3 3-3 3 1.3 3 3-1.3 3-3 3z" fill="white"/>
-            </svg>
-          `),
-          new window.kakao.maps.Size(40, 40),
-          { offset: new window.kakao.maps.Point(20, 40) }
-        );
-
-        const marker = new window.kakao.maps.Marker({
-          position: markerPosition,
-          map: map,
-          image: markerImage,
-          title: store.name,
+    if (
+      !map ||
+      !stores.length ||
+      !window.kakao ||
+      !window.kakao.maps ||
+      !isVisible ||
+      !isMapInitialized
+    ) {
+      if (!map && stores.length > 0) {
+        console.log("⏳ 지도가 아직 초기화되지 않음. 지도 초기화 대기 중...");
+      } else if (!isMapInitialized && stores.length > 0) {
+        console.log("🔄 지도 초기화 진행 중. 마커 추가 대기...");
+      } else if (!isVisible) {
+        console.log("👁️ 지도가 보이지 않음. 마커 추가 지연");
+      } else {
+        console.log("🏪 마커 추가 조건 미충족:", {
+          hasMap: !!map,
+          storeCount: stores.length,
+          hasKakao: !!window.kakao,
+          hasKakaoMaps: !!(window.kakao && window.kakao.maps),
+          isVisible,
+          isMapInitialized,
+          mapObject: map,
+          storesArray: stores,
         });
-
-        // 마커에 store 데이터 저장
-        marker.store = store;
-
-        // 마커 클릭 이벤트
-        window.kakao.maps.event.addListener(marker, "click", (e: any) => {
-          if (e && typeof e.stopPropagation === 'function') {
-            e.stopPropagation();
-          }
-          setSelectedStore(store);
-          onStoreSelect?.(store);
-          map.panTo(markerPosition);
-        });
-
-        newMarkers.push(marker);
       }
-
-      setMarkers(newMarkers);
-
-      // 클러스터링 적용
-      if (newMarkers.length > 0 && enableClustering) {
-        const cluster = setupMarkerClustering(map, newMarkers);
-        setMarkerClusters(cluster);
-      }
-
-      // 모든 마커가 보이도록 지도 범위 조정
-      if (stores.length > 1) {
-        const bounds = new window.kakao.maps.LatLngBounds();
-
-        // 사용자 위치가 있으면 포함
-        if (userLocation) {
-          bounds.extend(
-            new window.kakao.maps.LatLng(userLocation.lat, userLocation.lng)
-          );
-        }
-
-        // 모든 가게 위치 포함
-        stores.forEach((store) => {
-          bounds.extend(
-            new window.kakao.maps.LatLng(store.position.lat, store.position.lng)
-          );
-        });
-
-        // 지도 범위 설정
-        map.setBounds(bounds);
-      }
-    } catch (error) {
-      console.error("마커 생성 오류:", error);
-      toast({
-        title: "마커 오류",
-        description: "지도 마커를 생성하는데 실패했습니다.",
-        variant: "destructive",
-      });
+      return;
     }
+
+    // 지도가 준비될 때까지 약간의 지연
+    const timeoutId = setTimeout(() => {
+      // 지도가 여전히 유효한지 다시 확인
+      if (!map || !window.kakao || !window.kakao.maps) {
+        console.log("⚠️ 지도 상태가 변경됨. 마커 추가 중단");
+        return;
+      }
+
+      console.log("🏪 가게 마커 추가 시작:", stores.length, "개 가게");
+
+      try {
+        // 기존 마커 제거
+        markers.forEach((marker) => marker.setMap(null));
+
+        // 새 마커 배열
+        const newMarkers = [];
+
+        // 각 가게별 마커 생성
+        for (const store of stores) {
+          if (
+            !store ||
+            !store.position ||
+            !store.position.lat ||
+            !store.position.lng
+          ) {
+            console.warn("❌ 유효하지 않은 가게 데이터:", store);
+            continue;
+          }
+
+          try {
+            const markerPosition = new window.kakao.maps.LatLng(
+              store.position.lat,
+              store.position.lng
+            );
+
+            // 커스텀 마커 이미지 생성
+            const markerImage = new window.kakao.maps.MarkerImage(
+              "data:image/svg+xml;utf8," +
+                encodeURIComponent(`
+                <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 40 40">
+                  <circle cx="20" cy="20" r="18" fill="#FF5722" stroke="white" stroke-width="3"/>
+                  <path d="M20 8c-4.4 0-8 3.6-8 8 0 5.3 8 16 8 16s8-10.7 8-16c0-4.4-3.6-8-8-8zm0 11c-1.7 0-3-1.3-3-3s1.3-3 3-3 3 1.3 3 3-1.3 3-3 3z" fill="white"/>
+                </svg>
+              `),
+              new window.kakao.maps.Size(40, 40),
+              { offset: new window.kakao.maps.Point(20, 40) }
+            );
+
+            const marker = new window.kakao.maps.Marker({
+              position: markerPosition,
+              map: map,
+              image: markerImage,
+              title: store.name,
+            });
+
+            // 마커에 store 데이터 저장
+            marker.store = store;
+
+            // 마커 클릭 이벤트
+            window.kakao.maps.event.addListener(marker, "click", (e: any) => {
+              if (e && typeof e.stopPropagation === "function") {
+                e.stopPropagation();
+              }
+              console.log("📍 마커 클릭됨:", store.name);
+              setSelectedStore(store);
+              onStoreSelect?.(store);
+              map.panTo(markerPosition);
+            });
+
+            newMarkers.push(marker);
+            console.log("✅ 마커 생성 완료:", store.name);
+          } catch (markerError) {
+            console.error("❌ 마커 생성 오류:", store.name, markerError);
+            // 마커 생성 실패해도 계속 진행
+          }
+        }
+
+        console.log("🎯 총", newMarkers.length, "개 마커 생성됨");
+
+        setMarkers(newMarkers);
+
+        // 클러스터링 적용
+        if (newMarkers.length > 0 && enableClustering) {
+          const cluster = setupMarkerClustering(map, newMarkers);
+          setMarkerClusters(cluster);
+          console.log("🔗 마커 클러스터링 설정 완료");
+        }
+
+        // 모든 마커가 보이도록 지도 범위 조정
+        if (stores.length > 1) {
+          const bounds = new window.kakao.maps.LatLngBounds();
+
+          // 사용자 위치가 있으면 포함
+          if (userLocation) {
+            bounds.extend(
+              new window.kakao.maps.LatLng(userLocation.lat, userLocation.lng)
+            );
+          }
+
+          // 모든 가게 위치 포함
+          stores.forEach((store) => {
+            bounds.extend(
+              new window.kakao.maps.LatLng(
+                store.position.lat,
+                store.position.lng
+              )
+            );
+          });
+
+          // 지도 범위 설정
+          map.setBounds(bounds);
+          console.log("🗺️ 지도 범위 조정 완료");
+        }
+      } catch (error) {
+        console.error("❌ 마커 생성 전체 오류:", error);
+        toast({
+          title: "마커 오류",
+          description: "지도 마커를 생성하는데 실패했습니다.",
+          variant: "destructive",
+        });
+      }
+    }, 100); // 100ms 지연
+
+    return () => clearTimeout(timeoutId);
   }, [
     map,
     stores,
@@ -399,6 +551,8 @@ export default function KakaoMap({
     enableClustering,
     toast,
     onStoreSelect,
+    isVisible,
+    isMapInitialized,
   ]);
 
   // API 키가 없으면 에러 화면 표시

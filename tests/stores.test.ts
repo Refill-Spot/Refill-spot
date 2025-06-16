@@ -1,4 +1,4 @@
-import { runStoreHealthCheck } from '../app/api/stores/test/route';
+import { runStoreHealthCheck } from '../lib/store-health-check';
 import { test } from 'node:test';
 import assert from 'node:assert';
 

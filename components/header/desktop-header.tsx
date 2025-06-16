@@ -1,7 +1,13 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { Filter, MapPin, Menu } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Filter, MapPin, Menu, Info, MessageCircle } from "lucide-react";
 import Link from "next/link";
 import { LocationDialog } from "./location-dialog";
 import { SearchInput } from "./search-input";
@@ -37,9 +43,28 @@ export function DesktopHeader({
       <div className="hidden lg:flex items-center justify-between w-full">
         {/* 로고 및 메뉴 */}
         <div className="flex items-center space-x-4">
-          <Button variant="ghost" size="sm" onClick={onMenuClick}>
-            <Menu className="h-5 w-5" />
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="sm">
+                <Menu className="h-5 w-5" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-48">
+              <DropdownMenuItem asChild>
+                <Link href="/onboarding" className="flex items-center w-full">
+                  <Info className="h-4 w-4 mr-2 text-[#2196F3]" />
+                  서비스 소개
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/contact" className="flex items-center w-full">
+                  <MessageCircle className="h-4 w-4 mr-2 text-[#4CAF50]" />
+                  문의하기
+                </Link>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          
           <Link href="/" className="flex items-center space-x-2">
             <div className="bg-gradient-to-br from-orange-500 to-red-500 rounded-lg p-2">
               <svg
@@ -92,7 +117,7 @@ export function DesktopHeader({
 
           {/* 필터 버튼 */}
           <Button variant="outline" size="sm" onClick={onFilterClick}>
-            <Filter className="h-4 w-4" />
+            <Filter className="h-4 w-4 text-[#FF5722]" />
             <span className="hidden xl:inline ml-2">필터</span>
           </Button>
         </div>

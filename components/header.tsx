@@ -42,6 +42,8 @@ interface HeaderProps {
   onLocationRequest?: () => void;
   onCustomLocationSet?: (lat: number, lng: number, radius: number) => void;
   userLocation?: { lat: number; lng: number } | null;
+  onFilterToggle?: () => void;
+  onApplyFilters?: (filters: FilterOptions) => void;
 }
 
 export default function Header({
@@ -50,6 +52,8 @@ export default function Header({
   onLocationRequest,
   onCustomLocationSet,
   userLocation,
+  onFilterToggle,
+  onApplyFilters,
 }: HeaderProps) {
   const router = useRouter();
   const { user, profile, loading, signOut } = useAuth();
@@ -124,28 +128,32 @@ export default function Header({
     }
   };
 
-  const handleApplyFilters = (filters: FilterOptions) => {
-    const params = new URLSearchParams();
+  const handleApplyFiltersInternal = (filters: FilterOptions) => {
+    if (onApplyFilters) {
+      onApplyFilters(filters);
+    } else {
+      const params = new URLSearchParams();
 
-    if (filters.categories && filters.categories.length > 0) {
-      params.set("categories", filters.categories.join(","));
+      if (filters.categories && filters.categories.length > 0) {
+        params.set("categories", filters.categories.join(","));
+      }
+
+      if (filters.maxDistance) {
+        params.set("distance", filters.maxDistance.toString());
+      }
+
+      if (filters.minRating) {
+        params.set("rating", filters.minRating.toString());
+      }
+
+      if (filters.latitude && filters.longitude) {
+        params.set("lat", filters.latitude.toString());
+        params.set("lng", filters.longitude.toString());
+      }
+
+      const queryString = params.toString();
+      router.push(queryString ? `/?${queryString}` : "/");
     }
-
-    if (filters.maxDistance) {
-      params.set("distance", filters.maxDistance.toString());
-    }
-
-    if (filters.minRating) {
-      params.set("rating", filters.minRating.toString());
-    }
-
-    if (filters.latitude && filters.longitude) {
-      params.set("lat", filters.latitude.toString());
-      params.set("lng", filters.longitude.toString());
-    }
-
-    const queryString = params.toString();
-    router.push(queryString ? `/?${queryString}` : "/");
   };
 
   const handleLocationDialogOpen = () => {
@@ -161,8 +169,9 @@ export default function Header({
   };
 
   const handleFilterClick = () => {
-    // 필터 클릭 로직
-    console.log("Filter clicked"); // 임시 구현
+    if (onFilterToggle) {
+      onFilterToggle();
+    }
   };
 
   return (
@@ -257,7 +266,7 @@ export default function Header({
           <SheetHeader>
             <SheetTitle>메뉴</SheetTitle>
           </SheetHeader>
-          <Sidebar onApplyFilters={handleApplyFilters} />
+          <Sidebar onApplyFilters={handleApplyFiltersInternal} />
         </SheetContent>
       </Sheet>
     </header>

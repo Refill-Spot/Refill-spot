@@ -8,7 +8,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Filter, MapPin, Menu, Search } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Filter, MapPin, Menu, Search, Info, MessageCircle } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { LocationDialog } from "./location-dialog";
@@ -47,9 +53,28 @@ export function MobileHeader({
       {/* 모바일 헤더 - 첫 번째 줄 */}
       <div className="lg:hidden flex items-center justify-between w-full">
         <div className="flex items-center space-x-3">
-          <Button variant="ghost" size="sm" onClick={onMenuClick}>
-            <Menu className="h-5 w-5" />
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="sm">
+                <Menu className="h-5 w-5" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-48">
+              <DropdownMenuItem asChild>
+                <Link href="/onboarding" className="flex items-center w-full">
+                  <Info className="h-4 w-4 mr-2 text-[#2196F3]" />
+                  서비스 소개
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/contact" className="flex items-center w-full">
+                  <MessageCircle className="h-4 w-4 mr-2 text-[#4CAF50]" />
+                  문의하기
+                </Link>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          
           <Link href="/" className="flex items-center space-x-2">
             <div className="bg-gradient-to-br from-orange-500 to-red-500 rounded-lg p-1.5">
               <svg
@@ -84,7 +109,7 @@ export function MobileHeader({
             <Search className="h-5 w-5" />
           </Button>
           <Button variant="ghost" size="sm" onClick={onFilterClick}>
-            <Filter className="h-5 w-5" />
+            <Filter className="h-5 w-5 text-[#FF5722]" />
           </Button>
         </div>
       </div>

@@ -69,6 +69,14 @@ export default function KakaoMap({
     }
   }, [kakaoApiKey]);
 
+  // 컴포넌트 마운트 시 카카오 API 상태 확인
+  useEffect(() => {
+    if (window.kakao && window.kakao.maps) {
+      console.log("카카오 API가 이미 로드되어 있음 - 즉시 사용 가능");
+      setKakaoMapLoaded(true);
+    }
+  }, []); // 마운트 시에만 실행
+
   // props로 전달된 selectedStore가 변경되면 내부 상태 업데이트
   useEffect(() => {
     if (propSelectedStore) {
@@ -137,13 +145,29 @@ export default function KakaoMap({
 
   // 지도 초기화 (한 번만 실행)
   useEffect(() => {
-    if (!kakaoMapLoaded || !mapRef.current || map) return;
+    // 카카오 API가 로드되어 있는지 먼저 확인
+    if (!window.kakao || !window.kakao.maps) {
+      console.log("카카오 API가 아직 로드되지 않음");
+      // 카카오 API가 로드되어 있다면 강제로 로드 완료 처리
+      if (window.kakao) {
+        window.kakao.maps.load(() => {
+          console.log("카카오 지도 API 수동 초기화 완료");
+          setKakaoMapLoaded(true);
+        });
+      }
+      return;
+    }
+
+    if (!mapRef.current || map) return;
 
     // 컨테이너가 보이는 상태에서만 초기화
     if (!isVisible) {
       console.log("지도 컨테이너가 보이지 않아 초기화 지연");
       return;
     }
+
+    // kakaoMapLoaded 상태와 상관없이 API가 준비되면 초기화
+    setKakaoMapLoaded(true);
 
     try {
       // window.kakao가 정의되어 있는지 확인
@@ -211,7 +235,7 @@ export default function KakaoMap({
         variant: "destructive",
       });
     }
-  }, [kakaoMapLoaded, toast, onStoreSelect, isVisible]);
+  }, [kakaoMapLoaded, toast, onStoreSelect, isVisible, map]); // map 의존성 추가
 
   // center props로 지도 중심 이동
   useEffect(() => {
@@ -223,95 +247,59 @@ export default function KakaoMap({
 
   // userLocation 변경 시 지도 중심 업데이트 및 마커 추가
   useEffect(() => {
-    if (map && userLocation && window.kakao?.maps) {
-      console.log(
-        "사용자 위치 변경으로 지도 중심 이동:",
-        userLocation,
-        "isVisible:",
-        isVisible
-      );
-
-      // 기존 사용자 위치 마커 제거
-      if (userLocationMarker) {
-        userLocationMarker.setMap(null);
-        console.log("기존 사용자 위치 마커 제거됨");
-      }
-
-      // 지도 중심을 사용자 위치로 이동
-      const userLatLng = new window.kakao.maps.LatLng(
-        userLocation.lat,
-        userLocation.lng
-      );
-
-      // 지도 중심 이동 (항상 실행)
-      map.setCenter(userLatLng);
-      console.log("지도 중심 이동 완료:", userLocation);
-
-      // 지도 리사이즈 강제 실행 (위치 변경 후 지도가 제대로 표시되도록)
-      setTimeout(() => {
-        try {
-          map.relayout();
-          // 리사이즈 후 다시 한번 중심점 설정 (안정성 향상)
-          map.setCenter(userLatLng);
-          console.log("지도 리사이즈 및 중심점 재설정 완료");
-        } catch (error) {
-          console.error("지도 리사이즈 오류:", error);
-        }
-      }, 100);
-
-      // 새로운 사용자 위치 마커 생성
-      const newUserMarker = new window.kakao.maps.Marker({
-        position: userLatLng,
-        map: map,
-        image: new window.kakao.maps.MarkerImage(
-          "data:image/svg+xml;utf8," +
-            encodeURIComponent(`
-            <svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 30 30">
-              <circle cx="15" cy="15" r="8" fill="#2196F3" stroke="white" stroke-width="3"/>
-              <circle cx="15" cy="15" r="4" fill="white"/>
-            </svg>
-          `),
-          new window.kakao.maps.Size(30, 30),
-          { offset: new window.kakao.maps.Point(15, 15) }
-        ),
-      });
-
-      setUserLocationMarker(newUserMarker);
-      console.log("새 사용자 위치 마커 생성됨");
+    if (!map || !userLocation || !window.kakao?.maps || !isVisible) {
+      return;
     }
-  }, [map, userLocation]); // isVisible 의존성 제거로 더 안정적인 동작
+
+    console.log("사용자 위치로 지도 중심 설정:", userLocation);
+
+    // 지도 중심을 사용자 위치로 설정
+    const userLatLng = new window.kakao.maps.LatLng(
+      userLocation.lat,
+      userLocation.lng
+    );
+
+    map.setCenter(userLatLng);
+
+    // 새로운 사용자 위치 마커 생성
+    const newUserMarker = new window.kakao.maps.Marker({
+      position: userLatLng,
+      map: map,
+      image: new window.kakao.maps.MarkerImage(
+        "data:image/svg+xml;utf8," +
+          encodeURIComponent(`
+          <svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 30 30">
+            <circle cx="15" cy="15" r="8" fill="#2196F3" stroke="white" stroke-width="3"/>
+            <circle cx="15" cy="15" r="4" fill="white"/>
+          </svg>
+        `),
+        new window.kakao.maps.Size(30, 30),
+        { offset: new window.kakao.maps.Point(15, 15) }
+      ),
+    });
+
+    setUserLocationMarker(newUserMarker);
+    console.log("사용자 위치 마커 생성 완료");
+  }, [map, userLocation, isVisible]); // 컴포넌트가 완전히 새로 마운트되므로 단순한 의존성 사용
 
   // 지도 가시성 변경 시 리사이즈 처리
   useEffect(() => {
-    if (map && isVisible) {
-      // 지도가 보이게 될 때 약간의 지연 후 리사이즈 실행
-      const timeoutId = setTimeout(() => {
-        try {
-          console.log("지도 리사이즈 시작");
-
-          // 지도 리사이즈
-          map.relayout();
-
-          // 사용자 위치가 있으면 해당 위치로 중심점 설정
-          if (userLocation) {
-            console.log("사용자 위치로 지도 중심 설정:", userLocation);
-            map.setCenter(
-              new window.kakao.maps.LatLng(userLocation.lat, userLocation.lng)
-            );
-          } else if (center) {
-            console.log("센터 위치로 지도 중심 설정:", center);
-            map.setCenter(new window.kakao.maps.LatLng(center.lat, center.lng));
-          }
-
-          console.log("지도 리사이즈 완료");
-        } catch (error) {
-          console.error("지도 리사이즈 오류:", error);
-        }
-      }, 150); // 지연 시간을 조금 늘림
-
-      return () => clearTimeout(timeoutId);
+    if (!map || !isVisible) {
+      return;
     }
-  }, [map, isVisible, userLocation, center]); // center 의존성 추가
+
+    // 지도가 보이게 될 때 리사이즈 실행
+    const timeoutId = setTimeout(() => {
+      try {
+        console.log("지도 리사이즈 실행");
+        map.relayout();
+      } catch (error) {
+        console.error("지도 리사이즈 오류:", error);
+      }
+    }, 100);
+
+    return () => clearTimeout(timeoutId);
+  }, [map, isVisible]);
 
   // 마커 클러스터링 설정
   const setupMarkerClustering = useCallback(
@@ -378,7 +366,7 @@ export default function KakaoMap({
 
       return cluster;
     },
-    [enableClustering]
+    [enableClustering, markerClusters]
   );
 
   // 가게 마커 추가
@@ -549,8 +537,6 @@ export default function KakaoMap({
     stores,
     userLocation,
     enableClustering,
-    toast,
-    onStoreSelect,
     isVisible,
     isMapInitialized,
   ]);

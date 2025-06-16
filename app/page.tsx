@@ -345,10 +345,13 @@ function HomeContent() {
         currentViewMode: viewMode,
       });
 
+      // 위치 설정과 동시에 가게 데이터 fetch
       setUserLocation({ lat, lng });
-
+      setCurrentPage(1);
+      setHasMore(false);
+      
       console.log("🔄 fetchStores 호출 예정...");
-      fetchStores(lat, lng, radius);
+      fetchStores(lat, lng, radius, undefined, undefined, 1, false);
 
       // 수동 설정 위치 정보 저장
       saveUserLocation({
@@ -485,6 +488,7 @@ function HomeContent() {
           </div>
         ) : (
           <KakaoMap
+            key={userLocation ? `map-${userLocation.lat.toFixed(6)}-${userLocation.lng.toFixed(6)}` : 'map-default'}
             stores={allStores}
             userLocation={userLocation}
             enableClustering={true}

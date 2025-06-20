@@ -176,36 +176,40 @@ export default function Header({
 
   return (
     <header className="bg-white border-b border-gray-200 sticky top-0 z-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
+      <div className="w-full px-4 sm:px-6 lg:px-8">
+        <div className="flex items-center h-16 w-full">
           {/* 데스크톱 헤더 */}
-          <DesktopHeader
-            onMenuClick={handleMenuClick}
-            onFilterClick={handleFilterClick}
-            onCustomLocationSet={onCustomLocationSet}
-            currentLocationInfo={currentLocationInfo}
-            isLocationDialogOpen={isLocationDialogOpen}
-            onLocationDialogOpen={handleLocationDialogOpen}
-            onLocationDialogClose={handleLocationDialogClose}
-            onPlaceSelect={googlePlaces.handlePredictionSelect}
-            onManualSearch={googlePlaces.handleSearch}
-          />
+          <div className="hidden lg:flex flex-1">
+            <DesktopHeader
+              onMenuClick={handleMenuClick}
+              onFilterClick={handleFilterClick}
+              onCustomLocationSet={onCustomLocationSet}
+              currentLocationInfo={currentLocationInfo}
+              isLocationDialogOpen={isLocationDialogOpen}
+              onLocationDialogOpen={handleLocationDialogOpen}
+              onLocationDialogClose={handleLocationDialogClose}
+              onPlaceSelect={googlePlaces.handlePredictionSelect}
+              onManualSearch={googlePlaces.handleSearch}
+            />
+          </div>
 
           {/* 모바일 헤더 */}
-          <MobileHeader
-            onMenuClick={handleMenuClick}
-            onFilterClick={handleFilterClick}
-            onCustomLocationSet={onCustomLocationSet}
-            currentLocationInfo={currentLocationInfo}
-            isLocationDialogOpen={isLocationDialogOpen}
-            onLocationDialogOpen={handleLocationDialogOpen}
-            onLocationDialogClose={handleLocationDialogClose}
-            onPlaceSelect={googlePlaces.handlePredictionSelect}
-            onManualSearch={googlePlaces.handleSearch}
-          />
+          <div className="lg:hidden flex-1">
+            <MobileHeader
+              onMenuClick={handleMenuClick}
+              onFilterClick={handleFilterClick}
+              onCustomLocationSet={onCustomLocationSet}
+              currentLocationInfo={currentLocationInfo}
+              isLocationDialogOpen={isLocationDialogOpen}
+              onLocationDialogOpen={handleLocationDialogOpen}
+              onLocationDialogClose={handleLocationDialogClose}
+              onPlaceSelect={googlePlaces.handlePredictionSelect}
+              onManualSearch={googlePlaces.handleSearch}
+            />
+          </div>
 
-          {/* 사용자 메뉴 (공통) */}
-          <div className="flex items-center space-x-4">
+          {/* 사용자 메뉴 (공통) - 오른쪽 끝 */}
+          <div className="flex items-center space-x-4 ml-auto">
             {loading ? (
               <div className="animate-pulse">
                 <div className="h-8 w-8 bg-gray-300 rounded-full"></div>

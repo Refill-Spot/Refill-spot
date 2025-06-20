@@ -607,7 +607,7 @@ function HomeContent() {
           {/* 필터 패널 (모바일 + 데스크톱) */}
           {isFilterOpen && (
             <div className="fixed inset-0 z-50 bg-black bg-opacity-50">
-              <div className="lg:w-96 w-80 h-full bg-white overflow-y-auto lg:ml-auto">
+              <div className="lg:w-96 w-80 h-full bg-white overflow-y-auto">
                 <div className="sticky top-0 bg-white border-b border-gray-200 p-4 flex items-center justify-between">
                   <h2 className="text-lg font-semibold text-gray-900">필터</h2>
                   <button

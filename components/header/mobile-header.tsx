@@ -100,16 +100,17 @@ export function MobileHeader({
           </Link>
         </div>
 
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center space-x-3">
+          {/* 필터 버튼 */}
+          <Button variant="ghost" size="sm" onClick={onFilterClick}>
+            <Filter className="h-5 w-5 text-[#FF5722]" />
+          </Button>
           <Button
             variant="ghost"
             size="sm"
             onClick={() => setIsSearchDialogOpen(true)}
           >
             <Search className="h-5 w-5" />
-          </Button>
-          <Button variant="ghost" size="sm" onClick={onFilterClick}>
-            <Filter className="h-5 w-5 text-[#FF5722]" />
           </Button>
         </div>
       </div>
@@ -122,7 +123,7 @@ export function MobileHeader({
           onClick={onLocationDialogOpen}
           className="flex items-center space-x-2 text-xs"
         >
-          <MapPin className="h-4 w-4" />
+          <MapPin className="h-4 w-4 text-[#2196F3]" />
           <span className="truncate max-w-48">
             {currentLocationInfo
               ? `${currentLocationInfo.address} (${currentLocationInfo.distance}km)`

@@ -40,7 +40,7 @@ export function DesktopHeader({
 }: DesktopHeaderProps) {
   return (
     <>
-      <div className="hidden lg:flex items-center justify-between w-full">
+      <div className="flex items-center justify-between w-full">
         {/* 로고 및 메뉴 */}
         <div className="flex items-center space-x-4">
           <DropdownMenu>
@@ -89,16 +89,21 @@ export function DesktopHeader({
         </div>
 
         {/* 검색 영역 */}
-        <div className="flex-1 max-w-2xl mx-8">
-          <SearchInput
-            onPlaceSelect={onPlaceSelect}
-            onManualSearch={onManualSearch}
-            placeholder="지역, 주소를 입력하세요"
-          />
-        </div>
-
-        {/* 우측 컨트롤 */}
-        <div className="flex items-center space-x-3">
+        <div className="flex-1 max-w-2xl mx-8 flex items-center space-x-6">
+          {/* 필터 버튼 */}
+          <Button variant="outline" size="sm" onClick={onFilterClick}>
+            <Filter className="h-4 w-4 text-[#FF5722]" />
+            <span className="hidden xl:inline ml-2">필터</span>
+          </Button>
+          
+          <div className="flex-1 mx-4">
+            <SearchInput
+              onPlaceSelect={onPlaceSelect}
+              onManualSearch={onManualSearch}
+              placeholder="지역, 주소를 입력하세요"
+            />
+          </div>
+          
           {/* 현재 위치 정보 */}
           <Button
             variant="outline"
@@ -106,7 +111,7 @@ export function DesktopHeader({
             onClick={onLocationDialogOpen}
             className="flex items-center space-x-2"
           >
-            <MapPin className="h-4 w-4" />
+            <MapPin className="h-4 w-4 text-[#2196F3]" />
             <span className="hidden xl:inline">
               {currentLocationInfo
                 ? `${currentLocationInfo.address} (${currentLocationInfo.distance}km)`
@@ -114,12 +119,11 @@ export function DesktopHeader({
             </span>
             <span className="xl:hidden">위치</span>
           </Button>
+        </div>
 
-          {/* 필터 버튼 */}
-          <Button variant="outline" size="sm" onClick={onFilterClick}>
-            <Filter className="h-4 w-4 text-[#FF5722]" />
-            <span className="hidden xl:inline ml-2">필터</span>
-          </Button>
+        {/* 우측 여백 */}
+        <div className="flex items-center">
+          {/* 공간 확보용 */}
         </div>
       </div>
 

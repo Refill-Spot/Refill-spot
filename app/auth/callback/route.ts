@@ -9,7 +9,8 @@ export async function GET(request: NextRequest) {
   if (code) {
     try {
       // 비밀번호 재설정 플로우인지 확인
-      const isPasswordReset = redirectTo.includes("/reset-password");
+      const isPasswordReset = redirectTo.includes("/reset-password") || 
+                              requestUrl.searchParams.get("type") === "recovery";
       
       if (isPasswordReset) {
         // 비밀번호 재설정의 경우 세션을 생성하지 않고 바로 리다이렉트

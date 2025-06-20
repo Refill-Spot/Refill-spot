@@ -33,15 +33,28 @@ function ResetPasswordContent() {
   const searchParams = useSearchParams();
   const { toast } = useToast();
 
-  // 페이지 로드시 코드 파라미터 확인
+  // 페이지 로드시 코드 파라미터 확인 및 자동 로그아웃 처리
   useEffect(() => {
-    const code = searchParams.get("code");
-    if (code) {
-      setResetCode(code);
-    } else {
-      // 코드가 없으면 비밀번호 재설정 링크가 잘못된 것
-      setError("유효하지 않은 비밀번호 재설정 링크입니다.");
-    }
+    const initializeReset = async () => {
+      const code = searchParams.get("code");
+      
+      if (code) {
+        // 코드가 있으면 즉시 로그아웃하여 자동 로그인 방지
+        try {
+          await supabaseBrowser.auth.signOut();
+          console.log("비밀번호 재설정을 위해 자동 로그아웃 처리됨");
+        } catch (err) {
+          console.error("로그아웃 처리 중 오류:", err);
+        }
+        
+        setResetCode(code);
+      } else {
+        // 코드가 없으면 비밀번호 재설정 링크가 잘못된 것
+        setError("유효하지 않은 비밀번호 재설정 링크입니다.");
+      }
+    };
+
+    initializeReset();
   }, [searchParams]);
 
   // 비밀번호 강도 체크
@@ -215,7 +228,7 @@ function ResetPasswordContent() {
                   비밀번호 변경 완료
                 </AlertTitle>
                 <AlertDescription className="text-green-600">
-                  비밀번호가 성공적으로 변경되었습니다. 잠시 후 로그인 페이지로
+                  비밀번호가 성공적으로 변경되었습니다. 새 비밀번호로 로그인되었습니다. 잠시 후 홈페이지로
                   이동합니다.
                 </AlertDescription>
               </Alert>

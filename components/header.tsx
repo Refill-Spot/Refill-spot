@@ -250,7 +250,7 @@ export default function Header({
               </DropdownMenu>
             ) : (
               <Button
-                onClick={() => router.push("/auth")}
+                onClick={() => router.push("/login")}
                 variant="outline"
                 size="sm"
               >

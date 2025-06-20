@@ -75,16 +75,10 @@ function StoreList({ stores = [] }: StoreListProps) {
                     </figure>
                     <CardContent className="flex-1 p-4 flex flex-col justify-between">
                       <div className="flex-1">
-                        <header className="flex justify-between items-start mb-2">
-                          <h3 className="font-bold text-[#333333] text-lg line-clamp-1">
+                        <header className="mb-2">
+                          <h3 className="font-bold text-[#333333] text-lg leading-tight">
                             {store.name}
                           </h3>
-                          <Badge
-                            variant="outline"
-                            className="bg-[#FF5722]/10 text-[#FF5722] border-[#FF5722]/20 text-sm ml-2 flex-shrink-0"
-                          >
-                            {store.price}
-                          </Badge>
                         </header>
 
                         <div className="flex items-center gap-1 text-sm mb-2">

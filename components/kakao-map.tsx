@@ -24,6 +24,8 @@ interface KakaoMapProps {
   center?: { lat: number; lng: number } | null;
   selectedStore?: Store | null;
   onStoreSelect?: (store: Store | null) => void;
+  onLocationChange?: (lat: number, lng: number) => void;
+  onManualSearch?: (lat: number, lng: number) => void;
   isVisible?: boolean;
 }
 
@@ -34,6 +36,8 @@ export default function KakaoMap({
   center,
   selectedStore: propSelectedStore,
   onStoreSelect,
+  onLocationChange,
+  onManualSearch,
   isVisible = true,
 }: KakaoMapProps) {
   console.log("🗺️ KakaoMap 컴포넌트 렌더링:", {
@@ -56,6 +60,11 @@ export default function KakaoMap({
   const geolocation = useGeolocation();
   const [locationError, setLocationError] = useState<string | null>(null);
   const [userLocationMarker, setUserLocationMarker] = useState<any>(null);
+  const [isMapDragging, setIsMapDragging] = useState(false);
+  const [showSearchButton, setShowSearchButton] = useState(false);
+  const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const isManualSearchRef = useRef(false);
+  const savedZoomLevelRef = useRef<number | null>(null);
 
   // API 키 확인
   const kakaoApiKey = process.env.NEXT_PUBLIC_KAKAO_API_KEY;
@@ -103,6 +112,71 @@ export default function KakaoMap({
       setLocationError("카카오 지도 API 로드 실패");
     }
   };
+
+  // 지도 이동 시 검색 버튼 표시 (자동 검색 비활성화)
+  const handleMapMove = useCallback(
+    (lat: number, lng: number) => {
+      console.log("📍 지도 이동 감지 - 전달받은 좌표:", { 
+        lat: lat.toFixed(8), 
+        lng: lng.toFixed(8),
+        rawLat: lat,
+        rawLng: lng
+      });
+      setShowSearchButton(true);
+      // 위치 변경은 저장하지만 자동 검색은 하지 않음
+      if (onLocationChange) {
+        onLocationChange(lat, lng);
+      }
+    },
+    [onLocationChange]
+  );
+
+  // 수동 검색 실행
+  const handleManualSearch = useCallback(() => {
+    if (map && onManualSearch) {
+      // 현재 줌 레벨 저장
+      const currentLevel = map.getLevel();
+      savedZoomLevelRef.current = currentLevel;
+      
+      // 줌 레벨 제한 정보 확인
+      console.log("🔍 지도 줌 레벨 정보:", {
+        현재레벨: currentLevel,
+        최소레벨: map.getMinLevel ? map.getMinLevel() : "확인불가",
+        최대레벨: map.getMaxLevel ? map.getMaxLevel() : "확인불가"
+      });
+      
+      // 수동 검색 모드 활성화 (ref 사용으로 re-render 방지)
+      isManualSearchRef.current = true;
+      console.log("🔴 수동 검색 모드 활성화:", isManualSearchRef.current);
+      console.log("💾 현재 줌 레벨 저장:", currentLevel);
+      
+      // 지도가 완전히 안정화될 때까지 잠시 대기
+      setTimeout(() => {
+        if (map && onManualSearch) {
+          const center = map.getCenter();
+          const lat = center.getLat();
+          const lng = center.getLng();
+          console.log("🎯 수동 검색 실행 - 최종 지도 중심점:", { 
+            lat: lat.toFixed(8), 
+            lng: lng.toFixed(8),
+            rawLat: lat,
+            rawLng: lng,
+            currentLevel: map.getLevel(),
+            savedLevel: savedZoomLevelRef.current,
+            isManualSearch: isManualSearchRef.current,
+            timestamp: new Date().toISOString()
+          });
+          console.log("🗺️ 최종 지도 상태:", {
+            center: center,
+            level: map.getLevel(),
+            bounds: map.getBounds()
+          });
+          onManualSearch(lat, lng);
+          setShowSearchButton(false);
+        }
+      }, 100); // 100ms 대기
+    }
+  }, [map, onManualSearch]);
 
   // 사용자 위치 가져오기
   const getCurrentLocation = useCallback(async () => {
@@ -203,6 +277,31 @@ export default function KakaoMap({
         onStoreSelect?.(null);
       });
 
+      // 지도 드래그 시작 이벤트
+      window.kakao.maps.event.addListener(newMap, "dragstart", () => {
+        setIsMapDragging(true);
+      });
+
+      // 지도 드래그 종료 이벤트 - 검색 버튼 표시
+      window.kakao.maps.event.addListener(newMap, "dragend", () => {
+        setIsMapDragging(false);
+        const center = newMap.getCenter();
+        const lat = center.getLat();
+        const lng = center.getLng();
+        handleMapMove(lat, lng);
+      });
+
+      // 지도 줌 변경 이벤트 - 검색 버튼 표시
+      window.kakao.maps.event.addListener(newMap, "zoom_changed", () => {
+        if (!isMapDragging) {
+          // 드래그 중이 아닐 때만 위치 변경 처리 (줌만 변경된 경우)
+          const center = newMap.getCenter();
+          const lat = center.getLat();
+          const lng = center.getLng();
+          handleMapMove(lat, lng);
+        }
+      });
+
       // 지도 초기화 완료를 알리는 상태 설정
       setIsMapInitialized(true);
 
@@ -222,6 +321,13 @@ export default function KakaoMap({
         // 이벤트 리스너 제거 로직
         if (newMap) {
           window.kakao.maps.event.removeListener(newMap, "click");
+          window.kakao.maps.event.removeListener(newMap, "dragstart");
+          window.kakao.maps.event.removeListener(newMap, "dragend");
+          window.kakao.maps.event.removeListener(newMap, "zoom_changed");
+        }
+        // 디바운스 타이머 정리
+        if (debounceTimeoutRef.current) {
+          clearTimeout(debounceTimeoutRef.current);
         }
       };
     } catch (error) {
@@ -235,7 +341,15 @@ export default function KakaoMap({
         variant: "destructive",
       });
     }
-  }, [kakaoMapLoaded, toast, onStoreSelect, isVisible, map]); // map 의존성 추가
+  }, [
+    kakaoMapLoaded,
+    toast,
+    onStoreSelect,
+    isVisible,
+    map,
+    handleMapMove,
+    isMapDragging,
+  ]); // 새로운 의존성 추가
 
   // center props로 지도 중심 이동
   useEffect(() => {
@@ -252,6 +366,7 @@ export default function KakaoMap({
     }
 
     console.log("사용자 위치로 지도 중심 설정:", userLocation);
+    console.log("수동 검색 모드 체크:", isManualSearchRef.current);
 
     // 지도 중심을 사용자 위치로 설정
     const userLatLng = new window.kakao.maps.LatLng(
@@ -259,7 +374,13 @@ export default function KakaoMap({
       userLocation.lng
     );
 
-    map.setCenter(userLatLng);
+    // 수동 검색 중이 아닐 때만 지도 중심 이동
+    if (!isManualSearchRef.current) {
+      map.setCenter(userLatLng);
+      console.log("✅ 지도 중심을 사용자 위치로 이동");
+    } else {
+      console.log("🔒 수동 검색 중 - 지도 중심 이동 건너뜀");
+    }
 
     // 새로운 사용자 위치 마커 생성
     const newUserMarker = new window.kakao.maps.Marker({
@@ -496,8 +617,13 @@ export default function KakaoMap({
           console.log("🔗 마커 클러스터링 설정 완료");
         }
 
-        // 모든 마커가 보이도록 지도 범위 조정
-        if (stores.length > 1) {
+        // 수동 검색이 아닐 때만 지도 범위 자동 조정
+        console.log("🔍 범위 조정 체크:", {
+          storeCount: stores.length,
+          isManualSearch: isManualSearchRef.current
+        });
+        
+        if (stores.length > 1 && !isManualSearchRef.current) {
           const bounds = new window.kakao.maps.LatLngBounds();
 
           // 사용자 위치가 있으면 포함
@@ -519,7 +645,67 @@ export default function KakaoMap({
 
           // 지도 범위 설정
           map.setBounds(bounds);
-          console.log("🗺️ 지도 범위 조정 완료");
+          console.log("🗺️ 지도 범위 조정 완료 - 자동 핏");
+        } else if (isManualSearchRef.current) {
+          console.log("🔒 수동 검색 모드 - 현재 줌 레벨 유지, 범위 조정 건너뜀");
+          console.log("🔍 현재 줌 레벨:", map.getLevel());
+          
+          // 저장된 줌 레벨로 복원 (다른 모든 작업 완료 후)
+          if (savedZoomLevelRef.current !== null) {
+            const beforeLevel = map.getLevel();
+            console.log("🔄 줌 레벨 복원 시작:", {
+              저장된레벨: savedZoomLevelRef.current,
+              현재레벨: beforeLevel,
+              차이: savedZoomLevelRef.current - beforeLevel
+            });
+            
+            const savedLevel = savedZoomLevelRef.current;
+            savedZoomLevelRef.current = null;
+            
+            // 모든 지도 작업이 완료된 후 줌 레벨 복원
+            setTimeout(() => {
+              console.log("⏰ 지연된 줌 레벨 복원 실행");
+              const beforeRestoreLevel = map.getLevel();
+              
+              // 줌 레벨 유효성 검사 (카카오 맵은 1~14 레벨)
+              const validLevel = Math.max(1, Math.min(14, savedLevel));
+              if (validLevel !== savedLevel) {
+                console.log("⚠️ 줌 레벨 범위 조정:", {
+                  원본: savedLevel,
+                  조정됨: validLevel
+                });
+              }
+              
+              map.setLevel(validLevel);
+              
+              // 복원 후 재확인
+              setTimeout(() => {
+                const afterLevel = map.getLevel();
+                console.log("✅ 최종 줌 레벨 복원 완료:", {
+                  복원전레벨: beforeRestoreLevel,
+                  요청한레벨: validLevel,
+                  실제레벨: afterLevel,
+                  성공여부: afterLevel === validLevel
+                });
+                
+                // 만약 복원이 실패했다면 한 번 더 시도
+                if (afterLevel !== validLevel) {
+                  console.log("⚠️ 줌 레벨 복원 실패, 재시도");
+                  map.setLevel(validLevel);
+                  
+                  // 최종 확인
+                  setTimeout(() => {
+                    const finalLevel = map.getLevel();
+                    console.log("🔄 재시도 후 최종 레벨:", finalLevel);
+                  }, 50);
+                }
+              }, 100);
+            }, 200); // 200ms 지연으로 다른 모든 작업 완료 대기
+          }
+          
+          // 수동 검색 모드 해제
+          isManualSearchRef.current = false;
+          console.log("🟢 수동 검색 모드 해제:", isManualSearchRef.current);
         }
       } catch (error) {
         console.error("❌ 마커 생성 전체 오류:", error);
@@ -697,6 +883,18 @@ export default function KakaoMap({
             </Link>
           </CardContent>
         </Card>
+      )}
+
+      {/* 수동 검색 버튼 */}
+      {showSearchButton && (
+        <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-30">
+          <Button
+            onClick={handleManualSearch}
+            className="bg-[#FF5722] hover:bg-[#E64A19] text-white shadow-lg px-6 py-2 text-sm font-medium"
+          >
+            이 지역에서 검색
+          </Button>
+        </div>
       )}
 
       {/* 지도 컨트롤 */}

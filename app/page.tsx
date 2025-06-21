@@ -64,7 +64,16 @@ function HomeContent() {
       page: number = 1,
       append: boolean = false
     ) => {
-      console.log("🔍 fetchStores 호출됨:", { lat, lng, radius, page, append });
+      console.log("🔍 fetchStores 호출됨:", { 
+        lat: lat?.toFixed(8), 
+        lng: lng?.toFixed(8), 
+        rawLat: lat,
+        rawLng: lng,
+        radius, 
+        page, 
+        append,
+        timestamp: new Date().toISOString()
+      });
 
       if (!append) {
         setLoading(true);
@@ -96,6 +105,15 @@ function HomeContent() {
         }
 
         console.log("📡 API 요청 URL:", url);
+        console.log("📡 API 요청 파라미터 상세:", {
+          lat: lat,
+          lng: lng,
+          radius: radius || 5,
+          page: page,
+          limit: "20",
+          minRating,
+          categories
+        });
 
         // 타임아웃 설정 (10초)
         const controller = new AbortController();
@@ -334,18 +352,21 @@ function HomeContent() {
   // 사용자 지정 위치 설정
   const setCustomLocation = useCallback(
     (lat: number, lng: number, radius: number = 5) => {
-      console.log("📍 위치 설정 시작:", {
-        lat,
-        lng,
+      console.log("📍 수동 검색으로 위치 설정 시작:", {
+        lat: lat.toFixed(8),
+        lng: lng.toFixed(8),
+        rawLat: lat,
+        rawLng: lng,
         radius,
+        timestamp: new Date().toISOString()
       });
 
       // 위치 설정과 동시에 가게 데이터 fetch
       setUserLocation({ lat, lng });
       setCurrentPage(1);
       setHasMore(false);
-      
-      console.log("🔄 fetchStores 호출 예정...");
+
+      console.log("🔄 수동 검색 - fetchStores 호출 예정...");
       fetchStores(lat, lng, radius, undefined, undefined, 1, false);
 
       // 수동 설정 위치 정보 저장
@@ -462,11 +483,15 @@ function HomeContent() {
           <h3 className="font-semibold text-gray-900">가게 목록</h3>
           {stores.length > 0 && (
             <p className="text-sm text-gray-600 mt-1">
-              총 <span className="font-semibold text-[#FF5722]">{stores.length}</span>개의 가게
+              총{" "}
+              <span className="font-semibold text-[#FF5722]">
+                {stores.length}
+              </span>
+              개의 가게
             </p>
           )}
         </div>
-        
+
         {/* 가게 목록 */}
         <div className="flex-1 overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
           {loading ? (
@@ -488,7 +513,7 @@ function HomeContent() {
           ) : (
             <div className="pb-4">
               <MemoizedStoreList stores={stores} />
-              
+
               {/* 더보기 버튼 */}
               {hasMore && !loading && !error && (
                 <div className="p-4">
@@ -513,7 +538,15 @@ function HomeContent() {
         </div>
       </div>
     );
-  }, [loading, error, stores, hasMore, loadingMore, loadMoreStores, fetchStores]);
+  }, [
+    loading,
+    error,
+    stores,
+    hasMore,
+    loadingMore,
+    loadMoreStores,
+    fetchStores,
+  ]);
 
   // 뷰 모드별 컴포넌트 메모이제이션
   const MapView = useMemo(() => {
@@ -542,19 +575,31 @@ function HomeContent() {
           </div>
         ) : (
           <KakaoMap
-            key={userLocation ? `map-${userLocation.lat.toFixed(6)}-${userLocation.lng.toFixed(6)}` : 'map-default'}
+            key={
+              userLocation
+                ? `map-${userLocation.lat.toFixed(6)}-${userLocation.lng.toFixed(6)}`
+                : "map-default"
+            }
             stores={allStores}
             userLocation={userLocation}
             enableClustering={true}
             selectedStore={selectedStore}
             onStoreSelect={setSelectedStore}
+            onLocationChange={() => {}} // 위치 변경 시 아무 작업 안함 (자동 검색 비활성화)
+            onManualSearch={setCustomLocation} // 수동 검색 시 위치 업데이트 및 데이터 로드
             isVisible={true}
           />
         )}
       </div>
     );
-  }, [loading, error, allStores, userLocation, selectedStore]);
-
+  }, [
+    loading,
+    error,
+    allStores,
+    userLocation,
+    selectedStore,
+    setCustomLocation,
+  ]);
 
   // 온보딩 체크 중이면 로딩 화면 표시
   if (isCheckingOnboarding) {
@@ -597,7 +642,6 @@ function HomeContent() {
           onApplyFilters={handleApplyFilters}
         />
 
-
         <div className="flex flex-1 overflow-hidden">
           {/* 왼쪽 패널 - 가게 목록만 */}
           <div className="hidden lg:block w-[28rem] border-r border-gray-200 bg-white overflow-hidden">
@@ -614,16 +658,26 @@ function HomeContent() {
                     onClick={() => setIsFilterOpen(false)}
                     className="text-gray-500 hover:text-gray-700"
                   >
-                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    <svg
+                      className="w-6 h-6"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M6 18L18 6M6 6l12 12"
+                      />
                     </svg>
                   </button>
                 </div>
-                <SearchFilters 
+                <SearchFilters
                   onApplyFilters={(filters) => {
                     handleApplyFilters(filters);
                     setIsFilterOpen(false);
-                  }} 
+                  }}
                 />
               </div>
             </div>

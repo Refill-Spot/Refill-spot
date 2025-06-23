@@ -21,7 +21,7 @@ import { useGeolocation } from "@/hooks/use-geolocation";
 import { useGooglePlaces } from "@/hooks/use-google-places";
 import { useLocationSearch } from "@/hooks/use-location-search";
 import { resetOnboardingStatus } from "@/lib/onboarding-storage";
-import { LogOut, Map, User } from "lucide-react";
+import { LogOut, Map, Settings, User } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { DesktopHeader } from "./header/desktop-header";
@@ -236,6 +236,17 @@ export default function Header({
                       현재 위치로 이동
                     </button>
                   </DropdownMenuItem>
+                  {profile?.is_admin && (
+                    <DropdownMenuItem asChild>
+                      <button
+                        onClick={() => router.push("/admin/contacts")}
+                        className="w-full flex items-center text-blue-600"
+                      >
+                        <Settings className="h-4 w-4 mr-2" />
+                        관리자 페이지
+                      </button>
+                    </DropdownMenuItem>
+                  )}
                   <DropdownMenuSeparator />
                   <DropdownMenuItem asChild>
                     <button

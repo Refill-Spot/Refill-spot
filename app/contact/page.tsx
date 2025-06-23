@@ -47,35 +47,38 @@ export default function ContactPage() {
     setLoading(true);
 
     try {
-      // 실제로는 API 엔드포인트로 전송
-      // const response = await fetch('/api/contact', {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify(formData),
-      // });
-
-      // 임시로 성공 메시지 표시
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-
-      toast({
-        title: "문의가 접수되었습니다",
-        description: "빠른 시일 내에 답변드리겠습니다. 감사합니다!",
+      const response = await fetch('/api/contact', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData),
       });
 
-      // 폼 초기화
-      setFormData({
-        type: "store_registration",
-        name: "",
-        email: "",
-        phone: "",
-        storeName: "",
-        storeAddress: "",
-        message: "",
-      });
+      const data = await response.json();
+
+      if (data.success) {
+        toast({
+          title: "문의가 접수되었습니다",
+          description: "빠른 시일 내에 답변드리겠습니다. 감사합니다!",
+        });
+
+        // 폼 초기화
+        setFormData({
+          type: "store_registration",
+          name: "",
+          email: "",
+          phone: "",
+          storeName: "",
+          storeAddress: "",
+          message: "",
+        });
+      } else {
+        throw new Error(data.message || "문의 접수에 실패했습니다.");
+      }
     } catch (error) {
+      console.error("문의 접수 오류:", error);
       toast({
         title: "오류가 발생했습니다",
-        description: "문의 접수 중 오류가 발생했습니다. 다시 시도해주세요.",
+        description: error instanceof Error ? error.message : "문의 접수 중 오류가 발생했습니다. 다시 시도해주세요.",
         variant: "destructive",
       });
     } finally {
@@ -246,7 +249,7 @@ export default function ContactPage() {
           {/* 연락처 정보 */}
           <Card>
             <CardHeader>
-              <CardTitle>직접 연락</CardTitle>
+              <CardTitle>고객 지원</CardTitle>
               <CardDescription>
                 급한 문의사항이 있으시면 아래 연락처로 직접 연락해주세요.
               </CardDescription>
@@ -254,15 +257,7 @@ export default function ContactPage() {
             <CardContent className="space-y-3">
               <div className="flex items-center gap-3">
                 <Mail className="w-4 h-4 text-[#FF5722]" />
-                <span className="text-sm">contact@refillspot.com</span>
-              </div>
-              <div className="flex items-center gap-3">
-                <Phone className="w-4 h-4 text-[#FF5722]" />
-                <span className="text-sm">02-1234-5678</span>
-              </div>
-              <div className="flex items-center gap-3">
-                <MapPin className="w-4 h-4 text-[#FF5722]" />
-                <span className="text-sm">서울시 강남구 테헤란로 123</span>
+                <span className="text-sm">refillspot@gmail.com</span>
               </div>
             </CardContent>
           </Card>

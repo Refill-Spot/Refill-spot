@@ -2,6 +2,7 @@
 
 import { useToast } from "@/components/ui/use-toast";
 import { useTranslation } from "@/hooks/use-translation";
+import { authLogger } from "@/lib/logger";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { AuthError, User } from "@supabase/supabase-js";
 import { useRouter } from "next/navigation";
@@ -76,7 +77,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             }
           }
         } catch (error) {
-          console.error("프로필 데이터 로드 오류:", error);
+          authLogger.error("Profile data loading failed", error);
         }
       } else {
         setProfile(null);
@@ -100,7 +101,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           await loadUserData(session.user);
         }
       } catch (error) {
-        console.error("인증 초기화 오류:", error);
+        authLogger.error("Authentication initialization failed", error);
       } finally {
         setLoading(false);
       }
@@ -111,7 +112,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // 인증 상태 변경 구독
     const { data: authListener } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        console.log("Auth state changed:", event, session?.user?.email);
+        authLogger.debug("Auth state changed", { 
+          event, 
+          userEmail: session?.user?.email 
+        });
 
         const user = session?.user || null;
         setUser(user);

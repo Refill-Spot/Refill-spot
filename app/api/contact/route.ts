@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
 import { apiResponse } from "@/lib/api-response";
 import { checkAdminAccessForAPI } from "@/lib/auth-utils";
+import { apiLogger } from "@/lib/logger";
 import type { Database } from "@/types/supabase";
 
 type ContactInsert = Database["public"]["Tables"]["contacts"]["Insert"];
@@ -57,7 +58,7 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (error) {
-      console.error("문의사항 저장 오류:", error);
+      apiLogger.error("Contact save failed", error);
       return apiResponse.error("문의사항 저장 중 오류가 발생했습니다.", 500);
     }
 
@@ -69,7 +70,7 @@ export async function POST(request: NextRequest) {
       201
     );
   } catch (error) {
-    console.error("문의사항 API 오류:", error);
+    apiLogger.error("Contact API error", error);
     return apiResponse.error("서버 오류가 발생했습니다.", 500);
   }
 }

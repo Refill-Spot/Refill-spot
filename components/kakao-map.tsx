@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/components/ui/use-toast";
 import { useGeolocation } from "@/hooks/use-geolocation";
+import { mapLogger } from "@/lib/logger";
 import { Store } from "@/types/store";
 import { MapPin, Star, X } from "lucide-react";
 import Link from "next/link";
@@ -40,7 +41,7 @@ export default function KakaoMap({
   onManualSearch,
   isVisible = true,
 }: KakaoMapProps) {
-  console.log("🗺️ KakaoMap 컴포넌트 렌더링:", {
+  mapLogger.debug("KakaoMap component rendering", {
     storeCount: stores.length,
     userLocation,
     isVisible,

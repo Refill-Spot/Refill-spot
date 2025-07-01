@@ -98,6 +98,9 @@ export const withTimeout = async <T>(
 };
 
 /**
+ * @deprecated 이 함수는 더 이상 사용되지 않습니다.
+ * 대신 hooks/use-geolocation.ts의 useGeolocation 훅을 사용하세요.
+ *
  * 위치 정보 가져오기 (타임아웃 포함)
  *
  * @param options 위치 정보 옵션

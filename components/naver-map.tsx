@@ -1,15 +1,15 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback } from "react";
-import { MapPin, Star } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import Script from "next/script";
-import { Store } from "@/types/store";
-import Link from "next/link";
-import { useToast } from "@/hooks/use-toast";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { useToast } from "@/components/ui/use-toast";
 import { useTranslation } from "@/hooks/use-translation";
+import { Store } from "@/types/store";
+import { MapPin, Star } from "lucide-react";
+import Link from "next/link";
+import Script from "next/script";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 declare global {
   interface Window {
@@ -300,7 +300,8 @@ export default function NaverMap({
         marker.set("data", store);
 
         // 마커 클릭 이벤트
-        window.naver.maps.Event.addListener(marker, "click", () => {
+        window.naver.maps.Event.addListener(marker, "click", (e: any) => {
+          e.stopPropagation();
           setSelectedStore(store);
           map.panTo(markerPosition);
         });
@@ -351,10 +352,20 @@ export default function NaverMap({
         const markerEl = target.closest(".store-marker") as HTMLElement;
 
         if (markerEl) {
+          e.stopPropagation();
           const storeId = Number(markerEl.dataset.storeId);
           const store = stores.find((s) => s.id === storeId);
           if (store) {
             setSelectedStore(store);
+            // 지도 중심을 해당 가게로 이동
+            if (map) {
+              map.panTo(
+                new window.naver.maps.LatLng(
+                  store.position.lat,
+                  store.position.lng
+                )
+              );
+            }
           }
         }
       };

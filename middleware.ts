@@ -44,8 +44,38 @@ export async function middleware(request: NextRequest) {
   // 인증이 필요한 경로 (예: 프로필, 즐겨찾기)
   const authRequiredPaths = ["/profile", "/favorites"];
 
+  // 관리자 권한이 필요한 경로
+  const adminRequiredPaths = ["/admin"];
+
   // 로그인 상태에서 접근 불가능한 경로 (로그인, 회원가입)
   const publicOnlyPaths = ["/login", "/register", "/forgot-password"];
+
+  // 관리자 경로 접근 제어
+  if (adminRequiredPaths.some((path) => pathname.startsWith(path))) {
+    if (!session) {
+      const redirectUrl = new URL("/login", request.url);
+      redirectUrl.searchParams.set("next", pathname);
+      return NextResponse.redirect(redirectUrl);
+    }
+
+    // 관리자 권한 확인
+    try {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("role, is_admin")
+        .eq("id", session.user.id)
+        .single();
+
+      const isAdmin = profile?.is_admin === true || profile?.role === "admin";
+      
+      if (!isAdmin) {
+        return NextResponse.redirect(new URL("/unauthorized", request.url));
+      }
+    } catch (error) {
+      console.error("관리자 권한 확인 오류:", error);
+      return NextResponse.redirect(new URL("/unauthorized", request.url));
+    }
+  }
 
   // 인증이 필요한 경로이나 로그인하지 않은 경우
   if (authRequiredPaths.some((path) => pathname.startsWith(path)) && !session) {

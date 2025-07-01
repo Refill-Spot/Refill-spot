@@ -1,9 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   Card,
   CardContent,
@@ -12,14 +10,15 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useToast } from "@/components/ui/use-toast";
 import { supabaseBrowser } from "@/lib/supabase/client";
-import { toast } from "@/components/ui/use-toast";
-import { useToast } from "@/hooks/use-toast";
-import { Lock, AlertCircle, CheckCircle } from "lucide-react";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { AlertCircle, CheckCircle, Lock } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useState, Suspense } from "react";
 
-export default function ResetPasswordPage() {
+function ResetPasswordContent() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -29,8 +28,34 @@ export default function ResetPasswordPage() {
     score: number;
     message: string;
   }>({ score: 0, message: "" });
+  const [resetCode, setResetCode] = useState<string | null>(null);
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { toast } = useToast();
+
+  // 페이지 로드시 코드 파라미터 확인 및 자동 로그아웃 처리
+  useEffect(() => {
+    const initializeReset = async () => {
+      const code = searchParams.get("code");
+      
+      if (code) {
+        // 코드가 있으면 즉시 로그아웃하여 자동 로그인 방지
+        try {
+          await supabaseBrowser.auth.signOut();
+          console.log("비밀번호 재설정을 위해 자동 로그아웃 처리됨");
+        } catch (err) {
+          console.error("로그아웃 처리 중 오류:", err);
+        }
+        
+        setResetCode(code);
+      } else {
+        // 코드가 없으면 비밀번호 재설정 링크가 잘못된 것
+        setError("유효하지 않은 비밀번호 재설정 링크입니다.");
+      }
+    };
+
+    initializeReset();
+  }, [searchParams]);
 
   // 비밀번호 강도 체크
   const checkPasswordStrength = (password: string) => {
@@ -79,6 +104,13 @@ export default function ResetPasswordPage() {
     setError(null);
     setLoading(true);
 
+    // 코드가 없으면 처리 중단
+    if (!resetCode) {
+      setError("유효하지 않은 비밀번호 재설정 링크입니다.");
+      setLoading(false);
+      return;
+    }
+
     // 비밀번호 일치 확인
     if (password !== confirmPassword) {
       setError("비밀번호가 일치하지 않습니다.");
@@ -94,23 +126,31 @@ export default function ResetPasswordPage() {
     }
 
     try {
-      const { error } = await supabaseBrowser.auth.updateUser({
+      // 먼저 코드를 사용하여 세션 생성 (이제 로그인됨)
+      const { data: sessionData, error: sessionError } = await supabaseBrowser.auth.exchangeCodeForSession(resetCode);
+      
+      if (sessionError) {
+        throw new Error("비밀번호 재설정 링크가 만료되었거나 유효하지 않습니다.");
+      }
+
+      // 세션이 생성된 후 비밀번호 업데이트
+      const { error: updateError } = await supabaseBrowser.auth.updateUser({
         password: password,
       });
 
-      if (error) {
-        throw error;
+      if (updateError) {
+        throw updateError;
       }
 
       setSuccess(true);
       toast({
         title: "비밀번호 변경 성공",
-        description: "비밀번호가 성공적으로 변경되었습니다.",
+        description: "비밀번호가 성공적으로 변경되었습니다. 새 비밀번호로 로그인되었습니다.",
       });
 
-      // 3초 후 로그인 페이지로 이동
+      // 3초 후 홈페이지로 이동 (이미 로그인된 상태)
       setTimeout(() => {
-        router.push("/login");
+        router.push("/");
       }, 3000);
     } catch (err: any) {
       console.error("비밀번호 재설정 에러:", err);
@@ -167,6 +207,17 @@ export default function ResetPasswordPage() {
                 <AlertCircle className="h-4 w-4" />
                 <AlertTitle>오류</AlertTitle>
                 <AlertDescription>{error}</AlertDescription>
+                {error.includes("유효하지 않은") && (
+                  <div className="mt-3">
+                    <Button
+                      onClick={() => router.push("/forgot-password")}
+                      variant="outline"
+                      size="sm"
+                    >
+                      새 비밀번호 재설정 요청
+                    </Button>
+                  </div>
+                )}
               </Alert>
             )}
 
@@ -177,11 +228,11 @@ export default function ResetPasswordPage() {
                   비밀번호 변경 완료
                 </AlertTitle>
                 <AlertDescription className="text-green-600">
-                  비밀번호가 성공적으로 변경되었습니다. 잠시 후 로그인 페이지로
+                  비밀번호가 성공적으로 변경되었습니다. 새 비밀번호로 로그인되었습니다. 잠시 후 홈페이지로
                   이동합니다.
                 </AlertDescription>
               </Alert>
-            ) : (
+            ) : resetCode && !error ? (
               <form onSubmit={handleResetPassword}>
                 <div className="space-y-4">
                   <div className="space-y-2">
@@ -209,10 +260,10 @@ export default function ResetPasswordPage() {
                                   ? score === 1
                                     ? "bg-red-500"
                                     : score === 2
-                                    ? "bg-orange-500"
-                                    : score === 3
-                                    ? "bg-yellow-500"
-                                    : "bg-green-500"
+                                      ? "bg-orange-500"
+                                      : score === 3
+                                        ? "bg-yellow-500"
+                                        : "bg-green-500"
                                   : "bg-gray-200"
                               }`}
                             />
@@ -259,15 +310,29 @@ export default function ResetPasswordPage() {
                   </Button>
                 </div>
               </form>
+            ) : (
+              !resetCode && !error && (
+                <div className="text-center text-gray-500">
+                  비밀번호 재설정 링크를 확인 중입니다...
+                </div>
+              )
             )}
           </CardContent>
           <CardFooter className="flex justify-center">
-            <p className="text-xs text-gray-500">
-              Refill Spot &copy; {new Date().getFullYear()}
-            </p>
+            <div className="text-center text-sm text-gray-500 mt-8">
+              Refill-spot &copy; {new Date().getFullYear()}
+            </div>
           </CardFooter>
         </Card>
       </div>
     </div>
+  );
+}
+
+export default function ResetPasswordPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-[#F5F5F5]">Loading...</div>}>
+      <ResetPasswordContent />
+    </Suspense>
   );
 }

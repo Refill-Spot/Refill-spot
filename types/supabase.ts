@@ -13,16 +13,22 @@ export interface Database {
         Row: {
           id: string;
           username: string;
+          role: "user" | "admin";
+          is_admin: boolean;
           updated_at: string;
         };
         Insert: {
           id: string;
           username: string;
+          role?: "user" | "admin";
+          is_admin?: boolean;
           updated_at?: string;
         };
         Update: {
           id?: string;
           username?: string;
+          role?: "user" | "admin";
+          is_admin?: boolean;
           updated_at?: string;
         };
         Relationships: [
@@ -214,6 +220,47 @@ export interface Database {
             referencedColumns: ["id"];
           }
         ];
+      };
+      contacts: {
+        Row: {
+          id: number;
+          type: "store_registration" | "inquiry" | "feedback";
+          name: string;
+          email: string;
+          phone: string | null;
+          store_name: string | null;
+          store_address: string | null;
+          message: string;
+          status: "pending" | "in_progress" | "completed" | "closed";
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: number;
+          type: "store_registration" | "inquiry" | "feedback";
+          name: string;
+          email: string;
+          phone?: string | null;
+          store_name?: string | null;
+          store_address?: string | null;
+          message: string;
+          status?: "pending" | "in_progress" | "completed" | "closed";
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: number;
+          type?: "store_registration" | "inquiry" | "feedback";
+          name?: string;
+          email?: string;
+          phone?: string | null;
+          store_name?: string | null;
+          store_address?: string | null;
+          message?: string;
+          status?: "pending" | "in_progress" | "completed" | "closed";
+          created_at?: string;
+          updated_at?: string;
+        };
       };
     };
   };

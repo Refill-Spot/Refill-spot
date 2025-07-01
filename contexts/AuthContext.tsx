@@ -1,22 +1,23 @@
 "use client";
 
+import { useToast } from "@/components/ui/use-toast";
+import { useTranslation } from "@/hooks/use-translation";
+import { authLogger } from "@/lib/logger";
+import { supabaseBrowser } from "@/lib/supabase/client";
+import { AuthError, User } from "@supabase/supabase-js";
+import { useRouter } from "next/navigation";
 import {
   createContext,
-  useContext,
-  useState,
-  useEffect,
   ReactNode,
   useCallback,
+  useContext,
+  useEffect,
+  useState,
 } from "react";
-import { User, AuthError } from "@supabase/supabase-js";
-import { supabaseBrowser } from "@/lib/supabase/client";
-import { useRouter } from "next/navigation";
-import { useToast } from "@/hooks/use-toast";
-import { useTranslation } from "@/hooks/use-translation";
 
 type AuthContextType = {
   user: User | null;
-  profile: { username: string } | null;
+  profile: { username: string; role?: string; is_admin?: boolean } | null;
   loading: boolean;
   signUp: (
     email: string,
@@ -39,7 +40,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  const [profile, setProfile] = useState<{ username: string } | null>(null);
+  const [profile, setProfile] = useState<{ username: string; role?: string; is_admin?: boolean } | null>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
   const { toast } = useToast();
@@ -53,7 +54,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         try {
           const { data, error } = await supabase
             .from("profiles")
-            .select("username")
+            .select("username, role, is_admin")
             .eq("id", user.id)
             .single();
 
@@ -72,11 +73,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               });
 
             if (!createError) {
-              setProfile({ username });
+              setProfile({ username, role: 'user', is_admin: false });
             }
           }
         } catch (error) {
-          console.error("프로필 데이터 로드 오류:", error);
+          authLogger.error("Profile data loading failed", error);
         }
       } else {
         setProfile(null);
@@ -100,7 +101,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           await loadUserData(session.user);
         }
       } catch (error) {
-        console.error("인증 초기화 오류:", error);
+        authLogger.error("Authentication initialization failed", error);
       } finally {
         setLoading(false);
       }
@@ -111,7 +112,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // 인증 상태 변경 구독
     const { data: authListener } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        console.log("Auth state changed:", event, session?.user?.email);
+        authLogger.debug("Auth state changed", { 
+          event, 
+          userEmail: session?.user?.email 
+        });
 
         const user = session?.user || null;
         setUser(user);
@@ -303,7 +307,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .eq("id", user.id);
 
       if (!error) {
-        setProfile({ username: data.username });
+        setProfile(prev => prev ? { ...prev, username: data.username } : { username: data.username });
         toast({
           title: "프로필 업데이트 완료",
           description: "프로필이 성공적으로 업데이트되었습니다.",

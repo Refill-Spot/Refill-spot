@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { useFetchStores, StoreFilters } from "./use-stores";
-import { useToast } from "@/hooks/use-toast";
+import { useToast } from "@/components/ui/use-toast";
 import { useTranslation } from "@/hooks/use-translation";
-import { extractFiltersFromURL, filtersToURLParams } from "@/lib/api-utils";
+import { extractFiltersFromURL } from "@/lib/api-utils";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { StoreFilters, useFetchStores } from "./use-stores";
 
 export function useMapView() {
   const [userLocation, setUserLocation] = useState<{

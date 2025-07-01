@@ -8,6 +8,19 @@ export async function GET(request: NextRequest) {
 
   if (code) {
     try {
+      // 비밀번호 재설정 플로우인지 확인
+      const isPasswordReset = redirectTo.includes("/reset-password") || 
+                              requestUrl.searchParams.get("type") === "recovery";
+      
+      if (isPasswordReset) {
+        // 비밀번호 재설정의 경우 세션을 생성하지 않고 바로 리다이렉트
+        // 코드를 URL 파라미터로 전달하여 reset-password 페이지에서 처리
+        const resetUrl = new URL(redirectTo, request.url);
+        resetUrl.searchParams.set("code", code);
+        return NextResponse.redirect(resetUrl);
+      }
+
+      // 일반 OAuth 로그인의 경우 기존 로직 수행
       // 응답 객체를 먼저 생성
       const response = NextResponse.redirect(new URL(redirectTo, request.url));
 

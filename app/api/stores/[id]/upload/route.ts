@@ -1,12 +1,13 @@
+import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { NextRequest, NextResponse } from "next/server";
 import { v4 as uuidv4 } from "uuid";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const storeId = params.id;
+  const { id } = await params;
+  const storeId = id;
   try {
     const supabase = await createServerSupabaseClient();
 

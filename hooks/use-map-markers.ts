@@ -243,7 +243,6 @@ export function useMapMarkers({
     stores,
     provider,
     enableClustering,
-    setupClusteringEffect,
     memoizedMarkers,
   ]);
 

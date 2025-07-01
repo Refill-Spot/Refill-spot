@@ -6,11 +6,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Slider } from "@/components/ui/slider";
+import { useToast } from "@/components/ui/use-toast";
+import { useGeolocation } from "@/hooks/use-geolocation";
 import { StoreFilters } from "@/hooks/use-stores";
-import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from "@/hooks/use-translation";
 import { filtersToURLParams } from "@/lib/api-utils";
-import { getCurrentPosition } from "@/lib/geo";
 import { useStoreStore } from "@/lib/store";
 import {
   Beef,
@@ -42,6 +42,7 @@ export default function SearchFilters({
     updateFilters,
     resetFilters: resetStoreFilters,
   } = useStoreStore();
+  const geolocation = useGeolocation();
 
   // 필터 상태 관리
   const [radius, setRadius] = useState([
@@ -164,8 +165,8 @@ export default function SearchFilters({
     }
   }, [
     searchParams,
-    categories,
-    radius,
+    Object.values(categories).join(","),
+    radius.join(","),
     minRating,
     searchQuery,
     onApplyFilters,
@@ -180,23 +181,20 @@ export default function SearchFilters({
 
   const handleCurrentLocation = async () => {
     try {
-      const position = await getCurrentPosition();
-      const { latitude, longitude } = position.coords;
+      const coordinates = await geolocation.getCurrentPosition({
+        showToast: true,
+        customSuccessMessage:
+          t("location_filter_applied") || "위치 기반 필터가 적용되었습니다.",
+      });
 
       // 위치 정보를 필터에 포함시켜 적용
-      handleApplyFilters({ latitude, longitude });
-
-      toast({
-        title: t("location_detected"),
-        description: t("location_filter_applied"),
+      handleApplyFilters({
+        latitude: coordinates.lat,
+        longitude: coordinates.lng,
       });
     } catch (error) {
       console.error("위치 정보 오류:", error);
-      toast({
-        title: t("location_error"),
-        description: t("location_error_description"),
-        variant: "destructive",
-      });
+      // 에러는 useGeolocation 훅에서 이미 처리됨
     }
   };
 

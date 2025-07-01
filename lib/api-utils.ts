@@ -1,6 +1,5 @@
 import { StoreFilters } from "@/hooks/use-stores";
 import { fetchWithTimeout } from "@/lib/timeout-utils";
-import { Store } from "@/types/store";
 
 /**
  * 가게 데이터를 필터링하여 가져오는 함수
@@ -18,53 +17,9 @@ export const fetchFilteredStores = async (filters: StoreFilters) => {
     });
 
     if (!response.ok) {
-      console.log(
-        `기본 필터 API 오류: ${response.status}. 백업 API 시도 중...`
-      );
-      return await fetchBackupFilteredStores(filters);
-    }
-
-    const data = await response.json();
-
-    if (data.error) {
-      console.log(
-        `기본 필터 API 데이터 오류: ${data.error.message}. 백업 API 시도 중...`
-      );
-      return await fetchBackupFilteredStores(filters);
-    }
-
-    // 데이터가 없거나 배열이 아닌 경우 빈 배열 반환
-    if (!data.data || !Array.isArray(data.data)) {
-      console.warn("API 응답 데이터가 올바른 형식이 아닙니다:", data);
-      return [];
-    }
-
-    return data.data;
-  } catch (error) {
-    console.error("필터링 API 호출 실패, 백업 API 시도 중...", error);
-    return await fetchBackupFilteredStores(filters);
-  }
-};
-
-/**
- * 백업 API를 사용하여 가게 데이터를 필터링하여 가져오는 함수
- * @param filters 필터 옵션 (sort 포함)
- * @returns 필터링된 가게 데이터
- */
-export const fetchBackupFilteredStores = async (filters: StoreFilters) => {
-  try {
-    const response = await fetchWithTimeout("/api/stores/backup-filter", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(filters),
-    });
-
-    if (!response.ok) {
-      const data = await response.json();
+      const errorData = await response.json().catch(() => ({}));
       throw new Error(
-        data.error?.message || `백업 API HTTP 오류! 상태: ${response.status}`
+        errorData.error?.message || `HTTP error! status: ${response.status}`
       );
     }
 
@@ -76,14 +31,14 @@ export const fetchBackupFilteredStores = async (filters: StoreFilters) => {
 
     // 데이터가 없거나 배열이 아닌 경우 빈 배열 반환
     if (!data.data || !Array.isArray(data.data)) {
-      console.warn("백업 API 응답 데이터가 올바른 형식이 아닙니다:", data);
+      console.warn("API 응답 데이터가 올바른 형식이 아닙니다:", data);
       return [];
     }
 
     return data.data;
   } catch (error) {
-    console.error("백업 API 호출도 실패:", error);
-    throw error; // 백업 API도 실패하면 에러 전파
+    console.error("필터링 API 호출 실패:", error);
+    throw error;
   }
 };
 

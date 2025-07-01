@@ -5,19 +5,17 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Slider } from "@/components/ui/slider";
+import { useGeolocation } from "@/hooks/use-geolocation";
 import { useTranslation } from "@/hooks/use-translation";
 import {
   Beef,
   Coffee,
   Fish,
-  Info,
-  MessageCircle,
   Pizza,
   Soup,
   Star,
   Utensils,
 } from "lucide-react";
-import Link from "next/link";
 import React, { memo, useCallback, useState } from "react";
 
 // 필터 타입 정의
@@ -74,6 +72,7 @@ CategoryCheckbox.displayName = "CategoryCheckbox";
 
 function Sidebar({ onApplyFilters, userLocation }: SidebarProps) {
   const { t } = useTranslation();
+  const geolocation = useGeolocation();
   const [radius, setRadius] = useState([3]);
   const [minRating, setMinRating] = useState(0);
   const [categories, setCategories] = useState({
@@ -97,7 +96,7 @@ function Sidebar({ onApplyFilters, userLocation }: SidebarProps) {
     []
   );
 
-  const handleApplyFilters = useCallback(() => {
+  const handleApplyFilters = useCallback(async () => {
     const selectedCategories = Object.entries(categories)
       .filter(([_, isSelected]) => isSelected)
       .map(([category]) => category);
@@ -114,32 +113,39 @@ function Sidebar({ onApplyFilters, userLocation }: SidebarProps) {
       });
     } else {
       // GPS로 현재 위치 가져오기
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const { latitude, longitude } = position.coords;
+      try {
+        const coordinates = await geolocation.getCurrentPosition({
+          showToast: false, // 필터 적용시에는 조용히 처리
+          timeout: 5000,
+        });
 
-          // 필터 적용
-          onApplyFilters({
-            categories: selectedCategories,
-            maxDistance: radius[0],
-            minRating: minRating,
-            latitude,
-            longitude,
-          });
-        },
-        (error) => {
-          console.error("위치 정보를 가져올 수 없습니다:", error);
+        // 필터 적용
+        onApplyFilters({
+          categories: selectedCategories,
+          maxDistance: radius[0],
+          minRating: minRating,
+          latitude: coordinates.lat,
+          longitude: coordinates.lng,
+        });
+      } catch (error) {
+        console.error("위치 정보를 가져올 수 없습니다:", error);
 
-          // 위치 정보 없이 필터 적용
-          onApplyFilters({
-            categories: selectedCategories,
-            maxDistance: radius[0],
-            minRating: minRating,
-          });
-        }
-      );
+        // 위치 정보 없이 필터 적용
+        onApplyFilters({
+          categories: selectedCategories,
+          maxDistance: radius[0],
+          minRating: minRating,
+        });
+      }
     }
-  }, [categories, radius, minRating, onApplyFilters, userLocation]);
+  }, [
+    categories,
+    radius,
+    minRating,
+    onApplyFilters,
+    userLocation,
+    geolocation,
+  ]);
 
   const handleResetFilters = useCallback(() => {
     setRadius([3]);
@@ -213,27 +219,6 @@ function Sidebar({ onApplyFilters, userLocation }: SidebarProps) {
 
   return (
     <div className="p-4 h-full bg-white">
-      {/* 네비게이션 섹션 */}
-      <div className="mb-6">
-        <h2 className="text-lg font-bold text-[#333333] mb-3">메뉴</h2>
-        <div className="space-y-2">
-          <Link href="/onboarding">
-            <Button variant="ghost" className="w-full justify-start text-left">
-              <Info className="h-4 w-4 mr-2 text-[#2196F3]" />
-              서비스 소개
-            </Button>
-          </Link>
-          <Link href="/contact">
-            <Button variant="ghost" className="w-full justify-start text-left">
-              <MessageCircle className="h-4 w-4 mr-2 text-[#4CAF50]" />
-              문의하기
-            </Button>
-          </Link>
-        </div>
-      </div>
-
-      <Separator className="mb-6" />
-
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-lg font-bold text-[#333333]">필터</h2>
         <Button

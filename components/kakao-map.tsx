@@ -874,9 +874,6 @@ export default function KakaoMap({
                 </div>
               </div>
             </div>
-            <p className="text-xs text-gray-500 mt-2 line-clamp-2">
-              {selectedStore.description || "설명이 없습니다."}
-            </p>
             <Link href={`/store/${selectedStore.id}`}>
               <Button className="w-full mt-3 bg-[#FF5722] hover:bg-[#E64A19]">
                 상세 보기

@@ -5,7 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { getUserLocation, isLocationValid } from "@/lib/location-storage";
 import { Store } from "@/types/store";
-import { MapPin, Utensils } from "lucide-react";
+import { MapPin } from "lucide-react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { memo, useState } from "react";
@@ -105,7 +105,7 @@ function StoreList({ stores = [] }: StoreListProps) {
                         </address>
                       </div>
 
-                      <div className="flex items-center justify-between mt-2">
+                      <div className="mt-2">
                         <div
                           className="flex flex-wrap gap-1"
                           aria-label="카테고리"
@@ -127,16 +127,6 @@ function StoreList({ stores = [] }: StoreListProps) {
                             </span>
                           )}
                         </div>
-
-                        {store.refillItems && store.refillItems.length > 0 && (
-                          <div className="flex items-center gap-1 text-sm text-gray-500">
-                            <Utensils className="h-4 w-4 text-[#FF5722]" />
-                            <span className="line-clamp-1">
-                              {store.refillItems.slice(0, 2).join(", ")}
-                              {store.refillItems.length > 2 ? "..." : ""}
-                            </span>
-                          </div>
-                        )}
                       </div>
                     </CardContent>
                   </div>

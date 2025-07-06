@@ -1,16 +1,21 @@
-import { runStoreHealthCheck } from "@/lib/store-health-check";
-import { NextRequest, NextResponse } from "next/server";
+import { createRouteHandlerSupabaseClient } from '@/lib/supabase/server';
+import { type NextRequest, NextResponse } from 'next/server';
+import { logger } from '@/lib/logger';
 
 export async function GET(request: NextRequest) {
-  try {
-    const data = await runStoreHealthCheck();
-    return NextResponse.json({ success: true, data });
-  } catch (error: any) {
-    console.error("테스트 API 오류:", error);
-    return NextResponse.json({
-      success: false,
-      error: "테스트 실행 중 오류 발생",
-      details: error.message || error,
-    });
+  logger.info('Running test to fetch Gangnam stores...');
+  const supabase = createRouteHandlerSupabaseClient(request);
+
+  const { data, error } = await supabase
+    .from('stores')
+    .select('*')
+    .like('address', '%강남구%');
+
+  if (error) {
+    logger.error('Error fetching Gangnam stores:', error);
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
+
+  logger.info(`Found ${data.length} stores in Gangnam-gu.`);
+  return NextResponse.json({ stores: data });
 }

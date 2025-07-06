@@ -11,9 +11,8 @@ export interface StoreFromDb {
   position_x: number;
   position_y: number;
   refill_items: string[] | null;
-  description: string | null;
   open_hours: string | null;
-  price: string | null;
+  phone_number: string | null;
   categories: Array<{ category: { name: string } }>;
   image_urls?: string[] | null;
   [key: string]: any;
@@ -37,9 +36,8 @@ export interface Store {
     y: number;
   };
   refillItems: string[] | null;
-  description: string | null;
   openHours: string | null;
-  price: string | null;
+  phoneNumber: string | null;
   imageUrls?: string[] | null;
 }
 

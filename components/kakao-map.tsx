@@ -624,7 +624,7 @@ export default function KakaoMap({
           isManualSearch: isManualSearchRef.current
         });
         
-        if (stores.length > 1 && !isManualSearchRef.current) {
+        if (stores.length > 0 && !isManualSearchRef.current) {
           const bounds = new window.kakao.maps.LatLngBounds();
 
           // 사용자 위치가 있으면 포함

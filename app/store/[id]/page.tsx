@@ -8,9 +8,14 @@ import { getUserLocation, isLocationValid } from "@/lib/location-storage";
 import { Store } from "@/types/store";
 import {
   ArrowLeft,
+  ChevronDown,
+  ChevronUp,
   Clock,
   ExternalLink,
+  Heart,
   MapPin,
+  Phone,
+  Share,
   Star,
   Utensils,
 } from "lucide-react";
@@ -23,6 +28,7 @@ export default function StorePage() {
   const { toast } = useToast();
   const [store, setStore] = useState<Store | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showAllHours, setShowAllHours] = useState(false);
 
   useEffect(() => {
     const fetchStore = async () => {
@@ -147,149 +153,288 @@ export default function StorePage() {
       </div>
 
       {/* 메인 콘텐츠 */}
-      <div className="max-w-4xl mx-auto px-4 py-6">
+      <div className="max-w-4xl mx-auto">
         <div className="space-y-6">
-          {/* 기본 정보 카드 */}
-          <Card>
-            <CardHeader>
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <CardTitle className="text-2xl text-gray-900 mb-2">
-                    {store.name}
-                  </CardTitle>
-                  <div className="flex items-center gap-2 text-gray-600 mb-3">
-                    <MapPin className="w-4 h-4" />
-                    <span className="text-sm">{store.address}</span>
-                  </div>
+          {/* 가게 메인 이미지 - 다이닝코드 스타일 */}
+          <div className="relative w-full h-80 md:h-96 bg-gray-100 overflow-hidden">
+            {store.imageUrls && store.imageUrls.length > 0 ? (
+              <img
+                src={store.imageUrls[0]}
+                alt={`${store.name} 대표 사진`}
+                className="w-full h-full object-cover"
+                onError={(e) => {
+                  const target = e.target as HTMLImageElement;
+                  target.style.display = 'none';
+                  const parent = target.parentElement;
+                  if (parent) {
+                    parent.innerHTML = `
+                      <div class="w-full h-full flex items-center justify-center text-gray-400 bg-gray-100">
+                        <div class="text-center">
+                          <svg class="w-16 h-16 mx-auto mb-2" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clip-rule="evenodd" />
+                          </svg>
+                          <p class="text-sm">이미지를 불러올 수 없습니다</p>
+                        </div>
+                      </div>
+                    `;
+                  }
+                }}
+              />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center text-gray-400 bg-gray-100">
+                <div className="text-center">
+                  <svg className="w-16 h-16 mx-auto mb-2" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd" />
+                  </svg>
+                  <p className="text-sm">이미지를 불러올 수 없습니다</p>
+                </div>
+              </div>
+            )}
+            
+            {/* 오버레이 그라데이션 */}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent"></div>
+            
+            {/* 상단 액션 버튼들 */}
+            <div className="absolute top-4 right-4 flex gap-2">
+              <Button
+                variant="secondary"
+                size="sm"
+                className="bg-white/90 text-gray-700 hover:bg-white"
+              >
+                <Heart className="w-4 h-4 mr-1" />
+                저장
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                className="bg-white/90 text-gray-700 hover:bg-white"
+              >
+                <Share className="w-4 h-4 mr-1" />
+                공유
+              </Button>
+            </div>
+            
+            {/* 하단 가게 정보 오버레이 */}
+            <div className="absolute bottom-0 left-0 right-0 p-6 text-white">
+              <div className="max-w-4xl mx-auto">
+                <h1 className="text-3xl font-bold mb-2">{store.name}</h1>
+                
+                {/* 평점 정보 */}
+                <div className="flex items-center gap-4 mb-3">
+                  {(store.rating.naver > 0 || store.rating.kakao > 0) && (
+                    <div className="flex items-center gap-2">
+                      <Star className="w-5 h-5 text-yellow-400 fill-current" />
+                      <span className="text-lg font-semibold">
+                        {store.rating.naver > 0 ? store.rating.naver : store.rating.kakao}
+                      </span>
+                      <span className="text-white/80 text-sm">
+                        ({store.rating.naver > 0 ? '네이버' : '카카오'} 평점)
+                      </span>
+                    </div>
+                  )}
                   {store.distance && (
-                    <div className="text-sm text-[#FF5722] font-medium">
+                    <div className="text-white/80 text-sm">
                       현재 위치에서 {store.distance}km
                     </div>
                   )}
                 </div>
-                <Button
-                  onClick={handleViewInNaverMap}
-                  className="bg-[#03C75A] hover:bg-[#02B351] text-white"
-                >
-                  <ExternalLink className="w-4 h-4 mr-2" />
-                  지도로 보기
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent>
-              {/* 카테고리 */}
-              <div className="flex flex-wrap gap-2 mb-4">
-                {store.categories.map((category, index) => (
-                  <Badge key={index} variant="secondary">
-                    {category}
-                  </Badge>
-                ))}
-              </div>
-
-              {/* 평점 */}
-              <div className="flex items-center gap-4 mb-4">
-                {store.rating.naver > 0 && (
-                  <div className="flex items-center gap-1">
-                    <Star className="w-4 h-4 text-yellow-500 fill-current" />
-                    <span className="text-sm font-medium">
-                      네이버 {store.rating.naver}
-                    </span>
-                  </div>
-                )}
-                {store.rating.kakao > 0 && (
-                  <div className="flex items-center gap-1">
-                    <Star className="w-4 h-4 text-yellow-500 fill-current" />
-                    <span className="text-sm font-medium">
-                      카카오 {store.rating.kakao}
-                    </span>
-                  </div>
-                )}
-              </div>
-
-              {/* 설명 */}
-              {store.description && (
-                <div className="mb-4">
-                  <p className="text-gray-700 text-sm leading-relaxed">
-                    {store.description}
-                  </p>
+                
+                {/* 주소 */}
+                <div className="flex items-center gap-2 mb-3">
+                  <MapPin className="w-4 h-4 text-white/80" />
+                  <span className="text-white/90 text-sm">{store.address}</span>
                 </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* 무한리필 메뉴 */}
-          {store.refillItems && store.refillItems.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Utensils className="w-5 h-5 text-[#FF5722]" />
-                  무한리필 메뉴
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                  {store.refillItems.map((item, index) => (
-                    <Badge
+                
+                {/* 카테고리 태그 */}
+                <div className="flex flex-wrap gap-2">
+                  {store.categories.map((category, index) => (
+                    <span
                       key={index}
-                      variant="outline"
-                      className="justify-center py-2"
+                      className="px-2 py-1 bg-white/20 text-white text-xs rounded-full"
                     >
-                      {item}
-                    </Badge>
+                      #{category}
+                    </span>
                   ))}
+                  {store.refillItems && store.refillItems.length > 0 && (
+                    <span className="px-2 py-1 bg-[#FF5722]/80 text-white text-xs rounded-full">
+                      #무한리필
+                    </span>
+                  )}
                 </div>
-              </CardContent>
-            </Card>
-          )}
+              </div>
+            </div>
+          </div>
 
           {/* 운영 정보 */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Clock className="w-5 h-5 text-[#FF5722]" />
-                운영 정보
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {store.openHours && (
-                <div>
-                  <h4 className="font-medium text-gray-900 mb-2">운영시간</h4>
-                  <p className="text-gray-700 text-sm">{store.openHours}</p>
-                </div>
-              )}
-
-              {store.price && (
-                <div>
-                  <h4 className="font-medium text-gray-900 mb-2">가격 정보</h4>
-                  <p className="text-gray-700 text-sm">{store.price}</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* 이미지 갤러리 */}
-          {store.imageUrls && store.imageUrls.length > 0 && (
+          <div className="px-4">
             <Card>
               <CardHeader>
-                <CardTitle>사진</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                  {store.imageUrls.map((url, index) => (
-                    <div
-                      key={index}
-                      className="aspect-square relative rounded-lg overflow-hidden"
-                    >
-                      <img
-                        src={url}
-                        alt={`${store.name} 사진 ${index + 1}`}
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
-                  ))}
+                <div className="flex items-start justify-between">
+                  <CardTitle className="flex items-center gap-2">
+                    <Clock className="w-5 h-5 text-[#FF5722]" />
+                    운영 정보
+                  </CardTitle>
+                  <Button
+                    onClick={handleViewInNaverMap}
+                    className="bg-[#03C75A] hover:bg-[#02B351] text-white"
+                  >
+                    <ExternalLink className="w-4 h-4 mr-2" />
+                    지도로 보기
+                  </Button>
                 </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {/* 주소 */}
+                <div className="flex items-start gap-3">
+                  <MapPin className="w-5 h-5 text-gray-500 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <h4 className="font-medium text-gray-900 mb-1">주소</h4>
+                    <p className="text-gray-700 text-sm">{store.address}</p>
+                  </div>
+                </div>
+
+                {/* 전화번호 */}
+                {store.phoneNumber && (
+                  <div className="flex items-start gap-3">
+                    <Phone className="w-5 h-5 text-gray-500 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <h4 className="font-medium text-gray-900 mb-1">전화번호</h4>
+                      <p className="text-gray-700 text-sm">{store.phoneNumber}</p>
+                    </div>
+                  </div>
+                )}
+
+                {/* 카테고리 */}
+                <div className="flex items-start gap-3">
+                  <Utensils className="w-5 h-5 text-gray-500 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <h4 className="font-medium text-gray-900 mb-2">카테고리</h4>
+                    <div className="flex flex-wrap gap-2">
+                      {store.categories.map((category, index) => (
+                        <Badge key={index} variant="secondary" className="text-xs">
+                          {category}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* 운영시간 */}
+                {store.openHours && (
+                  <div className="flex items-start gap-3">
+                    <Clock className="w-5 h-5 text-gray-500 mt-0.5 flex-shrink-0" />
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between">
+                        <h4 className="font-medium text-gray-900 mb-1">운영시간</h4>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setShowAllHours(!showAllHours)}
+                          className="text-gray-500 hover:text-gray-700 p-1"
+                        >
+                          {showAllHours ? (
+                            <ChevronUp className="w-4 h-4" />
+                          ) : (
+                            <ChevronDown className="w-4 h-4" />
+                          )}
+                        </Button>
+                      </div>
+                      <div className="text-gray-700 text-sm">
+                        {showAllHours ? (
+                          <div className="whitespace-pre-line">{store.openHours}</div>
+                        ) : (
+                          <div>
+                            {(() => {
+                              const today = new Date().getDay();
+                              const days = ['일', '월', '화', '수', '목', '금', '토'];
+                              const todayName = days[today];
+                              
+                              // 오늘 요일에 해당하는 운영시간 찾기
+                              const lines = store.openHours.split('\n');
+                              const todayLine = lines.find(line => 
+                                line.includes(todayName) || 
+                                line.includes('매일') || 
+                                line.includes('평일') && today >= 1 && today <= 5 ||
+                                line.includes('주말') && (today === 0 || today === 6)
+                              );
+                              
+                              return todayLine ? (
+                                <div>
+                                  <span className="font-medium text-[#FF5722]">오늘 ({todayName})</span>
+                                  <br />
+                                  {todayLine}
+                                </div>
+                              ) : (
+                                <div>
+                                  <span className="font-medium text-[#FF5722]">오늘 ({todayName})</span>
+                                  <br />
+                                  운영시간 정보를 확인해주세요
+                                </div>
+                              );
+                            })()}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
               </CardContent>
             </Card>
+          </div>
+
+          {/* 메뉴 정보 */}
+          {store.refillItems && store.refillItems.length > 0 && (
+            <div className="px-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Utensils className="w-5 h-5 text-[#FF5722]" />
+                    메뉴 정보
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                    {store.refillItems.map((item, index) => (
+                      <Badge
+                        key={index}
+                        variant="outline"
+                        className="justify-center py-2"
+                      >
+                        {item}
+                      </Badge>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          {/* 이미지 갤러리 */}
+          {store.imageUrls && store.imageUrls.length > 1 && (
+            <div className="px-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle>추가 사진</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    {store.imageUrls.slice(1).map((url, index) => (
+                      <div
+                        key={index}
+                        className="aspect-square relative rounded-lg overflow-hidden"
+                      >
+                        <img
+                          src={url}
+                          alt={`${store.name} 사진 ${index + 2}`}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
           )}
         </div>
       </div>

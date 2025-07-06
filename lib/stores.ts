@@ -13,8 +13,19 @@ export function mapStoreFromDb(
   store: StoreFromDb,
   distance?: number | string | null
 ): Store {
-  const categories =
-    store.categories?.map((item: CategoryItem) => item.category.name) || [];
+  // PostGIS 함수에서 반환하는 categories는 JSON 배열 형태이고,
+  // 기존 쿼리에서 반환하는 categories는 중첩된 객체 구조
+  let categories: string[] = [];
+  
+  if (store.categories) {
+    if (Array.isArray(store.categories)) {
+      // PostGIS 함수에서 반환하는 경우: ["카테고리1", "카테고리2"]
+      categories = store.categories.filter(item => typeof item === 'string');
+    } else {
+      // 기존 쿼리에서 반환하는 경우: [{category: {name: "카테고리1"}}]
+      categories = store.categories.map((item: CategoryItem) => item.category.name) || [];
+    }
+  }
 
   return {
     id: store.id,
@@ -33,9 +44,8 @@ export function mapStoreFromDb(
       y: store.position_y,
     },
     refillItems: store.refill_items || [],
-    description: store.description,
     openHours: store.open_hours,
-    price: store.price,
+    phoneNumber: null, // PostGIS 함수에서는 phone_number 필드가 없음
     imageUrls: store.image_urls || [],
   };
 }

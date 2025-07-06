@@ -27,6 +27,24 @@ const nextConfig = {
         protocol: "https",
         hostname: "example.com",
       },
+      // AWS S3 domain for static assets
+      ...(process.env.AWS_S3_HOSTNAME
+        ? [
+            {
+              protocol: "https",
+              hostname: process.env.AWS_S3_HOSTNAME,
+            },
+          ]
+        : []),
+      // Supabase storage domain
+      ...(process.env.NEXT_PUBLIC_SUPABASE_URL
+        ? [
+            {
+              protocol: "https",
+              hostname: new URL(process.env.NEXT_PUBLIC_SUPABASE_URL).hostname,
+            },
+          ]
+        : []),
     ],
   },
 };

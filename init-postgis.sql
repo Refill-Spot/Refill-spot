@@ -29,7 +29,7 @@ CREATE TABLE IF NOT EXISTS stores (
   kakao_rating FLOAT,
   open_hours TEXT,
   price TEXT,
-  refill_items TEXT[],
+  refill_items JSONB[],
   image_urls TEXT[],
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
@@ -96,7 +96,6 @@ RETURNS TABLE (
   id integer,
   name text,
   address text,
-  description text,
   position_lat float,
   position_lng float,
   position_x float,
@@ -104,10 +103,13 @@ RETURNS TABLE (
   naver_rating float,
   kakao_rating float,
   open_hours text,
-  price text,
-  refill_items text[],
+  refill_items jsonb[],
   created_at timestamptz,
   updated_at timestamptz,
+  geom geometry,
+  image_urls text[],
+  phone_number varchar,
+  break_time text,
   distance float
 ) AS $$
   SELECT 
@@ -140,7 +142,6 @@ RETURNS TABLE (
   id integer,
   name text,
   address text,
-  description text,
   position_lat float,
   position_lng float,
   position_x float,
@@ -148,10 +149,13 @@ RETURNS TABLE (
   naver_rating float,
   kakao_rating float,
   open_hours text,
-  price text,
-  refill_items text[],
+  refill_items jsonb[],
   created_at timestamptz,
   updated_at timestamptz,
+  geom geometry,
+  image_urls text[],
+  phone_number varchar,
+  break_time text,
   distance float
 ) AS $$
   SELECT 

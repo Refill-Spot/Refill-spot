@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/components/ui/use-toast";
 import { getUserLocation, isLocationValid } from "@/lib/location-storage";
 import { Store } from "@/types/store";
+import { MenuItem } from "@/types/menu";
 import {
   ArrowLeft,
   ChevronDown,
@@ -255,7 +256,7 @@ export default function StorePage() {
                       #{category}
                     </span>
                   ))}
-                  {store.refillItems && store.refillItems.length > 0 && (
+                  {store.refillItems && Array.isArray(store.refillItems) && store.refillItems.length > 0 && (
                     <span className="px-2 py-1 bg-[#FF5722]/80 text-white text-xs rounded-full">
                       #무한리필
                     </span>
@@ -384,7 +385,7 @@ export default function StorePage() {
           </div>
 
           {/* 메뉴 정보 */}
-          {store.refillItems && store.refillItems.length > 0 && (
+          {store.refillItems && Array.isArray(store.refillItems) && store.refillItems.length > 0 && (
             <div className="px-4">
               <Card>
                 <CardHeader>
@@ -395,13 +396,13 @@ export default function StorePage() {
                 </CardHeader>
                 <CardContent>
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                    {store.refillItems.map((item, index) => (
+                    {store.refillItems.map((item: MenuItem, index: number) => (
                       <Badge
                         key={index}
                         variant="outline"
                         className="justify-center py-2"
                       >
-                        {item}
+                        {typeof item === 'string' ? item : item.name}
                       </Badge>
                     ))}
                   </div>

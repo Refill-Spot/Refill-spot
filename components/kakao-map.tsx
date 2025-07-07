@@ -861,24 +861,30 @@ export default function KakaoMap({
                       ? `${selectedStore.distance}km`
                       : "거리 정보 없음"}
                   </span>
-                  <span>|</span>
-                  {selectedStore.categories.map((category, index) => (
-                    <Badge
-                      key={index}
-                      variant="outline"
-                      className="px-2 py-0 text-xs"
-                    >
-                      {category}
-                    </Badge>
-                  ))}
                 </div>
               </div>
             </div>
-            <Link href={`/store/${selectedStore.id}`}>
-              <Button className="w-full mt-3 bg-[#FF5722] hover:bg-[#E64A19]">
-                상세 보기
-              </Button>
-            </Link>
+            <Button 
+              className="w-full mt-3 bg-[#FF5722] hover:bg-[#E64A19]"
+              onClick={() => {
+                // 현재 위치 정보를 URL 파라미터로 전달하여 새 탭에서 열기
+                const savedLocation = userLocation;
+                if (savedLocation) {
+                  const params = new URLSearchParams({
+                    from: "map",
+                    lat: savedLocation.lat.toString(),
+                    lng: savedLocation.lng.toString(),
+                    source: "kakao",
+                  });
+                  window.open(`/store/${selectedStore.id}?${params.toString()}`, "_blank");
+                } else {
+                  // 위치 정보가 없으면 기본으로 새 탭에서 열기
+                  window.open(`/store/${selectedStore.id}`, "_blank");
+                }
+              }}
+            >
+              상세 보기
+            </Button>
           </CardContent>
         </Card>
       )}

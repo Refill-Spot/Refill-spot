@@ -1,26 +1,34 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import Link from "next/link";
-import Image from "next/image";
-import { getStoreById } from "@/lib/stores";
-import { ArrowLeft, Navigation, Star } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
-import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { supabaseBrowser } from "@/lib/supabase/client";
-import { toast } from "@/components/ui/use-toast";
-import { Store, FormattedReview } from "@/types/store";
-import { useStoreStore } from "@/lib/store";
-import { useAuth } from "@/contexts/AuthContext";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   Carousel,
   CarouselContent,
   CarouselItem,
 } from "@/components/ui/carousel";
+import { Separator } from "@/components/ui/separator";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { toast } from "@/components/ui/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
+import { useStoreStore } from "@/lib/store";
+import { supabaseBrowser } from "@/lib/supabase/client";
+import { FormattedReview } from "@/types/store";
+import { MenuItem } from "@/types/menu";
+import {
+  ArrowLeft,
+  ChevronDown,
+  ChevronUp,
+  Clock,
+  Navigation,
+  Phone,
+  Star,
+} from "lucide-react";
+import Image from "next/image";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 
 interface StoreDetailsProps {
   storeId: number;
@@ -51,12 +59,32 @@ export default function StoreDetails({ storeId }: StoreDetailsProps) {
   } | null>(null);
   const [liveRatingLoading, setLiveRatingLoading] = useState(false);
   const [liveRatingError, setLiveRatingError] = useState<string | null>(null);
+  const [showAllHours, setShowAllHours] = useState(false);
+
+  // 디버깅 로그 추가
+  console.log("🔍 [StoreDetails] Component rendered", {
+    storeId,
+    currentStore: currentStore
+      ? {
+          id: currentStore.id,
+          name: currentStore.name,
+          openHours: currentStore.openHours,
+          hasOpenHours: !!currentStore.openHours,
+          openHoursType: typeof currentStore.openHours,
+          openHoursLength: currentStore.openHours?.length,
+        }
+      : null,
+    storeLoading,
+    storeError,
+    showAllHours,
+  });
 
   // 관리자 여부 (user_metadata.role 기반)
   const isAdmin = user && user.user_metadata?.role === "admin";
 
   // 가게 정보 및 리뷰 로드
   useEffect(() => {
+    console.log("🔍 [StoreDetails] fetchStoreById called", { storeId });
     fetchStoreById(storeId);
   }, [storeId, fetchStoreById]);
 
@@ -398,8 +426,8 @@ export default function StoreDetails({ storeId }: StoreDetailsProps) {
           i < Math.floor(rating)
             ? "fill-[#FFA726] text-[#FFA726]"
             : i < rating
-            ? "fill-[#FFA726]/50 text-[#FFA726]"
-            : "fill-none text-gray-300"
+              ? "fill-[#FFA726]/50 text-[#FFA726]"
+              : "fill-none text-gray-300"
         }`}
       />
     ));
@@ -407,6 +435,94 @@ export default function StoreDetails({ storeId }: StoreDetailsProps) {
 
   // store는 여기서 확실히 null이 아님
   const storeData = currentStore;
+
+  // 요일 배열 (Date 객체의 getDay() 순서와 맞춤: 일요일=0)
+  const DAYS_OF_WEEK = ["일", "월", "화", "수", "목", "금", "토"];
+
+  // 현재 요일 구하기
+  const today = new Date();
+  const todayDayOfWeek = DAYS_OF_WEEK[today.getDay()];
+
+  // openHours 문자열을 파싱하여 요일별 시간 정보로 변환
+  const parseBusinessHours = () => {
+    if (!storeData.openHours) return [];
+
+    const hoursString = storeData.openHours;
+    const dayPatterns = ["월", "화", "수", "목", "금", "토", "일"];
+    const parsedHours = [];
+
+    // 휴무일 정보 확인
+    const closedDays = [];
+    if (hoursString.includes("휴무")) {
+      // "매주 일요일 휴무" 패턴 찾기
+      const closedMatch = hoursString.match(/매주\s*([가-힣]+)요일\s*휴무/);
+      if (closedMatch) {
+        const closedDayName = closedMatch[1];
+        closedDays.push(closedDayName);
+      }
+    }
+
+    for (const day of dayPatterns) {
+      // 휴무일인지 확인
+      if (closedDays.includes(day)) {
+        parsedHours.push({ day, hours: "휴무", isClosed: true });
+        continue;
+      }
+
+      // "월: 11:30-23:30" 패턴 찾기 (더 정확한 정규표현식)
+      const regex = new RegExp(`${day}:\\s*([^,/]+)`, "g");
+      const match = regex.exec(hoursString);
+
+      if (match) {
+        let hours = match[1].trim();
+        // "17:00-22:00 (라스트오더: 21:10)" 에서 괄호 부분 제거
+        hours = hours.split("(")[0].trim();
+
+        // 24시간 표기법 처리 (00:00-24:00)
+        if (hours.includes("00:00-24:00")) {
+          hours = "24시간 영업";
+        }
+
+        parsedHours.push({ day, hours, isClosed: false });
+      } else {
+        // 해당 요일이 없으면 기본값 또는 휴무
+        parsedHours.push({ day, hours: "정보 없음", isClosed: true });
+      }
+    }
+
+    return parsedHours;
+  };
+
+  const businessHours = parseBusinessHours();
+
+  // 디버깅용 로그
+  console.log("📅 Store Details Debug:", {
+    storeId: storeData.id,
+    storeName: storeData.name,
+    openHours: storeData.openHours,
+    todayDayOfWeek,
+    businessHours,
+    showAllHours,
+  });
+
+  // 추가 디버깅 - 화면에 표시
+  const debugInfo = {
+    storeId: storeData.id,
+    storeName: storeData.name,
+    openHours: storeData.openHours,
+    todayDayOfWeek,
+    businessHours,
+    showAllHours,
+  };
+
+  // 오늘 요일의 영업시간 가져오기
+  const getTodayHours = () => {
+    const todayInfo = businessHours.find((h) => h.day === todayDayOfWeek);
+    if (!todayInfo) return "영업시간 정보가 없습니다.";
+
+    if (todayInfo.isClosed) return "오늘은 휴무일입니다.";
+    return todayInfo.hours;
+  };
 
   return (
     <article className="bg-white min-h-screen">
@@ -474,6 +590,16 @@ export default function StoreDetails({ storeId }: StoreDetailsProps) {
       </figure>
 
       <main className="p-4 md:p-6 max-w-4xl mx-auto">
+        {/* 디버깅 정보 (개발용) */}
+        {process.env.NEXT_PUBLIC_LOG_LEVEL === "DEBUG" && (
+          <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+            <h3 className="font-bold text-yellow-800 mb-2">🔍 디버깅 정보</h3>
+            <pre className="text-xs text-yellow-700 overflow-auto">
+              {JSON.stringify(debugInfo, null, 2)}
+            </pre>
+          </div>
+        )}
+
         {/* 가게 정보 */}
         <section aria-labelledby="store-info">
           <h2 id="store-info" className="sr-only">
@@ -584,48 +710,132 @@ export default function StoreDetails({ storeId }: StoreDetailsProps) {
 
               <Separator />
 
-              <div>
-                <h4 className="font-medium mb-2">운영 시간</h4>
-                <time className="text-sm text-gray-600">
-                  {storeData.openHours || "운영 시간 정보가 없습니다."}
-                </time>
+              <div className="space-y-4">
+                {/* 영업 정보 섹션 */}
+                <div>
+                  <div className="flex items-center gap-2 mb-3">
+                    <Clock className="h-5 w-5 text-[#FF5722]" />
+                    <h4 className="font-semibold text-lg">영업 정보</h4>
+                  </div>
+
+                  {/* 영업시간 표시 */}
+                  <div className="bg-gradient-to-r from-orange-50 to-red-50 border-l-4 border-[#FF5722] p-4 rounded-r-lg mb-3">
+                    {!showAllHours ? (
+                      /* 접힌 상태: 오늘 요일만 표시 */
+                      <>
+                        <h5 className="font-semibold text-[#FF5722] mb-2 flex items-center gap-2">
+                          <span className="w-2 h-2 bg-[#FF5722] rounded-full"></span>
+                          오늘({todayDayOfWeek})의 영업시간
+                        </h5>
+                        <time className="text-sm font-medium text-gray-700">
+                          {getTodayHours()}
+                        </time>
+                      </>
+                    ) : (
+                      /* 펼친 상태: 전체 요일 표시 */
+                      <>
+                        <h5 className="font-semibold text-[#FF5722] mb-3 flex items-center gap-2">
+                          <span className="w-2 h-2 bg-[#FF5722] rounded-full"></span>
+                          주간 영업시간
+                        </h5>
+                        <div className="space-y-2">
+                          {businessHours.map((item, index) => (
+                            <div
+                              key={index}
+                              className="flex justify-between items-center text-sm"
+                            >
+                              <span
+                                className={`font-medium ${
+                                  item.day === todayDayOfWeek
+                                    ? "text-[#FF5722]"
+                                    : "text-gray-700"
+                                }`}
+                              >
+                                {item.day}요일
+                                {item.day === todayDayOfWeek && (
+                                  <span className="ml-1 text-xs bg-[#FF5722] text-white px-2 py-0.5 rounded-full">
+                                    오늘
+                                  </span>
+                                )}
+                              </span>
+                              <span
+                                className={`font-medium ${
+                                  item.isClosed
+                                    ? "text-red-500"
+                                    : "text-gray-700"
+                                }`}
+                              >
+                                {item.hours}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                        <p className="text-xs text-gray-500 mt-3">
+                          * 실제 영업시간은 매장 사정에 따라 변경될 수 있습니다.
+                        </p>
+                      </>
+                    )}
+                  </div>
+
+                  {/* 토글 버튼 */}
+                  <button
+                    onClick={() => setShowAllHours(!showAllHours)}
+                    className="flex items-center gap-2 text-sm text-gray-600 hover:text-[#FF5722] transition-colors"
+                  >
+                    <span>
+                      {showAllHours ? "간단히 보기" : "전체 영업시간 보기"}
+                    </span>
+                    {showAllHours ? (
+                      <ChevronUp className="h-4 w-4" />
+                    ) : (
+                      <ChevronDown className="h-4 w-4" />
+                    )}
+                  </button>
+                </div>
+
+                {/* 전화번호 섹션 */}
+                <div className="flex items-center gap-3">
+                  <Phone className="h-5 w-5 text-[#2196F3]" />
+                  <div className="flex-1">
+                    <h4 className="font-medium">전화번호</h4>
+                    <p className="text-sm text-gray-600">
+                      {storeData.phoneNumber || "전화번호 정보가 없습니다."}
+                    </p>
+                  </div>
+                </div>
               </div>
 
               <Separator />
 
               <div>
                 <h4 className="font-medium mb-2">무한리필 메뉴</h4>
-                <ul className="text-sm text-gray-600 space-y-1 list-disc list-inside">
-                  {storeData.refillItems && storeData.refillItems.length > 0 ? (
-                    storeData.refillItems.map((item: string, index: number) => (
-                      <li key={index}>{item}</li>
+                <div className="space-y-3">
+                  {storeData.refillItems && Array.isArray(storeData.refillItems) && storeData.refillItems.length > 0 ? (
+                    storeData.refillItems.map((item: MenuItem, index: number) => (
+                      <div key={index} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                        <div className="flex-1">
+                          <h5 className="font-medium text-gray-900">{item.name}</h5>
+                          {item.type && (
+                            <span className="text-xs text-gray-500 bg-gray-200 px-2 py-1 rounded-full">
+                              {item.type}
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-right">
+                          <div className="text-lg font-bold text-primary">{item.price}</div>
+                          {item.is_recommended && (
+                            <Badge variant="secondary" className="text-xs">추천</Badge>
+                          )}
+                        </div>
+                      </div>
                     ))
                   ) : (
-                    <li>메뉴 정보가 없습니다.</li>
+                    <div className="text-sm text-gray-500 p-3 bg-gray-50 rounded-lg">
+                      메뉴 정보가 없습니다.
+                    </div>
                   )}
-                </ul>
+                </div>
               </div>
-
-              <Separator />
-
-              <div>
-                <h4 className="font-medium mb-2">가격</h4>
-                <p className="text-sm text-gray-600 font-semibold">
-                  {storeData.price || "가격 정보가 없습니다."}
-                </p>
-              </div>
-
-              {storeData.description && (
-                <>
-                  <Separator />
-                  <div>
-                    <h4 className="font-medium mb-2">매장 설명</h4>
-                    <p className="text-sm text-gray-600">
-                      {storeData.description}
-                    </p>
-                  </div>
-                </>
-              )}
             </CardContent>
           </Card>
         </section>

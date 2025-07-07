@@ -83,9 +83,9 @@ export const findNearbyStores = async (
           y: store.position_y,
         },
         refillItems: store.refill_items || [],
-        description: store.description,
         openHours: store.open_hours,
-        price: store.price,
+        phoneNumber: store.phone_number,
+        imageUrls: store.image_urls || [],
       };
     });
   } catch (error) {

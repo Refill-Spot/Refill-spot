@@ -21,7 +21,19 @@ export interface StoreFilters {
   sort?: "default" | "rating" | "distance";
 }
 
-export function useFetchStores(initialFilters?: StoreFilters) {
+// 반환 타입 정의
+export interface UseFetchStoresResult {
+  stores: Store[];
+  loading: boolean;
+  error: string | null;
+  setFilters: (filters: StoreFilters) => void;
+  resetFilters: () => void;
+  refetch: () => void;
+}
+
+export function useFetchStores(
+  initialFilters?: StoreFilters
+): UseFetchStoresResult {
   const [stores, setStores] = useState<Store[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

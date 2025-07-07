@@ -57,9 +57,10 @@ export default function MobileBottomSheet({
                   <div className="flex-1">
                     <div className="flex justify-between">
                       <h3 className="font-bold text-[#333333]">{store.name}</h3>
-                      <span className="text-xs text-[#FF5722] font-medium">
+                      {/* 가격 정보는 현재 Store 타입에 없어서 주석 처리 */}
+                      {/* <span className="text-xs text-[#FF5722] font-medium">
                         {store.price}
-                      </span>
+                      </span> */}
                     </div>
                     <div className="flex items-center gap-1 text-sm">
                       <span className="text-[#FFA726]">★</span>

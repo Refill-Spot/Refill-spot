@@ -1,7 +1,7 @@
 "use client";
 
 import { fetchAllStores, fetchFilteredStores } from "@/lib/api-utils";
-import { getStoreById } from "@/lib/stores";
+import { getStoreById, mapStoreFromDb } from "@/lib/stores";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { FormattedReview, Store } from "@/types/store";
 import { create } from "zustand";
@@ -128,10 +128,24 @@ export const useStoreStore = create<StoreState>((set, get) => ({
   // 특정 가게 상세 정보 가져오기
   fetchStoreById: async (id) => {
     try {
+      console.log('🔍 [Store] fetchStoreById called', { id });
       set({ storeLoading: true, storeError: null });
       const storeData = await getStoreById(id);
 
+      console.log('🔍 [Store] getStoreById result', { 
+        id, 
+        storeData: storeData ? {
+          id: storeData.id,
+          name: storeData.name,
+          openHours: storeData.openHours,
+          hasOpenHours: !!storeData.openHours,
+          openHoursType: typeof storeData.openHours,
+          openHoursLength: storeData.openHours?.length
+        } : null 
+      });
+
       if (!storeData) {
+        console.log('🔍 [Store] No store data found');
         set({
           storeError: "가게 정보를 찾을 수 없습니다.",
           storeLoading: false,
@@ -139,6 +153,7 @@ export const useStoreStore = create<StoreState>((set, get) => ({
         return;
       }
 
+      console.log('🔍 [Store] Setting currentStore', { storeData });
       set({ currentStore: storeData, storeLoading: false });
 
       // 리뷰 함께 로드
@@ -254,34 +269,8 @@ export const useStoreStore = create<StoreState>((set, get) => ({
 
         if (storesError) throw storesError;
 
-        // 가게 데이터 가공
-        const formattedStores = storesData.map((store) => {
-          const categories = store.categories.map(
-            (item: { category: { name: string } }) => item.category.name
-          );
-
-          return {
-            id: store.id,
-            name: store.name,
-            address: store.address,
-            distance: store.distance ? String(store.distance) : null,
-            categories,
-            rating: {
-              naver: store.naver_rating || 0,
-              kakao: store.kakao_rating || 0,
-            },
-            position: {
-              lat: store.position_lat,
-              lng: store.position_lng,
-              x: store.position_x,
-              y: store.position_y,
-            },
-            refillItems: store.refill_items || [],
-            description: store.description,
-            openHours: store.open_hours,
-            price: store.price,
-          };
-        });
+        // 가게 데이터 가공 - mapStoreFromDb 사용
+        const formattedStores = storesData.map((store) => mapStoreFromDb(store));
 
         set({ favorites: formattedStores, favoritesLoading: false });
       } else {

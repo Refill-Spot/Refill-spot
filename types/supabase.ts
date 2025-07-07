@@ -37,7 +37,7 @@ export interface Database {
             columns: ["id"];
             referencedRelation: "users";
             referencedColumns: ["id"];
-          }
+          },
         ];
       };
       stores: {
@@ -45,61 +45,58 @@ export interface Database {
           id: number;
           name: string;
           address: string;
-          description: string | null;
           position_lat: number;
           position_lng: number;
           position_x: number;
           position_y: number;
-          distance: string | null;
           naver_rating: number | null;
           kakao_rating: number | null;
           open_hours: string | null;
-          price: string | null;
-          refill_items: string[] | null;
-          image_urls: string[] | null;
+          refill_items: Json | null;
           created_at: string;
           updated_at: string;
           geom: unknown;
+          image_urls: string[] | null;
+          phone_number: string | null;
+          break_time: string | null;
         };
         Insert: {
           id?: number;
           name: string;
           address: string;
-          description?: string | null;
           position_lat: number;
           position_lng: number;
           position_x: number;
           position_y: number;
-          distance?: string | null;
           naver_rating?: number | null;
           kakao_rating?: number | null;
           open_hours?: string | null;
-          price?: string | null;
-          refill_items?: string[] | null;
-          image_urls?: string[] | null;
+          refill_items?: Json[] | null;
           created_at?: string;
           updated_at?: string;
           geom?: unknown;
+          image_urls?: string[] | null;
+          phone_number?: string | null;
+          break_time?: string | null;
         };
         Update: {
           id?: number;
           name?: string;
           address?: string;
-          description?: string | null;
           position_lat?: number;
           position_lng?: number;
           position_x?: number;
           position_y?: number;
-          distance?: string | null;
           naver_rating?: number | null;
           kakao_rating?: number | null;
           open_hours?: string | null;
-          price?: string | null;
-          refill_items?: string[] | null;
+          refill_items?: Json[] | null;
           image_urls?: string[] | null;
           created_at?: string;
           updated_at?: string;
           geom?: unknown;
+          phone_number?: string | null;
+          break_time?: string | null;
         };
       };
       categories: {
@@ -141,7 +138,7 @@ export interface Database {
             columns: ["category_id"];
             referencedRelation: "categories";
             referencedColumns: ["id"];
-          }
+          },
         ];
       };
       reviews: {
@@ -184,7 +181,7 @@ export interface Database {
             columns: ["store_id"];
             referencedRelation: "stores";
             referencedColumns: ["id"];
-          }
+          },
         ];
       };
       favorites: {
@@ -218,7 +215,7 @@ export interface Database {
             columns: ["store_id"];
             referencedRelation: "stores";
             referencedColumns: ["id"];
-          }
+          },
         ];
       };
       contacts: {

@@ -22,6 +22,8 @@ yarn-error.log*
 # vercel
 .vercel
 .cursor/
+.claude/
+sql/
 
 # typescript
 *.tsbuildinfo
@@ -34,3 +36,7 @@ next-env.d.ts
 .vscode/
 .idea/
 logs/
+
+# md
+CLAUDE.md
+GEMINI.md

@@ -1,6 +1,7 @@
 import { errorResponse } from "@/lib/api-response";
 import { mapStoreFromDb } from "@/lib/stores";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { StoreFromDb } from "@/types/store";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(request: NextRequest) {
@@ -36,7 +37,7 @@ export async function GET(request: NextRequest) {
 
       // PostGIS에서 이미 거리 계산과 정렬이 완료되었으므로 추가 필터링만 수행
       const filteredStores = stores
-        .filter((store) => {
+        .filter((store: any) => {
           // 평점 필터링 (네이버 또는 카카오 평점 중 하나라도 조건 만족)
           const naverRating = store.naver_rating || 0;
           const kakaoRating = store.kakao_rating || 0;
@@ -55,7 +56,7 @@ export async function GET(request: NextRequest) {
 
           return true;
         })
-        .map((store) => {
+        .map((store: any) => {
           // PostGIS에서 계산된 distance_km 사용
           return mapStoreFromDb(store, store.distance_km.toString());
         });
@@ -99,7 +100,7 @@ export async function GET(request: NextRequest) {
       // PostGIS에서 이미 거리 계산과 정렬이 완료된 데이터 매핑
       const formattedStores = stores
         .slice(0, 30) // 최종 30개 선택
-        .map((store) => mapStoreFromDb(store, store.distance_km.toString()));
+        .map((store: any) => mapStoreFromDb(store, store.distance_km.toString()));
 
       return NextResponse.json(
         { success: true, data: formattedStores },

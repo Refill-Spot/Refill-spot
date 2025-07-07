@@ -9,7 +9,7 @@ type ContactUpdate = Database["public"]["Tables"]["contacts"]["Update"];
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // 관리자 권한 확인
@@ -18,7 +18,8 @@ export async function GET(
       return apiResponse.error(adminCheck.error || "관리자 권한이 필요합니다.", adminCheck.status);
     }
 
-    const contactId = parseInt(params.id);
+    const { id } = await params;
+    const contactId = parseInt(id);
 
     if (isNaN(contactId)) {
       return apiResponse.error("유효하지 않은 문의사항 ID입니다.", 400);
@@ -51,7 +52,7 @@ export async function GET(
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // 관리자 권한 확인
@@ -60,7 +61,8 @@ export async function PATCH(
       return apiResponse.error(adminCheck.error || "관리자 권한이 필요합니다.", adminCheck.status);
     }
 
-    const contactId = parseInt(params.id);
+    const { id } = await params;
+    const contactId = parseInt(id);
 
     if (isNaN(contactId)) {
       return apiResponse.error("유효하지 않은 문의사항 ID입니다.", 400);
@@ -109,7 +111,7 @@ export async function PATCH(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // 관리자 권한 확인
@@ -118,7 +120,8 @@ export async function DELETE(
       return apiResponse.error(adminCheck.error || "관리자 권한이 필요합니다.", adminCheck.status);
     }
 
-    const contactId = parseInt(params.id);
+    const { id } = await params;
+    const contactId = parseInt(id);
 
     if (isNaN(contactId)) {
       return apiResponse.error("유효하지 않은 문의사항 ID입니다.", 400);

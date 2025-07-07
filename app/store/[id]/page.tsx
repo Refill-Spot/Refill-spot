@@ -7,6 +7,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { getUserLocation, isLocationValid } from "@/lib/location-storage";
 import { Store } from "@/types/store";
 import { MenuItem } from "@/types/menu";
+import { useAuth } from "@/contexts/AuthContext";
 import {
   ArrowLeft,
   ChevronDown,
@@ -19,6 +20,7 @@ import {
   Share,
   Star,
   Utensils,
+  User,
 } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -27,9 +29,11 @@ export default function StorePage() {
   const params = useParams();
   const router = useRouter();
   const { toast } = useToast();
+  const { user, profile } = useAuth();
   const [store, setStore] = useState<Store | null>(null);
   const [loading, setLoading] = useState(true);
   const [showAllHours, setShowAllHours] = useState(false);
+  const [showAllMenus, setShowAllMenus] = useState(false);
 
   useEffect(() => {
     const fetchStore = async () => {
@@ -138,31 +142,102 @@ export default function StorePage() {
     <div className="min-h-screen bg-[#F5F5F5]">
       {/* 헤더 */}
       <div className="bg-white border-b border-gray-200 sticky top-0 z-10">
-        <div className="max-w-4xl mx-auto px-4 py-4">
-          <div className="flex items-center gap-4">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleGoBack}
-              className="p-2"
-            >
-              <ArrowLeft className="w-5 h-5" />
-            </Button>
-            <h1 className="text-lg font-semibold text-gray-900">가게 정보</h1>
+        <div className="max-w-7xl mx-auto px-2 py-3">
+          <div className="flex items-center">
+            {/* 왼쪽: 뒤로가기 + 가게정보 */}
+            <div className="flex items-center gap-3 w-60">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleGoBack}
+                className="p-2 hover:bg-gray-100"
+              >
+                <ArrowLeft className="w-5 h-5" />
+              </Button>
+              <h1 className="text-lg font-semibold text-gray-900">가게 정보</h1>
+            </div>
+            
+            {/* 중간: 로고 + 프로젝트명 + 검색창 */}
+            <div className="flex items-center gap-12 flex-1 justify-center">
+              <div className="flex items-center space-x-2">
+                <div className="bg-gradient-to-br from-orange-500 to-red-500 rounded-lg p-2">
+                  <svg
+                    className="w-6 h-6 text-white"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                    />
+                  </svg>
+                </div>
+                <div>
+                  <h1 className="text-xl font-bold text-gray-900">Refill-spot</h1>
+                  <p className="text-xs text-gray-500">무한리필 가게 찾기</p>
+                </div>
+              </div>
+              <div className="relative flex-1 max-w-lg">
+                <input
+                  type="text"
+                  placeholder="지역, 주소를 입력하세요"
+                  className="w-full pr-10 pl-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 p-0"
+                >
+                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                    />
+                  </svg>
+                </Button>
+              </div>
+            </div>
+            
+            {/* 오른쪽: 로그인/사용자 정보 */}
+            <div className="flex items-center gap-3 w-60 justify-end">
+              {user && profile ? (
+                <Button variant="ghost" size="sm" className="relative">
+                  <User className="h-5 w-5" />
+                  <span className="ml-2 hidden md:inline">
+                    {profile.username}
+                  </span>
+                </Button>
+              ) : (
+                <Button
+                  onClick={() => router.push('/login')}
+                  variant="outline"
+                  size="sm"
+                >
+                  로그인
+                </Button>
+              )}
+            </div>
           </div>
         </div>
       </div>
 
       {/* 메인 콘텐츠 */}
-      <div className="max-w-4xl mx-auto">
+      <div className="w-full pt-6">
         <div className="space-y-6">
           {/* 가게 메인 이미지 - 다이닝코드 스타일 */}
-          <div className="relative w-full h-80 md:h-96 bg-gray-100 overflow-hidden">
+          <div className="max-w-4xl mx-auto px-4">
+            <div className="relative w-full min-h-[20rem] max-h-[32rem] bg-gray-100 overflow-hidden rounded-lg flex items-center justify-center">
             {store.imageUrls && store.imageUrls.length > 0 ? (
               <img
                 src={store.imageUrls[0]}
                 alt={`${store.name} 대표 사진`}
-                className="w-full h-full object-cover"
+                className="w-full h-auto max-h-full object-contain"
                 onError={(e) => {
                   const target = e.target as HTMLImageElement;
                   target.style.display = 'none';
@@ -217,7 +292,7 @@ export default function StorePage() {
             
             {/* 하단 가게 정보 오버레이 */}
             <div className="absolute bottom-0 left-0 right-0 p-6 text-white">
-              <div className="max-w-4xl mx-auto">
+              <div className="max-w-4xl mx-auto px-4">
                 <h1 className="text-3xl font-bold mb-2">{store.name}</h1>
                 
                 {/* 평점 정보 */}
@@ -264,10 +339,11 @@ export default function StorePage() {
                 </div>
               </div>
             </div>
+            </div>
           </div>
 
           {/* 운영 정보 */}
-          <div className="px-4">
+          <div className="max-w-4xl mx-auto px-4">
             <Card>
               <CardHeader>
                 <div className="flex items-start justify-between">
@@ -493,7 +569,7 @@ export default function StorePage() {
 
           {/* 메뉴 정보 */}
           {store.refillItems && Array.isArray(store.refillItems) && store.refillItems.length > 0 && (
-            <div className="px-4">
+            <div className="max-w-4xl mx-auto px-4">
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -502,17 +578,60 @@ export default function StorePage() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                    {store.refillItems.map((item: MenuItem, index: number) => (
-                      <Badge
-                        key={index}
-                        variant="outline"
-                        className="justify-center py-2"
-                      >
-                        {typeof item === 'string' ? item : item.name}
-                      </Badge>
-                    ))}
+                  <div className="space-y-3">
+                    {store.refillItems
+                      .sort((a, b) => {
+                        // order 필드를 기준으로 정렬
+                        const orderA = typeof a === 'object' && a.order ? a.order : 999;
+                        const orderB = typeof b === 'object' && b.order ? b.order : 999;
+                        return orderA - orderB;
+                      })
+                      .slice(0, showAllMenus ? store.refillItems.length : 3)
+                      .map((item: MenuItem, index: number) => (
+                        <div
+                          key={index}
+                          className="flex items-center p-3 bg-white rounded-lg hover:bg-gray-100 transition-colors"
+                        >
+                          <div className="flex items-center gap-3">
+                            <span className="font-medium text-gray-900">
+                              {typeof item === 'string' ? item : item.name}
+                            </span>
+                            {typeof item === 'object' && item.is_recommended && (
+                              <Badge className="bg-[#FF5722] text-white text-xs">
+                                추천
+                              </Badge>
+                            )}
+                          </div>
+                          <div className="flex-1 mx-4 border-b-2 border-dotted border-gray-400"></div>
+                          <div className="text-right">
+                            <span className="font-semibold text-[#FF5722]">
+                              {typeof item === 'string' ? '' : item.price || '가격 문의'}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
                   </div>
+                  {store.refillItems.length > 3 && (
+                    <div className="mt-4 text-center">
+                      <Button
+                        variant="outline"
+                        onClick={() => setShowAllMenus(!showAllMenus)}
+                        className="text-[#FF5722] border-[#FF5722] hover:bg-[#FF5722] hover:text-white"
+                      >
+                        {showAllMenus ? (
+                          <>
+                            <ChevronUp className="w-4 h-4 mr-2" />
+                            접기
+                          </>
+                        ) : (
+                          <>
+                            <ChevronDown className="w-4 h-4 mr-2" />
+                            더보기
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </div>
@@ -520,7 +639,7 @@ export default function StorePage() {
 
           {/* 이미지 갤러리 */}
           {store.imageUrls && store.imageUrls.length > 1 && (
-            <div className="px-4">
+            <div className="max-w-4xl mx-auto px-4">
               <Card>
                 <CardHeader>
                   <CardTitle>추가 사진</CardTitle>
@@ -546,6 +665,143 @@ export default function StorePage() {
           )}
         </div>
       </div>
+
+      {/* Footer */}
+      <footer className="bg-white border-t border-gray-200 mt-12">
+        <div className="max-w-4xl mx-auto px-4 py-8">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {/* 로고 및 설명 */}
+            <div className="space-y-4">
+              <div className="flex items-center space-x-2">
+                <div className="bg-gradient-to-br from-orange-500 to-red-500 rounded-lg p-2">
+                  <svg
+                    className="w-6 h-6 text-white"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                    />
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900">Refill-spot</h3>
+                  <p className="text-xs text-gray-500">무한리필 가게 찾기</p>
+                </div>
+              </div>
+            </div>
+
+            {/* 서비스 링크 */}
+            <div className="space-y-4">
+              <h4 className="text-sm font-semibold text-gray-900">서비스</h4>
+              <ul className="space-y-2 text-sm text-gray-600">
+                <li>
+                  <button
+                    onClick={() => router.push('/')}
+                    className="hover:text-[#FF5722] transition-colors"
+                  >
+                    가게 찾기
+                  </button>
+                </li>
+                <li>
+                  <button
+                    onClick={() => router.push('/onboarding')}
+                    className="hover:text-[#FF5722] transition-colors"
+                  >
+                    서비스 소개
+                  </button>
+                </li>
+                <li>
+                  <button
+                    onClick={() => router.push('/contact')}
+                    className="hover:text-[#FF5722] transition-colors"
+                  >
+                    문의하기
+                  </button>
+                </li>
+              </ul>
+            </div>
+
+            {/* 계정 링크 */}
+            <div className="space-y-4">
+              <h4 className="text-sm font-semibold text-gray-900">계정</h4>
+              <ul className="space-y-2 text-sm text-gray-600">
+                {user && profile ? (
+                  <>
+                    <li>
+                      <button
+                        onClick={() => router.push('/profile')}
+                        className="hover:text-[#FF5722] transition-colors"
+                      >
+                        프로필
+                      </button>
+                    </li>
+                    <li>
+                      <button
+                        onClick={() => router.push('/favorites')}
+                        className="hover:text-[#FF5722] transition-colors"
+                      >
+                        즐겨찾기
+                      </button>
+                    </li>
+                  </>
+                ) : (
+                  <li>
+                    <button
+                      onClick={() => router.push('/login')}
+                      className="hover:text-[#FF5722] transition-colors"
+                    >
+                      로그인 / 회원가입
+                    </button>
+                  </li>
+                )}
+              </ul>
+            </div>
+          </div>
+
+          {/* 하단 구분선 및 저작권 */}
+          <div className="border-t border-gray-200 mt-8 pt-6 space-y-4">
+            {/* 약관 링크들 */}
+            <div className="flex flex-wrap justify-center gap-4 text-sm text-gray-500">
+              <button className="hover:text-[#FF5722] transition-colors">
+                개인정보처리방침
+              </button>
+              <span>|</span>
+              <button
+                onClick={() => router.push('/terms')}
+                className="hover:text-[#FF5722] transition-colors"
+              >
+                이용약관
+              </button>
+              <span>|</span>
+              <button className="hover:text-[#FF5722] transition-colors">
+                위치기반 서비스 이용약관
+              </button>
+            </div>
+
+            {/* 회사 정보 */}
+            <div className="text-center space-y-2 text-sm text-gray-500">
+              <div>
+                <span className="font-medium text-gray-700">(주)리필스팟</span>
+              </div>
+              <div>
+                이메일 문의 : refillspot@gmail.com
+              </div>
+            </div>
+
+            {/* 저작권 */}
+            <div className="text-center pt-4">
+              <p className="text-sm text-gray-500">
+                Copyright ⓒ 2025 Refill-spot
+              </p>
+            </div>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }

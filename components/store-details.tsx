@@ -14,8 +14,8 @@ import { toast } from "@/components/ui/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { useStoreStore } from "@/lib/store";
 import { supabaseBrowser } from "@/lib/supabase/client";
-import { FormattedReview } from "@/types/store";
 import { MenuItem } from "@/types/menu";
+import { FormattedReview } from "@/types/store";
 import {
   ArrowLeft,
   ChevronDown,
@@ -451,6 +451,10 @@ export default function StoreDetails({ storeId }: StoreDetailsProps) {
     const dayPatterns = ["월", "화", "수", "목", "금", "토", "일"];
     const parsedHours = [];
 
+    // 라스트오더 정보 추출
+    const lastOrderMatch = hoursString.match(/\(라스트오더:\s*([^)]+)\)/);
+    const lastOrderTime = lastOrderMatch ? lastOrderMatch[1].trim() : null;
+
     // 휴무일 정보 확인
     const closedDays = [];
     if (hoursString.includes("휴무")) {
@@ -462,31 +466,45 @@ export default function StoreDetails({ storeId }: StoreDetailsProps) {
       }
     }
 
+    // 각 요일별로 시간 정보 파싱
     for (const day of dayPatterns) {
       // 휴무일인지 확인
       if (closedDays.includes(day)) {
-        parsedHours.push({ day, hours: "휴무", isClosed: true });
+        parsedHours.push({
+          day,
+          hours: "휴무",
+          isClosed: true,
+          lastOrder: null,
+        });
         continue;
       }
 
-      // "월: 11:30-23:30" 패턴 찾기 (더 정확한 정규표현식)
-      const regex = new RegExp(`${day}:\\s*([^,/]+)`, "g");
-      const match = regex.exec(hoursString);
+      // "월: 11:30-23:30" 패턴 찾기
+      const regex = new RegExp(`${day}:\\s*([\\d:]+\\s*-\\s*[\\d:]+)`);
+      const match = hoursString.match(regex);
 
       if (match) {
         let hours = match[1].trim();
-        // "17:00-22:00 (라스트오더: 21:10)" 에서 괄호 부분 제거
-        hours = hours.split("(")[0].trim();
 
         // 24시간 표기법 처리 (00:00-24:00)
         if (hours.includes("00:00-24:00")) {
           hours = "24시간 영업";
         }
 
-        parsedHours.push({ day, hours, isClosed: false });
+        parsedHours.push({
+          day,
+          hours,
+          isClosed: false,
+          lastOrder: lastOrderTime,
+        });
       } else {
-        // 해당 요일이 없으면 기본값 또는 휴무
-        parsedHours.push({ day, hours: "정보 없음", isClosed: true });
+        // 해당 요일이 없으면 정보 없음으로 처리
+        parsedHours.push({
+          day,
+          hours: "정보 없음",
+          isClosed: true,
+          lastOrder: null,
+        });
       }
     }
 
@@ -494,26 +512,6 @@ export default function StoreDetails({ storeId }: StoreDetailsProps) {
   };
 
   const businessHours = parseBusinessHours();
-
-  // 디버깅용 로그
-  console.log("📅 Store Details Debug:", {
-    storeId: storeData.id,
-    storeName: storeData.name,
-    openHours: storeData.openHours,
-    todayDayOfWeek,
-    businessHours,
-    showAllHours,
-  });
-
-  // 추가 디버깅 - 화면에 표시
-  const debugInfo = {
-    storeId: storeData.id,
-    storeName: storeData.name,
-    openHours: storeData.openHours,
-    todayDayOfWeek,
-    businessHours,
-    showAllHours,
-  };
 
   // 오늘 요일의 영업시간 가져오기
   const getTodayHours = () => {
@@ -590,15 +588,6 @@ export default function StoreDetails({ storeId }: StoreDetailsProps) {
       </figure>
 
       <main className="p-4 md:p-6 max-w-4xl mx-auto">
-        {/* 디버깅 정보 (개발용) */}
-        {process.env.NEXT_PUBLIC_LOG_LEVEL === "DEBUG" && (
-          <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-            <h3 className="font-bold text-yellow-800 mb-2">🔍 디버깅 정보</h3>
-            <pre className="text-xs text-yellow-700 overflow-auto">
-              {JSON.stringify(debugInfo, null, 2)}
-            </pre>
-          </div>
-        )}
 
         {/* 가게 정보 */}
         <section aria-labelledby="store-info">
@@ -738,35 +727,50 @@ export default function StoreDetails({ storeId }: StoreDetailsProps) {
                           <span className="w-2 h-2 bg-[#FF5722] rounded-full"></span>
                           주간 영업시간
                         </h5>
-                        <div className="space-y-2">
+                        <div className="space-y-3">
                           {businessHours.map((item, index) => (
                             <div
                               key={index}
-                              className="flex justify-between items-center text-sm"
+                              className={`p-3 rounded-lg border-l-4 ${
+                                item.day === todayDayOfWeek
+                                  ? "border-[#FF5722] bg-gradient-to-r from-orange-50 to-red-50"
+                                  : "border-gray-200 bg-gray-50"
+                              }`}
                             >
-                              <span
-                                className={`font-medium ${
-                                  item.day === todayDayOfWeek
-                                    ? "text-[#FF5722]"
-                                    : "text-gray-700"
-                                }`}
-                              >
-                                {item.day}요일
-                                {item.day === todayDayOfWeek && (
-                                  <span className="ml-1 text-xs bg-[#FF5722] text-white px-2 py-0.5 rounded-full">
-                                    오늘
+                              <div className="flex justify-between items-center">
+                                <div className="flex items-center gap-2">
+                                  <span
+                                    className={`font-semibold ${
+                                      item.day === todayDayOfWeek
+                                        ? "text-[#FF5722]"
+                                        : "text-gray-700"
+                                    }`}
+                                  >
+                                    {item.day}요일
                                   </span>
-                                )}
-                              </span>
-                              <span
-                                className={`font-medium ${
-                                  item.isClosed
-                                    ? "text-red-500"
-                                    : "text-gray-700"
-                                }`}
-                              >
-                                {item.hours}
-                              </span>
+                                  {item.day === todayDayOfWeek && (
+                                    <span className="text-xs bg-[#FF5722] text-white px-2 py-0.5 rounded-full">
+                                      오늘
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="text-right">
+                                  <div
+                                    className={`font-medium ${
+                                      item.isClosed
+                                        ? "text-red-500"
+                                        : "text-gray-700"
+                                    }`}
+                                  >
+                                    {item.hours}
+                                  </div>
+                                  {item.lastOrder && !item.isClosed && (
+                                    <div className="text-xs text-gray-500 mt-1">
+                                      라스트오더: {item.lastOrder}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
                             </div>
                           ))}
                         </div>
@@ -810,25 +814,38 @@ export default function StoreDetails({ storeId }: StoreDetailsProps) {
               <div>
                 <h4 className="font-medium mb-2">무한리필 메뉴</h4>
                 <div className="space-y-3">
-                  {storeData.refillItems && Array.isArray(storeData.refillItems) && storeData.refillItems.length > 0 ? (
-                    storeData.refillItems.map((item: MenuItem, index: number) => (
-                      <div key={index} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-                        <div className="flex-1">
-                          <h5 className="font-medium text-gray-900">{item.name}</h5>
-                          {item.type && (
-                            <span className="text-xs text-gray-500 bg-gray-200 px-2 py-1 rounded-full">
-                              {item.type}
-                            </span>
-                          )}
+                  {storeData.refillItems &&
+                  Array.isArray(storeData.refillItems) &&
+                  storeData.refillItems.length > 0 ? (
+                    storeData.refillItems.map(
+                      (item: MenuItem, index: number) => (
+                        <div
+                          key={index}
+                          className="flex justify-between items-center p-3 bg-gray-50 rounded-lg"
+                        >
+                          <div className="flex-1">
+                            <h5 className="font-medium text-gray-900">
+                              {item.name}
+                            </h5>
+                            {item.type && (
+                              <span className="text-xs text-gray-500 bg-gray-200 px-2 py-1 rounded-full">
+                                {item.type}
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-right">
+                            <div className="text-lg font-bold text-primary">
+                              {item.price}
+                            </div>
+                            {item.is_recommended && (
+                              <Badge variant="secondary" className="text-xs">
+                                추천
+                              </Badge>
+                            )}
+                          </div>
                         </div>
-                        <div className="text-right">
-                          <div className="text-lg font-bold text-primary">{item.price}</div>
-                          {item.is_recommended && (
-                            <Badge variant="secondary" className="text-xs">추천</Badge>
-                          )}
-                        </div>
-                      </div>
-                    ))
+                      )
+                    )
                   ) : (
                     <div className="text-sm text-gray-500 p-3 bg-gray-50 rounded-lg">
                       메뉴 정보가 없습니다.

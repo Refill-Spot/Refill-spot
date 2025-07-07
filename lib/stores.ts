@@ -14,14 +14,6 @@ export function mapStoreFromDb(
   store: StoreFromDb,
   distance?: number | string | null
 ): Store {
-  console.log('🔍 [stores.ts] mapStoreFromDb called', { 
-    storeId: store.id, 
-    storeName: store.name,
-    open_hours: store.open_hours,
-    hasOpenHours: !!store.open_hours,
-    openHoursType: typeof store.open_hours,
-    openHoursLength: store.open_hours?.length
-  });
 
   // PostGIS 함수에서 반환하는 categories는 JSON 배열 형태이고,
   // 기존 쿼리에서 반환하는 categories는 중첩된 객체 구조
@@ -80,15 +72,6 @@ export function mapStoreFromDb(
     imageUrls: store.image_urls || [],
   };
 
-  console.log('🔍 [stores.ts] mapStoreFromDb result', { 
-    storeId: mappedStore.id, 
-    storeName: mappedStore.name,
-    openHours: mappedStore.openHours,
-    hasOpenHours: !!mappedStore.openHours,
-    openHoursType: typeof mappedStore.openHours,
-    openHoursLength: mappedStore.openHours?.length
-  });
-
   return mappedStore;
 }
 
@@ -146,8 +129,6 @@ export async function getNearbyStores(
 
 // 가게 상세 정보 조회
 export async function getStoreById(id: number): Promise<Store | null> {
-  console.log('🔍 [stores.ts] getStoreById called', { id });
-  
   const { data, error } = await supabaseBrowser
     .from("stores")
     .select(
@@ -161,38 +142,11 @@ export async function getStoreById(id: number): Promise<Store | null> {
     .eq("id", id)
     .single();
 
-  console.log('🔍 [stores.ts] Supabase query result', { 
-    id, 
-    error, 
-    data: data ? {
-      id: data.id,
-      name: data.name,
-      open_hours: data.open_hours,
-      hasOpenHours: !!data.open_hours,
-      openHoursType: typeof data.open_hours,
-      openHoursLength: data.open_hours?.length,
-      categories: data.categories
-    } : null 
-  });
-
   if (error) {
     console.error("가게 상세 정보 조회 오류:", error);
     return null;
   }
 
   // 공통 매핑 함수 사용
-  const mappedStore = mapStoreFromDb(data);
-  console.log('🔍 [stores.ts] mapStoreFromDb result', { 
-    id, 
-    mappedStore: mappedStore ? {
-      id: mappedStore.id,
-      name: mappedStore.name,
-      openHours: mappedStore.openHours,
-      hasOpenHours: !!mappedStore.openHours,
-      openHoursType: typeof mappedStore.openHours,
-      openHoursLength: mappedStore.openHours?.length
-    } : null 
-  });
-  
-  return mappedStore;
+  return mapStoreFromDb(data);
 }

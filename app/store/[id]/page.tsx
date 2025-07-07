@@ -342,7 +342,112 @@ export default function StorePage() {
                       </div>
                       <div className="text-gray-700 text-sm">
                         {showAllHours ? (
-                          <div className="whitespace-pre-line">{store.openHours}</div>
+                          <div className="space-y-3">
+                            {(() => {
+                              // 운영시간 파싱 로직
+                              const parseBusinessHours = () => {
+                                if (!store.openHours) return [];
+                                
+                                const hoursString = store.openHours;
+                                const dayPatterns = ["월", "화", "수", "목", "금", "토", "일"];
+                                const parsedHours = [];
+
+                                // 라스트오더 정보 추출
+                                const lastOrderMatch = hoursString.match(/\(라스트오더:\s*([^)]+)\)/);
+                                const lastOrderTime = lastOrderMatch ? lastOrderMatch[1].trim() : null;
+
+                                // 휴무일 정보 확인
+                                const closedDays = [];
+                                if (hoursString.includes("휴무")) {
+                                  const closedMatch = hoursString.match(/매주\s*([가-힣]+)요일\s*휴무/);
+                                  if (closedMatch) {
+                                    const closedDayName = closedMatch[1];
+                                    closedDays.push(closedDayName);
+                                  }
+                                }
+
+                                // 각 요일별로 시간 정보 파싱
+                                for (const day of dayPatterns) {
+                                  // 휴무일인지 확인
+                                  if (closedDays.includes(day)) {
+                                    parsedHours.push({ day, hours: "휴무", isClosed: true, lastOrder: null });
+                                    continue;
+                                  }
+
+                                  // "월: 11:30-23:30" 패턴 찾기
+                                  const regex = new RegExp(`${day}:\\s*([\\d:]+\\s*-\\s*[\\d:]+)`);
+                                  const match = hoursString.match(regex);
+
+                                  if (match) {
+                                    let hours = match[1].trim();
+                                    
+                                    // 24시간 표기법 처리 (00:00-24:00)
+                                    if (hours.includes("00:00-24:00")) {
+                                      hours = "24시간 영업";
+                                    }
+
+                                    parsedHours.push({ day, hours, isClosed: false, lastOrder: lastOrderTime });
+                                  } else {
+                                    // 해당 요일이 없으면 정보 없음으로 처리
+                                    parsedHours.push({ day, hours: "정보 없음", isClosed: true, lastOrder: null });
+                                  }
+                                }
+
+                                return parsedHours;
+                              };
+                              
+                              const businessHours = parseBusinessHours();
+                              const today = new Date().getDay();
+                              const days = ['일', '월', '화', '수', '목', '금', '토'];
+                              const todayName = days[today];
+                              
+                              return businessHours.map((item, index) => (
+                                <div
+                                  key={index}
+                                  className={`p-3 rounded-lg border-l-4 ${
+                                    item.day === todayName
+                                      ? "border-[#FF5722] bg-gradient-to-r from-orange-50 to-red-50"
+                                      : "border-gray-200 bg-gray-50"
+                                  }`}
+                                >
+                                  <div className="flex justify-between items-center">
+                                    <div className="flex items-center gap-2">
+                                      <span
+                                        className={`font-semibold ${
+                                          item.day === todayName
+                                            ? "text-[#FF5722]"
+                                            : "text-gray-700"
+                                        }`}
+                                      >
+                                        {item.day}요일
+                                      </span>
+                                      {item.day === todayName && (
+                                        <span className="text-xs bg-[#FF5722] text-white px-2 py-0.5 rounded-full">
+                                          오늘
+                                        </span>
+                                      )}
+                                    </div>
+                                    <div className="text-right">
+                                      <div
+                                        className={`font-medium ${
+                                          item.isClosed
+                                            ? "text-red-500"
+                                            : "text-gray-700"
+                                        }`}
+                                      >
+                                        {item.hours}
+                                      </div>
+                                      {item.lastOrder && !item.isClosed && (
+                                        <div className="text-xs text-gray-500 mt-1">
+                                          라스트오더: {item.lastOrder}
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              ));
+                            })()}
+                          </div>
                         ) : (
                           <div>
                             {(() => {
@@ -351,25 +456,27 @@ export default function StorePage() {
                               const todayName = days[today];
                               
                               // 오늘 요일에 해당하는 운영시간 찾기
-                              const lines = store.openHours.split('\n');
-                              const todayLine = lines.find(line => 
-                                line.includes(todayName) || 
-                                line.includes('매일') || 
-                                line.includes('평일') && today >= 1 && today <= 5 ||
-                                line.includes('주말') && (today === 0 || today === 6)
-                              );
+                              const regex = new RegExp(`${todayName}:\\s*([\\d:]+\\s*-\\s*[\\d:]+)`);
+                              const match = store.openHours.match(regex);
                               
-                              return todayLine ? (
+                              // 라스트오더 정보 추출
+                              const lastOrderMatch = store.openHours.match(/\(라스트오더:\s*([^)]+)\)/);
+                              const lastOrderTime = lastOrderMatch ? lastOrderMatch[1].trim() : null;
+                              
+                              return (
                                 <div>
                                   <span className="font-medium text-[#FF5722]">오늘 ({todayName})</span>
                                   <br />
-                                  {todayLine}
-                                </div>
-                              ) : (
-                                <div>
-                                  <span className="font-medium text-[#FF5722]">오늘 ({todayName})</span>
-                                  <br />
-                                  운영시간 정보를 확인해주세요
+                                  {match ? (
+                                    <div>
+                                      {match[1]}
+                                      {lastOrderTime && (
+                                        <span className="text-gray-500 ml-2">(라스트오더: {lastOrderTime})</span>
+                                      )}
+                                    </div>
+                                  ) : (
+                                    "운영시간 정보를 확인해주세요"
+                                  )}
                                 </div>
                               );
                             })()}

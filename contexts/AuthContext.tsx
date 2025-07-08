@@ -52,6 +52,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     async (user: User | null) => {
       if (user) {
         try {
+          authLogger.debug("프로필 데이터 로딩 시작", { userId: user.id });
+          
           const { data, error } = await supabase
             .from("profiles")
             .select("username, role, is_admin")
@@ -59,8 +61,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             .single();
 
           if (!error && data) {
+            authLogger.debug("프로필 데이터 로딩 성공", data);
             setProfile(data);
           } else {
+            authLogger.debug("프로필 없음, 기본 프로필 생성");
             // 프로필이 없는 경우 기본 프로필 생성
             const username =
               user.email?.split("@")[0] ||
@@ -73,13 +77,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               });
 
             if (!createError) {
-              setProfile({ username, role: 'user', is_admin: false });
+              const newProfile = { username, role: 'user', is_admin: false };
+              authLogger.debug("기본 프로필 생성 성공", newProfile);
+              setProfile(newProfile);
+            } else {
+              authLogger.error("기본 프로필 생성 실패", createError);
             }
           }
         } catch (error) {
           authLogger.error("Profile data loading failed", error);
+          // 에러가 발생해도 기본 프로필은 설정
+          const username =
+            user.email?.split("@")[0] ||
+            `user_${Math.random().toString(36).substring(2, 10)}`;
+          setProfile({ username, role: 'user', is_admin: false });
         }
       } else {
+        authLogger.debug("사용자 없음, 프로필 초기화");
         setProfile(null);
       }
     },
@@ -91,19 +105,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const initAuth = async () => {
       setLoading(true);
       try {
-        // 현재 세션 확인
+        authLogger.debug("인증 초기화 시작");
+        
+        // 현재 사용자 확인 (서버 인증)
         const {
-          data: { session },
-        } = await supabase.auth.getSession();
+          data: { user },
+          error: authError,
+        } = await supabase.auth.getUser();
 
-        if (session?.user) {
-          setUser(session.user);
-          await loadUserData(session.user);
+        if (user && !authError) {
+          authLogger.debug("초기 사용자 확인됨", { userId: user.id, email: user.email });
+          setUser(user);
+          await loadUserData(user);
+        } else {
+          authLogger.debug("초기 사용자 없음");
+          setUser(null);
+          setProfile(null);
         }
       } catch (error) {
         authLogger.error("Authentication initialization failed", error);
+        setUser(null);
+        setProfile(null);
       } finally {
         setLoading(false);
+        authLogger.debug("인증 초기화 완료");
       }
     };
 
@@ -140,22 +165,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             user.app_metadata?.provider &&
             user.app_metadata.provider !== "email";
 
-          if (isOAuthLogin) {
-            // OAuth 로그인의 경우 현재 페이지가 로그인 페이지라면 홈으로 이동
-            if (window.location.pathname === "/login") {
-              router.push("/");
-            }
-            // 그렇지 않으면 현재 페이지에서 상태만 업데이트
-          } else {
-            // 일반 로그인의 경우 홈으로 이동
+          // 로그인 페이지에서만 홈으로 리다이렉트
+          if (window.location.pathname === "/login") {
             router.push("/");
           }
+          // 다른 페이지에서는 현재 페이지에서 상태만 업데이트
         }
 
-        // 로그아웃 시 처리
-        if (event === "SIGNED_OUT") {
-          router.push("/");
-        }
+        // 로그아웃 시 처리는 signOut 함수에서 처리하므로 여기서는 제거
       }
     );
 
@@ -278,13 +295,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // 로그아웃
   const signOut = async () => {
     try {
-      await supabase.auth.signOut();
+      authLogger.debug("로그아웃 시작");
+      
+      const { error } = await supabase.auth.signOut();
+      
+      if (error) {
+        authLogger.error("로그아웃 에러:", error);
+        throw error;
+      }
+      
+      authLogger.debug("로그아웃 성공");
+      
+      // 상태 즉시 초기화
+      setUser(null);
+      setProfile(null);
+      
       toast({
         title: "로그아웃 완료",
         description: "안전하게 로그아웃되었습니다.",
       });
-      router.push("/");
+      
+      // 현재 페이지가 보호된 페이지가 아니라면 리다이렉트하지 않음
+      const currentPath = window.location.pathname;
+      const protectedPaths = ['/admin', '/profile', '/favorites'];
+      const isProtectedPage = protectedPaths.some(path => currentPath.startsWith(path));
+      
+      if (isProtectedPage) {
+        router.push("/");
+      }
+      // 그렇지 않으면 현재 페이지에서 상태만 업데이트
+      
     } catch (error) {
+      authLogger.error("로그아웃 오류:", error);
       console.error("로그아웃 오류:", error);
       toast({
         title: "오류",

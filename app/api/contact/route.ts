@@ -1,5 +1,4 @@
-import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
-import { cookies } from "next/headers";
+import { createRouteHandlerSupabaseClient } from "@/lib/supabase/server";
 import { NextRequest, NextResponse } from "next/server";
 import { apiResponse } from "@/lib/api-response";
 import { checkAdminAccessForAPI } from "@/lib/auth-utils";
@@ -34,9 +33,7 @@ export async function POST(request: NextRequest) {
       return apiResponse.error("가게 등록 요청시 가게명과 주소는 필수입니다.", 400);
     }
 
-    const supabase = createRouteHandlerClient<Database>({ 
-      cookies: () => cookies() 
-    });
+    const supabase = createRouteHandlerSupabaseClient(request);
 
     // 문의사항 데이터 준비
     const contactData: ContactInsert = {
@@ -78,7 +75,7 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
   try {
     // 관리자 권한 확인
-    const adminCheck = await checkAdminAccessForAPI();
+    const adminCheck = await checkAdminAccessForAPI(request);
     if (!adminCheck.isAdmin) {
       return apiResponse.error(adminCheck.error || "관리자 권한이 필요합니다.", adminCheck.status);
     }
@@ -89,9 +86,7 @@ export async function GET(request: NextRequest) {
     const status = searchParams.get("status");
     const type = searchParams.get("type");
 
-    const supabase = createRouteHandlerClient<Database>({ 
-      cookies: () => cookies() 
-    });
+    const supabase = createRouteHandlerSupabaseClient(request);
 
     // 쿼리 빌더 시작
     let query = supabase

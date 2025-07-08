@@ -97,11 +97,10 @@ export default function Header({
 
   const handleLogout = async () => {
     try {
-      await signOut();
       resetOnboardingStatus();
-      router.push("/");
+      await signOut();
     } catch (error) {
-      console.error("로그아웃 오류:", error);
+      console.error("헤더 로그아웃 오류:", error);
     }
   };
 
@@ -237,15 +236,26 @@ export default function Header({
                     </button>
                   </DropdownMenuItem>
                   {profile?.is_admin && (
-                    <DropdownMenuItem asChild>
-                      <button
-                        onClick={() => router.push("/admin/contacts")}
-                        className="w-full flex items-center text-blue-600"
-                      >
-                        <Settings className="h-4 w-4 mr-2" />
-                        관리자 페이지
-                      </button>
-                    </DropdownMenuItem>
+                    <>
+                      <DropdownMenuItem asChild>
+                        <button
+                          onClick={() => router.push("/admin/announcements")}
+                          className="w-full flex items-center text-blue-600"
+                        >
+                          <Settings className="h-4 w-4 mr-2" />
+                          공지사항 관리
+                        </button>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <button
+                          onClick={() => router.push("/admin/contacts")}
+                          className="w-full flex items-center text-blue-600"
+                        >
+                          <Settings className="h-4 w-4 mr-2" />
+                          문의 관리
+                        </button>
+                      </DropdownMenuItem>
+                    </>
                   )}
                   <DropdownMenuSeparator />
                   <DropdownMenuItem asChild>

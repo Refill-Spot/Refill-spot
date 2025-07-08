@@ -1,5 +1,4 @@
-import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
-import { cookies } from "next/headers";
+import { createRouteHandlerSupabaseClient } from "@/lib/supabase/server";
 import { NextRequest, NextResponse } from "next/server";
 import { apiResponse } from "@/lib/api-response";
 import { checkAdminAccessForAPI } from "@/lib/auth-utils";
@@ -13,7 +12,7 @@ export async function GET(
 ) {
   try {
     // 관리자 권한 확인
-    const adminCheck = await checkAdminAccessForAPI();
+    const adminCheck = await checkAdminAccessForAPI(request);
     if (!adminCheck.isAdmin) {
       return apiResponse.error(adminCheck.error || "관리자 권한이 필요합니다.", adminCheck.status);
     }
@@ -25,9 +24,7 @@ export async function GET(
       return apiResponse.error("유효하지 않은 문의사항 ID입니다.", 400);
     }
 
-    const supabase = createRouteHandlerClient<Database>({ 
-      cookies: () => cookies() 
-    });
+    const supabase = createRouteHandlerSupabaseClient(request);
 
     const { data, error } = await supabase
       .from("contacts")
@@ -56,7 +53,7 @@ export async function PATCH(
 ) {
   try {
     // 관리자 권한 확인
-    const adminCheck = await checkAdminAccessForAPI();
+    const adminCheck = await checkAdminAccessForAPI(request);
     if (!adminCheck.isAdmin) {
       return apiResponse.error(adminCheck.error || "관리자 권한이 필요합니다.", adminCheck.status);
     }
@@ -75,9 +72,7 @@ export async function PATCH(
       return apiResponse.error("유효하지 않은 상태값입니다.", 400);
     }
 
-    const supabase = createRouteHandlerClient<Database>({ 
-      cookies: () => cookies() 
-    });
+    const supabase = createRouteHandlerSupabaseClient(request);
 
     const updateData: ContactUpdate = {
       status,
@@ -115,7 +110,7 @@ export async function DELETE(
 ) {
   try {
     // 관리자 권한 확인
-    const adminCheck = await checkAdminAccessForAPI();
+    const adminCheck = await checkAdminAccessForAPI(request);
     if (!adminCheck.isAdmin) {
       return apiResponse.error(adminCheck.error || "관리자 권한이 필요합니다.", adminCheck.status);
     }
@@ -127,9 +122,7 @@ export async function DELETE(
       return apiResponse.error("유효하지 않은 문의사항 ID입니다.", 400);
     }
 
-    const supabase = createRouteHandlerClient<Database>({ 
-      cookies: () => cookies() 
-    });
+    const supabase = createRouteHandlerSupabaseClient(request);
 
     const { error } = await supabase
       .from("contacts")

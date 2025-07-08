@@ -21,7 +21,7 @@ import { useGeolocation } from "@/hooks/use-geolocation";
 import { useGooglePlaces } from "@/hooks/use-google-places";
 import { useLocationSearch } from "@/hooks/use-location-search";
 import { resetOnboardingStatus } from "@/lib/onboarding-storage";
-import { LogOut, Map, Settings, User } from "lucide-react";
+import { Heart, LogOut, Map, Settings, User } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { DesktopHeader } from "./header/desktop-header";
@@ -210,8 +210,9 @@ export default function Header({
           {/* 사용자 메뉴 (공통) - 오른쪽 끝 */}
           <div className="flex items-center space-x-4 ml-auto">
             {loading ? (
-              <div className="animate-pulse">
+              <div className="animate-pulse flex items-center space-x-2">
                 <div className="h-8 w-8 bg-gray-300 rounded-full"></div>
+                <div className="h-4 w-16 bg-gray-300 rounded hidden md:block"></div>
               </div>
             ) : user ? (
               <DropdownMenu>
@@ -226,6 +227,15 @@ export default function Header({
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-48">
+                  <DropdownMenuItem asChild>
+                    <button
+                      onClick={() => router.push("/favorites")}
+                      className="w-full flex items-center"
+                    >
+                      <Heart className="h-4 w-4 mr-2 text-[#FF5722]" />
+                      즐겨찾기한 가게 보기
+                    </button>
+                  </DropdownMenuItem>
                   <DropdownMenuItem asChild>
                     <button
                       onClick={handleGetCurrentLocation}

@@ -902,7 +902,7 @@ export default function KakaoMap({
       )}
 
       {/* 지도 컨트롤 */}
-      <div className="absolute top-4 right-4 flex flex-col gap-2 z-10">
+      <div className="absolute bottom-4 left-4 flex flex-col gap-2 z-10">
         <Button
           variant="secondary"
           size="icon"

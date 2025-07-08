@@ -115,7 +115,7 @@ export async function POST(request: NextRequest) {
       content,
       is_important,
       is_published,
-      author_id: adminCheck.user.id,
+      author_id: adminCheck.user?.id,
       published_at: is_published ? new Date().toISOString() : null,
     };
 

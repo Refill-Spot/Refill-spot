@@ -171,6 +171,11 @@ function calculateAverageRating(data: any): number {
  * @returns 평점 (0~5)
  */
 export async function getNaverPlaceRating(query: string): Promise<number> {
+  // API 키가 없으면 바로 0 반환
+  if (!NAVER_CLIENT_ID || !NAVER_CLIENT_SECRET) {
+    return 0;
+  }
+
   try {
     // 1. 장소 검색
     const places = await searchNaverPlaces(query);

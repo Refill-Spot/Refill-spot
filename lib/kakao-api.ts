@@ -202,6 +202,11 @@ function extractRating(data: any): number {
  * @returns 평점 (0~5)
  */
 export async function getKakaoPlaceRating(query: string): Promise<number> {
+  // API 키가 없으면 바로 0 반환
+  if (!KAKAO_API_KEY) {
+    return 0;
+  }
+
   try {
     // 1. 장소 검색
     const places = await searchKakaoPlaces(query);

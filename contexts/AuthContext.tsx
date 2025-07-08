@@ -42,6 +42,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<{ username: string; role?: string; is_admin?: boolean } | null>(null);
   const [loading, setLoading] = useState(true);
+  const [initialized, setInitialized] = useState(false);
   const router = useRouter();
   const { toast } = useToast();
   const { t } = useTranslation();
@@ -102,7 +103,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // 초기 사용자 상태 확인
   useEffect(() => {
+    let mounted = true;
+    
     const initAuth = async () => {
+      if (!mounted) return;
+      
       setLoading(true);
       try {
         authLogger.debug("인증 초기화 시작");
@@ -112,6 +117,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           data: { user },
           error: authError,
         } = await supabase.auth.getUser();
+
+        if (!mounted) return;
 
         if (user && !authError) {
           authLogger.debug("초기 사용자 확인됨", { userId: user.id, email: user.email });
@@ -123,12 +130,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setProfile(null);
         }
       } catch (error) {
+        if (!mounted) return;
         authLogger.error("Authentication initialization failed", error);
         setUser(null);
         setProfile(null);
       } finally {
-        setLoading(false);
-        authLogger.debug("인증 초기화 완료");
+        if (mounted) {
+          // 최소 200ms 로딩 시간으로 깜빡임 방지
+          setTimeout(() => {
+            if (mounted) {
+              setLoading(false);
+              setInitialized(true);
+              authLogger.debug("인증 초기화 완료");
+            }
+          }, 200);
+        }
       }
     };
 
@@ -137,6 +153,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // 인증 상태 변경 구독
     const { data: authListener } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        if (!mounted) return;
+        
         authLogger.debug("Auth state changed", { 
           event, 
           userEmail: session?.user?.email 
@@ -145,13 +163,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const user = session?.user || null;
         setUser(user);
 
-        if (user) {
+        if (user && mounted) {
           await loadUserData(user);
-        } else {
+        } else if (mounted) {
           setProfile(null);
         }
 
-        setLoading(false);
+        if (mounted) {
+          setLoading(false);
+        }
 
         // 로그인 성공 시 처리 (OAuth 포함)
         if (event === "SIGNED_IN" && user) {
@@ -177,6 +197,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     );
 
     return () => {
+      mounted = false;
       authListener.subscription.unsubscribe();
     };
   }, [supabase, loadUserData, router, toast]);

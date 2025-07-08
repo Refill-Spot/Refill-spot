@@ -1,11 +1,14 @@
 "use client";
 
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { useAuth } from "@/contexts/AuthContext";
+import { useFavorites } from "@/hooks/use-favorites";
 import { getUserLocation, isLocationValid } from "@/lib/location-storage";
 import { Store } from "@/types/store";
-import { MapPin } from "lucide-react";
+import { Heart, MapPin } from "lucide-react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { memo, useState } from "react";
@@ -17,6 +20,8 @@ interface StoreListProps {
 function StoreList({ stores = [] }: StoreListProps) {
   const [selectedStore, setSelectedStore] = useState<Store | null>(null);
   const router = useRouter();
+  const { user } = useAuth();
+  const { isFavorite, toggleFavorite } = useFavorites();
 
   const handleStoreClick = (store: Store) => {
     setSelectedStore(store);
@@ -35,6 +40,11 @@ function StoreList({ stores = [] }: StoreListProps) {
       // 위치 정보가 없으면 기본으로 새 탭에서 열기
       window.open(`/store/${store.id}`, "_blank");
     }
+  };
+
+  const handleFavoriteClick = async (e: React.MouseEvent, storeId: number) => {
+    e.stopPropagation(); // 카드 클릭 이벤트 방지
+    await toggleFavorite(storeId);
   };
 
   return (
@@ -75,10 +85,26 @@ function StoreList({ stores = [] }: StoreListProps) {
                     </figure>
                     <CardContent className="flex-1 p-4 flex flex-col justify-between">
                       <div className="flex-1">
-                        <header className="mb-2">
-                          <h3 className="font-bold text-[#333333] text-lg leading-tight">
+                        <header className="mb-2 flex items-start justify-between">
+                          <h3 className="font-bold text-[#333333] text-lg leading-tight flex-1">
                             {store.name}
                           </h3>
+                          {user && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={(e) => handleFavoriteClick(e, store.id)}
+                              className="p-1 h-8 w-8 flex-shrink-0 ml-2"
+                            >
+                              <Heart
+                                className={`h-4 w-4 ${
+                                  isFavorite(store.id)
+                                    ? "fill-[#FF5722] text-[#FF5722]"
+                                    : "text-gray-400 hover:text-[#FF5722]"
+                                }`}
+                              />
+                            </Button>
+                          )}
                         </header>
 
                         <div className="flex items-center gap-1 text-sm mb-2">

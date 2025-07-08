@@ -116,6 +116,7 @@ export function useFetchStores(
         storeData = [];
       }
 
+
       // 데이터가 비어있는 경우 로그 남기기
       if (storeData.length === 0) {
         console.warn("가게 데이터가 비어있습니다. 필터:", filters);

@@ -3,11 +3,20 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useToast } from "@/components/ui/use-toast";
 import { getUserLocation, isLocationValid } from "@/lib/location-storage";
 import { Store } from "@/types/store";
 import { MenuItem } from "@/types/menu";
 import { useAuth } from "@/contexts/AuthContext";
+import { useFavorites } from "@/hooks/use-favorites";
+import { resetOnboardingStatus } from "@/lib/onboarding-storage";
 import {
   ArrowLeft,
   ChevronDown,
@@ -15,8 +24,11 @@ import {
   Clock,
   ExternalLink,
   Heart,
+  LogOut,
+  Map,
   MapPin,
   Phone,
+  Settings,
   Share,
   Star,
   Utensils,
@@ -29,7 +41,8 @@ export default function StorePage() {
   const params = useParams();
   const router = useRouter();
   const { toast } = useToast();
-  const { user, profile } = useAuth();
+  const { user, profile, loading: authLoading, signOut } = useAuth();
+  const { isFavorite, toggleFavorite } = useFavorites();
   const [store, setStore] = useState<Store | null>(null);
   const [loading, setLoading] = useState(true);
   const [showAllHours, setShowAllHours] = useState(false);
@@ -111,6 +124,66 @@ export default function StorePage() {
     } else {
       // 위치 정보가 없으면 일반 뒤로가기
       router.back();
+    }
+  };
+
+  // 즐겨찾기 토글 핸들러
+  const handleToggleFavorite = async () => {
+    if (!store) return;
+    await toggleFavorite(store.id);
+  };
+
+  // 로그아웃 핸들러
+  const handleLogout = async () => {
+    try {
+      resetOnboardingStatus();
+      await signOut();
+    } catch (error) {
+      console.error("로그아웃 오류:", error);
+    }
+  };
+
+  // 공유 핸들러
+  const handleShare = async () => {
+    if (!store) return;
+
+    const shareData = {
+      title: `${store.name} - Refill Spot`,
+      text: `${store.name}\n${store.address}\n무한리필 가게 정보를 확인해보세요!`,
+      url: window.location.href,
+    };
+
+    try {
+      // Web Share API 지원 확인 (주로 모바일)
+      if (navigator.share && navigator.canShare && navigator.canShare(shareData)) {
+        await navigator.share(shareData);
+        return;
+      }
+    } catch (error) {
+      console.error('Web Share API 오류:', error);
+    }
+
+    // Web Share API를 지원하지 않는 경우 클립보드로 복사
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      toast({
+        title: '링크 복사 완료',
+        description: '가게 링크가 클립보드에 복사되었습니다.',
+      });
+    } catch (error) {
+      console.error('클립보드 복사 오류:', error);
+      // 클립보드 API도 실패한 경우 fallback
+      const textArea = document.createElement('textarea');
+      textArea.value = window.location.href;
+      document.body.appendChild(textArea);
+      textArea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textArea);
+      
+      toast({
+        title: '링크 복사 완료',
+        description: '가게 링크가 클립보드에 복사되었습니다.',
+      });
     }
   };
 
@@ -206,13 +279,76 @@ export default function StorePage() {
             
             {/* 오른쪽: 로그인/사용자 정보 */}
             <div className="flex items-center gap-3 w-60 justify-end">
-              {user && profile ? (
-                <Button variant="ghost" size="sm" className="relative">
-                  <User className="h-5 w-5" />
-                  <span className="ml-2 hidden md:inline">
-                    {profile.username}
-                  </span>
-                </Button>
+              {authLoading ? (
+                <div className="animate-pulse flex items-center space-x-2">
+                  <div className="h-8 w-8 bg-gray-300 rounded-full"></div>
+                  <div className="h-4 w-16 bg-gray-300 rounded hidden md:block"></div>
+                </div>
+              ) : user ? (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="sm" className="relative">
+                      <User className="h-5 w-5" />
+                      {profile?.username && (
+                        <span className="ml-2 hidden md:inline">
+                          {profile.username}
+                        </span>
+                      )}
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-48">
+                    <DropdownMenuItem asChild>
+                      <button
+                        onClick={() => router.push("/favorites")}
+                        className="w-full flex items-center"
+                      >
+                        <Heart className="h-4 w-4 mr-2 text-[#FF5722]" />
+                        즐겨찾기한 가게 보기
+                      </button>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <button
+                        onClick={() => router.push("/")}
+                        className="w-full flex items-center"
+                      >
+                        <Map className="h-4 w-4 mr-2" />
+                        지도로 돌아가기
+                      </button>
+                    </DropdownMenuItem>
+                    {profile?.is_admin && (
+                      <>
+                        <DropdownMenuItem asChild>
+                          <button
+                            onClick={() => router.push("/admin/announcements")}
+                            className="w-full flex items-center text-blue-600"
+                          >
+                            <Settings className="h-4 w-4 mr-2" />
+                            공지사항 관리
+                          </button>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem asChild>
+                          <button
+                            onClick={() => router.push("/admin/contacts")}
+                            className="w-full flex items-center text-blue-600"
+                          >
+                            <Settings className="h-4 w-4 mr-2" />
+                            문의 관리
+                          </button>
+                        </DropdownMenuItem>
+                      </>
+                    )}
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem asChild>
+                      <button
+                        onClick={handleLogout}
+                        className="w-full flex items-center text-red-600"
+                      >
+                        <LogOut className="h-4 w-4 mr-2" />
+                        로그아웃
+                      </button>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               ) : (
                 <Button
                   onClick={() => router.push('/login')}
@@ -276,14 +412,22 @@ export default function StorePage() {
                 variant="secondary"
                 size="sm"
                 className="bg-white/90 text-gray-700 hover:bg-white"
+                onClick={handleToggleFavorite}
               >
-                <Heart className="w-4 h-4 mr-1" />
-                저장
+                <Heart 
+                  className={`w-4 h-4 mr-1 ${
+                    store && isFavorite(store.id) 
+                      ? 'fill-red-500 text-red-500' 
+                      : ''
+                  }`} 
+                />
+                {store && isFavorite(store.id) ? '저장됨' : '저장'}
               </Button>
               <Button
                 variant="secondary"
                 size="sm"
                 className="bg-white/90 text-gray-700 hover:bg-white"
+                onClick={handleShare}
               >
                 <Share className="w-4 h-4 mr-1" />
                 공유

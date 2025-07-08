@@ -126,7 +126,7 @@ export default function FavoritesPage() {
               <div className="flex flex-col md:flex-row">
                 <div className="h-48 md:h-auto md:w-48 relative flex-shrink-0">
                   <Image
-                    src="/placeholder.svg"
+                    src={store.imageUrls && store.imageUrls.length > 0 ? store.imageUrls[0] : "/placeholder.svg"}
                     alt={`${store.name} 이미지`}
                     fill
                     sizes="(max-width: 768px) 100vw, 192px"

@@ -1,7 +1,6 @@
 import { errorResponse } from "@/lib/api-response";
 import { mapStoreFromDb } from "@/lib/stores";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
-import { StoreFromDb } from "@/types/store";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(request: NextRequest) {
@@ -24,16 +23,20 @@ export async function GET(request: NextRequest) {
       const selectedCategories = categoriesStr ? categoriesStr.split(",") : [];
 
       // PostGIS 공간 쿼리로 거리 기반 필터링 및 정렬 (이미 거리순 정렬됨)
-      const { data: stores, error: storeError } = await supabase
-        .rpc('get_stores_within_radius', {
+      const { data: stores, error: storeError } = await supabase.rpc(
+        "get_stores_within_radius",
+        {
           user_lat: latitude,
           user_lng: longitude,
-          radius_km: radiusKm
-        });
+          radius_km: radiusKm,
+        }
+      );
 
       if (storeError) throw storeError;
 
-      console.log(`PostGIS 공간 쿼리: 중심점 (${latitude}, ${longitude}), 반경 ${radiusKm}km, 총 ${stores.length}개 가게 발견`);
+      console.log(
+        `PostGIS 공간 쿼리: 중심점 (${latitude}, ${longitude}), 반경 ${radiusKm}km, 총 ${stores.length}개 가게 발견`
+      );
 
       // PostGIS에서 이미 거리 계산과 정렬이 완료되었으므로 추가 필터링만 수행
       const filteredStores = stores
@@ -92,15 +95,18 @@ export async function GET(request: NextRequest) {
       // 위치 정보가 없는 경우: PostGIS 기본 추천 함수 사용
       console.log("위치 정보 없음 - PostGIS 기본 추천 가게 제공 (강남구 중심)");
 
-      const { data: stores, error: storeError } = await supabase
-        .rpc('get_default_recommended_stores');
+      const { data: stores, error: storeError } = await supabase.rpc(
+        "get_default_recommended_stores"
+      );
 
       if (storeError) throw storeError;
 
       // PostGIS에서 이미 거리 계산과 정렬이 완료된 데이터 매핑
       const formattedStores = stores
         .slice(0, 30) // 최종 30개 선택
-        .map((store: any) => mapStoreFromDb(store, store.distance_km.toString()));
+        .map((store: any) =>
+          mapStoreFromDb(store, store.distance_km.toString())
+        );
 
       return NextResponse.json(
         { success: true, data: formattedStores },

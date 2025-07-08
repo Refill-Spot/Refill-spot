@@ -25,21 +25,8 @@ function StoreList({ stores = [] }: StoreListProps) {
 
   const handleStoreClick = (store: Store) => {
     setSelectedStore(store);
-
-    // 현재 위치 정보를 URL 파라미터로 전달하여 새 탭에서 열기
-    const savedLocation = getUserLocation();
-    if (savedLocation && isLocationValid(savedLocation)) {
-      const params = new URLSearchParams({
-        from: "list",
-        lat: savedLocation.lat.toString(),
-        lng: savedLocation.lng.toString(),
-        source: savedLocation.source,
-      });
-      window.open(`/store/${store.id}?${params.toString()}`, "_blank");
-    } else {
-      // 위치 정보가 없으면 기본으로 새 탭에서 열기
-      window.open(`/store/${store.id}`, "_blank");
-    }
+    // 간단한 URL로 새 탭에서 열기
+    window.open(`/store/${store.id}`, "_blank");
   };
 
   const handleFavoriteClick = async (e: React.MouseEvent, storeId: number) => {

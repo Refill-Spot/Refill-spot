@@ -867,20 +867,8 @@ export default function KakaoMap({
             <Button 
               className="w-full mt-3 bg-[#FF5722] hover:bg-[#E64A19]"
               onClick={() => {
-                // 현재 위치 정보를 URL 파라미터로 전달하여 새 탭에서 열기
-                const savedLocation = userLocation;
-                if (savedLocation) {
-                  const params = new URLSearchParams({
-                    from: "map",
-                    lat: savedLocation.lat.toString(),
-                    lng: savedLocation.lng.toString(),
-                    source: "kakao",
-                  });
-                  window.open(`/store/${selectedStore.id}?${params.toString()}`, "_blank");
-                } else {
-                  // 위치 정보가 없으면 기본으로 새 탭에서 열기
-                  window.open(`/store/${selectedStore.id}`, "_blank");
-                }
+                // 간단한 URL로 새 탭에서 열기
+                window.open(`/store/${selectedStore.id}`, "_blank");
               }}
             >
               상세 보기

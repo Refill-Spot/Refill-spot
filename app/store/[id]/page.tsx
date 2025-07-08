@@ -110,20 +110,22 @@ export default function StorePage() {
 
   // 뒤로가기 핸들러
   const handleGoBack = () => {
-    // 저장된 위치 정보가 있는지 확인
-    const savedLocation = getUserLocation();
-
-    if (savedLocation && isLocationValid(savedLocation)) {
-      // 위치 정보가 있으면 쿼리 파라미터와 함께 메인 페이지로 이동
-      const params = new URLSearchParams({
-        lat: savedLocation.lat.toString(),
-        lng: savedLocation.lng.toString(),
-        source: savedLocation.source,
-      });
-      router.push(`/?${params.toString()}`);
-    } else {
-      // 위치 정보가 없으면 일반 뒤로가기
+    // 브라우저 히스토리를 확인하여 이전 페이지로 돌아가기
+    if (window.history.length > 1) {
       router.back();
+    } else {
+      // 히스토리가 없으면 메인 페이지로 이동
+      const savedLocation = getUserLocation();
+      if (savedLocation && isLocationValid(savedLocation)) {
+        const params = new URLSearchParams({
+          lat: savedLocation.lat.toString(),
+          lng: savedLocation.lng.toString(),
+          source: savedLocation.source,
+        });
+        router.push(`/?${params.toString()}`);
+      } else {
+        router.push('/');
+      }
     }
   };
 

@@ -641,7 +641,7 @@ Refill Spot 프로젝트에 기여해주셔서 감사합니다! 다음 방법들
 ## 📞 문의 및 지원 (Contact & Support)
 
 *   **GitHub Issues:** [프로젝트 이슈 페이지](https://github.com/Refill-Spot/ex_refill/issues)
-*   **이메일:** refillspot@example.com
+*   **이메일:** refillspot.official@gmail.com
 *   **개발팀:** Refill Spot Development Team
 
 ---

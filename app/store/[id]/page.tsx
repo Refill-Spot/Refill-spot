@@ -935,7 +935,7 @@ export default function StorePage() {
                 <span className="font-medium text-gray-700">(주)리필스팟</span>
               </div>
               <div>
-                이메일 문의 : refillspot@gmail.com
+                이메일 문의 : refillspot.official@gmail.com
               </div>
             </div>
 

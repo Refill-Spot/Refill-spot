@@ -41,7 +41,7 @@ const onboardingSteps = [
       { text: "지도 기반 탐색", icon: <Globe className="w-5 h-5" /> },
       { text: "거리별 정렬", icon: <Navigation className="w-5 h-5" /> },
     ],
-    stats: { number: "500+", label: "등록된 맛집" },
+    stats: { number: "200+", label: "등록된 맛집" },
   },
   {
     id: 2,
@@ -52,41 +52,41 @@ const onboardingSteps = [
     icon: <Search className="w-16 h-16" />,
     gradient: "from-emerald-500 to-teal-400",
     features: [
-      { text: "다중 필터 검색", icon: <Filter className="w-5 h-5" /> },
-      { text: "가격대별 분류", icon: <DollarSign className="w-5 h-5" /> },
-      { text: "실시간 추천", icon: <Sparkles className="w-5 h-5" /> },
+      { text: "8가지 카테고리 필터", icon: <Filter className="w-5 h-5" /> },
+      { text: "반경 1-5km 설정", icon: <Target className="w-5 h-5" /> },
+      { text: "평점별 필터링", icon: <Star className="w-5 h-5" /> },
     ],
-    stats: { number: "98%", label: "검색 만족도" },
+    stats: { number: "5가지", label: "검색 필터" },
   },
   {
     id: 3,
     title: "신뢰할 수 있는 정보",
     subtitle: "실제 이용자들의 생생한 후기",
     description:
-      "운영시간, 메뉴, 가격부터 실제 방문자들의 솔직한 리뷰까지. 모든 정보를 투명하게 공개해 현명한 선택을 도와드려요.",
+      "운영시간, 메뉴, 가격부터 네이버와 카카오의 실시간 평점까지. 모든 정보를 투명하게 공개해 현명한 선택을 도와드려요.",
     icon: <Star className="w-16 h-16" />,
     gradient: "from-amber-500 to-orange-400",
     features: [
       { text: "실시간 운영 정보", icon: <Clock className="w-5 h-5" /> },
-      { text: "검증된 리뷰", icon: <MessageCircle className="w-5 h-5" /> },
+      { text: "네이버/카카오 평점", icon: <Star className="w-5 h-5" /> },
       { text: "상세 메뉴 정보", icon: <Utensils className="w-5 h-5" /> },
     ],
-    stats: { number: "4.8★", label: "평균 평점" },
+    stats: { number: "실시간", label: "평점 정보" },
   },
   {
     id: 4,
     title: "나만의 맛집 컬렉션",
     subtitle: "개인화된 맛집 관리",
     description:
-      "마음에 드는 맛집을 저장하고 나만의 리스트를 만들어보세요. 친구들과 공유하고 새로운 맛집도 추천받을 수 있어요.",
+      "마음에 드는 맛집을 즐겨찾기에 저장하고 나만의 리스트를 만들어보세요. 언제든지 쉽게 찾아볼 수 있고, 리뷰도 남길 수 있습니다.",
     icon: <Heart className="w-16 h-16" />,
     gradient: "from-rose-500 to-pink-400",
     features: [
       { text: "즐겨찾기 저장", icon: <Bookmark className="w-5 h-5" /> },
-      { text: "리스트 공유", icon: <Users className="w-5 h-5" /> },
-      { text: "개인 추천", icon: <Settings className="w-5 h-5" /> },
+      { text: "가게 정보 공유", icon: <Users className="w-5 h-5" /> },
+      { text: "개인 프로필", icon: <Settings className="w-5 h-5" /> },
     ],
-    stats: { number: "10K+", label: "활성 사용자" },
+    stats: { number: "개인화", label: "맛집 관리" },
   },
 ];
 
@@ -340,15 +340,15 @@ export default function OnboardingPage() {
             <div className="flex flex-col md:flex-row items-center justify-center space-y-4 md:space-y-0 md:space-x-12 text-sm">
               <div className="flex items-center space-x-2 text-gray-600">
                 <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                <span>10,000+ 만족한 사용자</span>
+                <span>카카오맵 + 네이버맵</span>
               </div>
               <div className="flex items-center space-x-2 text-gray-600">
                 <div className="w-2 h-2 bg-emerald-500 rounded-full"></div>
-                <span>500+ 검증된 맛집</span>
+                <span>200+ 검증된 맛집</span>
               </div>
               <div className="flex items-center space-x-2 text-gray-600">
                 <div className="w-2 h-2 bg-amber-500 rounded-full"></div>
-                <span>평균 4.8점 만족도</span>
+                <span>실시간 평점 정보</span>
               </div>
             </div>
             <div className="text-center mt-4 text-xs text-gray-400">

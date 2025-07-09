@@ -257,7 +257,7 @@ export default function ContactPage() {
             <CardContent className="space-y-3">
               <div className="flex items-center gap-3">
                 <Mail className="w-4 h-4 text-[#FF5722]" />
-                <span className="text-sm">refillspot@gmail.com</span>
+                <span className="text-sm">refillspot.official@gmail.com</span>
               </div>
             </CardContent>
           </Card>

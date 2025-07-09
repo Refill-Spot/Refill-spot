@@ -12,6 +12,10 @@ export const metadata = {
   title: "Refill-spot - 무한리필 가게 찾기",
   description: "주변의 무한리필 가게를 쉽게 찾아보세요",
   generator: "v0.dev",
+  icons: {
+    icon: '/icon',
+    apple: '/apple-icon',
+  },
 };
 
 interface RootLayoutProps {

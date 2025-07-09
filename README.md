@@ -1,649 +1,215 @@
-# Refill Spot - 무한리필 식당 찾기
+# 🍽️ Refill Spot
 
-## 🎯 프로젝트 소개 (Introduction)
+**한국의 모든 무한리필 맛집을 한 곳에서!**
 
-"무한리필" 식당은 맛있는 음식을 마음껏 즐길 수 있어 많은 사람에게 사랑받지만, 원하는 조건의 무한리필 가게를 찾거나 다양한 가게 정보를 한눈에 비교하기는 어려울 때가 많습니다. **Refill Spot**은 이러한 불편함을 해결하고자 탄생했습니다.
-
-이 애플리케이션은 사용자가 자신의 위치 주변이나 특정 지역의 다양한 무한리필 식당 정보를 손쉽게 검색하고, 가격, 메뉴, 운영 시간, 사용자 평점 등 상세 정보를 확인하여 합리적인 선택을 할 수 있도록 돕는 것을 목표로 합니다. 더 이상 여러 웹사이트나 앱을 탐색할 필요 없이, Refill Spot 하나로 원하는 무한리필 맛집을 발견해 보세요!
-
-## ✨ 주요 기능 (Features)
-
-Refill Spot은 다음과 같은 편리한 기능들을 제공하여 최적의 무한리필 식당을 찾는 경험을 선사합니다.
-
-*   **📍 주변 가게 스마트 검색:**
-    *   **GPS 기반 추천:** 스마트폰의 GPS 기능을 이용하여 현재 위치에서 가장 가까운 무한리필 가게들을 즉시 찾아줍니다.
-    *   **수동 위치 설정:** 원하는 지역명(예: "강남역", "홍대입구")을 입력하거나 지도에서 직접 위치를 선택하여 해당 지역의 가게들을 검색할 수 있습니다.
-    *   **거리 정보 제공:** 검색된 가게까지의 대략적인 거리 정보를 제공합니다.
-
-*   **🔎 맞춤형 가게 검색 및 필터링:**
-    *   **통합 검색:** 가게 이름, 주소 또는 대표 메뉴 키워드(예: "삼겹살", "초밥")로 빠르게 검색할 수 있습니다.
-    *   **(향후 추가 예정) 상세 필터:** 가격대, 음식 종류(한식, 중식, 일식 등), 특정 리필 항목(예: 음료, 사이드 메뉴) 등의 필터를 적용하여 더욱 정확하게 원하는 가게를 찾을 수 있도록 지원할 예정입니다.
-
-*   **💾 사용자 위치 및 설정 저장:**
-    *   **최근 검색 위치 기억:** 사용자가 마지막으로 검색했거나 설정한 위치를 브라우저에 안전하게 저장하여, 앱 재방문 시 동일한 지역의 정보를 바로 확인할 수 있습니다.
-    *   **(향후 추가 예정) 지도 설정 저장:** 사용자가 선호하는 지도 축척 및 유형 설정을 저장하여 개인화된 사용 경험을 제공할 예정입니다.
-
-*   **👤 사용자 인증 및 개인화:**
-    *   **간편 가입/로그인:** 이메일과 비밀번호를 사용하거나, Google 또는 Kakao 소셜 계정을 통해 몇 번의 클릭만으로 간편하게 가입하고 로그인할 수 있습니다.
-    *   **계정 혜택:** 로그인한 사용자는 즐겨찾기, 프로필 관리 등 개인화된 서비스를 이용할 수 있습니다.
-    *   **보안:** 안전한 비밀번호 재설정 기능을 제공하여 계정 보안을 유지합니다.
-
-*   **⭐ 즐겨찾기 기능:**
-    *   **나만의 맛집 리스트:** 마음에 드는 가게를 발견하면 즐겨찾기에 추가하여 언제든지 쉽게 다시 찾아볼 수 있습니다.
-    *   **간편 관리:** 프로필 페이지에서 즐겨찾기 목록을 확인하고, 필요 없는 가게는 목록에서 손쉽게 제거할 수 있습니다.
-
-*   **📝 프로필 관리:**
-    *   **정보 업데이트:** 사용자의 닉네임 등 개인 정보를 프로필 페이지에서 직접 수정하고 관리할 수 있습니다.
-    *   **(향후 추가 예정) 활동 내역:** 작성한 리뷰나 평가 내역을 모아볼 수 있는 기능을 추가할 예정입니다.
-
-*   **🗺️ 인터랙티브 지도 기능:**
-    *   **카카오맵 통합:** 카카오맵을 활용하여 가게 위치를 직관적으로 확인할 수 있으며, 커스텀 마커와 클러스터링 기능을 제공합니다.
-    *   **스마트 로딩:** 처음에는 20개 가게만 표시하여 빠른 로딩을 제공하며, "더보기" 버튼을 통해 추가 가게를 점진적으로 로드할 수 있습니다.
-    *   **현재 위치 표시:** 사용자의 현재 위치를 지도에 표시하고, 가게까지의 거리 정보를 제공합니다.
-    *   **마커 상호작용:** 지도 마커를 클릭하면 가게의 기본 정보를 팝업으로 확인할 수 있으며, 클릭하여 상세 페이지로 이동할 수 있습니다.
-
-*   **📋 효율적인 데이터 관리:**
-    *   **페이지네이션:** API에서 페이지별로 가게 데이터를 효율적으로 로드하여 성능을 최적화합니다.
-    *   **상태 관리:** React Query와 커스텀 훅을 활용하여 가게 데이터와 로딩 상태를 체계적으로 관리합니다.
-    *   **캐싱:** 한 번 로드된 데이터는 캐시되어 재요청 시 빠른 응답을 제공합니다.
-
-*   **🔍 고급 검색 및 필터링:**
-    *   **종합 정보:** 각 가게의 주소, 전화번호, 운영 시간, 평균 가격대, 제공되는 리필 항목, 사용자 평점 및 리뷰 등 상세 정보를 제공합니다.
-    *   **지도 표시:** Google Maps 및 Naver Maps와 연동하여 가게 위치를 지도에서 직관적으로 확인하고, 길 찾기 기능을 바로 이용할 수 있습니다.
-    *   **이미지 갤러리:** 가게의 분위기나 음식 사진을 미리 볼 수 있도록 이미지 갤러리를 제공합니다.
-
-## 🛠️ 기술 스택 (Tech Stack)
-
-Refill Spot은 다음과 같은 현대적이고 효율적인 기술들을 활용하여 개발되었습니다. 각 기술은 프로젝트의 특정 요구사항을 만족시키기 위해 신중하게 선택되었습니다.
-
-*   **프레임워크/라이브러리 (Frameworks/Libraries):**
-    *   **[Next.js](https://nextjs.org/) (with Turbopack):** React 기반 프레임워크로, 서버 사이드 렌더링(SSR) 및 정적 사이트 생성(SSG)을 지원하여 초기 로딩 속도 개선과 SEO 최적화에 기여합니다. Turbopack을 사용하여 개발 서버의 빌드 속도를 향상했습니다.
-    *   **[React](https://reactjs.org/):** 컴포넌트 기반 아키텍처를 통해 재사용 가능하고 관리하기 쉬운 사용자 인터페이스(UI)를 구축합니다.
-    *   **[Tailwind CSS](https://tailwindcss.com/):** 유틸리티 우선 CSS 프레임워크로, 빠르고 일관된 UI 디자인 시스템을 구축하며 커스터마이징이 용이합니다.
-    *   **[Prisma](https://www.prisma.io/):** 타입 안전한 Node.js 및 TypeScript ORM으로, 데이터베이스 스키마 관리, 마이그레이션, 쿼리 작성을 용이하게 합니다. PostgreSQL과의 연동에 사용됩니다.
-    *   **[Supabase](https://supabase.io/):** 오픈소스 Firebase 대체제로, 사용자 인증(Auth), 데이터베이스(PostgreSQL), 스토리지 등 백엔드 기능을 간편하게 구축할 수 있도록 지원합니다.
-    *   **[React Hook Form](https://react-hook-form.com/):** 성능이 우수하고 사용하기 쉬운 폼 관리 라이브러리로, 사용자 입력 처리 및 유효성 검사를 효율적으로 구현합니다.
-    *   **[Zod](https://zod.dev/):** TypeScript 우선 스키마 선언 및 유효성 검사 라이브러리로, 데이터의 안정성을 높이고 예상치 못한 오류를 방지합니다.
-    *   **[Shadcn/ui](https://ui.shadcn.com/) & [Radix UI](https://www.radix-ui.com/):** 접근성을 고려한 고품질 UI 컴포넌트 라이브러리입니다. Shadcn/ui는 Radix UI를 기반으로 하며, Tailwind CSS와 완벽하게 통합되어 스타일링이 용이합니다.
-    *   **[Lucide React](https://lucide.dev/):** 가볍고 일관된 디자인의 SVG 아이콘 라이브러리로, 애플리케이션의 시각적 완성도를 높입니다.
-    *   **[Axios](https://axios-http.com/):** Promise 기반 HTTP 클라이언트로, 외부 API와의 통신에 사용될 수 있습니다. (현재 프로젝트에서는 `fetch` API와 함께 사용될 가능성이 있습니다.)
-    *   **[Zustand](https://zustand-demo.pmnd.rs/):** 가볍고 간편한 React 상태 관리 라이브러리로, 복잡한 상태 로직을 효과적으로 관리합니다.
-
-*   **언어 (Language):**
-    *   **[TypeScript](https://www.typescriptlang.org/):** JavaScript에 정적 타입을 추가한 언어로, 코드의 안정성과 가독성을 높이며 대규모 애플리케이션 개발에 적합합니다.
-
-*   **지도 (Maps):**
-    *   **Kakao Maps API:** 메인 지도 서비스로 카카오맵을 활용하여 사용자에게 친숙한 지도 인터페이스를 제공합니다. 커스텀 마커, 클러스터링, 현재 위치 표시 등 고급 기능을 지원합니다.
-    *   **Google Maps API:** `@react-google-places-autocomplete` (장소 자동 완성) 및 `GoogleMapsLoader.tsx` (지도 로딩)를 통해 장소 검색 기능을 제공합니다.
-    *   **Naver Maps API:** 보조 지도 서비스로 네이버 지도를 통해 위치 기반 서비스 및 가게 정보 시각화를 제공합니다.
-
-*   **개발 도구 (Dev Tools):**
-    *   **PNPM:** 빠르고 효율적인 디스크 공간 사용을 특징으로 하는 패키지 매니저입니다.
-    *   **ESLint:** 코드 스타일을 일관되게 유지하고 잠재적인 오류를 사전에 발견하여 코드 품질을 향상합니다.
-    *   **Prettier:** 코드 포맷팅을 자동화하여 일관된 코드 스타일을 유지합니다.
-    *   **TypeScript:** 정적 타입 검사를 통해 런타임 오류를 사전에 방지하고 개발 생산성을 향상합니다.
-
-*   **데이터베이스 (Database):**
-    *   **PostgreSQL:** 강력하고 안정적인 오픈소스 관계형 데이터베이스입니다. Supabase를 통해 관리되거나 Vercel Postgres와 같은 호스팅 서비스를 통해 운영될 수 있으며, Prisma ORM과 함께 사용됩니다.
-
-## 🚀 시작하기 (Getting Started)
-
-이 프로젝트를 로컬 환경에서 실행하려면 다음 단계를 따르세요.
-
-**1. 레포지토리 클론 (Clone Repository):**
-
-```bash
-git clone https://github.com/Refill-Spot/ex_refill.git
-cd ex_refill
-```
-
-**2. 패키지 설치 (Install Packages):**
-
-[PNPM](https://pnpm.io/)을 사용하여 의존성을 설치합니다. PNPM이 설치되어 있지 않다면, [공식 문서](https://pnpm.io/installation)를 참고하여 먼저 설치해주세요.
-
-```bash
-pnpm install
-```
-
-**3. 환경 변수 설정 (Setup Environment Variables):**
-
-프로젝트 루트에 `.env` 파일을 생성하고, 제공된 `.env.sample` 파일을 참고하여 다음 환경 변수들을 설정합니다.
-
-```env
-# Supabase
-NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_project_anon_key
-
-SUPABASE_URL=your_supabase_project_url
-SUPABASE_ANON_KEY=your_supabase_project_anon_key
-
-# Naver Maps API
-NAVER_MAP_CLIENT_ID=your_naver_maps_api_client_id
-NAVER_CLIENT_SECRET=your_naver_maps_api_client_secret (서버 사이드에서 네이버 API를 직접 호출하는 경우)
-
-# Google Maps API
-NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=your_google_maps_api_key
-
-# Kakao Login API
-KAKAO_CLIENT_ID=your_kakao_login_client_id
-# 또는 KAKAO_REST_API_KEY, KAKAO_JAVASCRIPT_KEY 등 카카오 설정에 따라 필요한 키
-```
-
-*   **Supabase URL 및 Anon Key:** Supabase 프로젝트 대시보드의 "Project Settings" > "API" 섹션에서 확인할 수 있습니다.
-*   **Naver Maps Client ID:** [네이버 클라우드 플랫폼](https://www.ncloud.com/)에서 애플리케이션 등록 후 발급받을 수 있습니다.
-*   **Google Maps API Key:** [Google Cloud Console](https://console.cloud.google.com/)에서 프로젝트 생성 및 Maps JavaScript API 사용 설정을 통해 발급받아야 합니다.
-*   **Kakao Client ID:** [카카오 개발자 센터](https://developers.kakao.com/)에서 애플리케이션 등록 후 발급받을 수 있습니다.
-
-**4. 데이터베이스 마이그레이션 (Database Migration):**
-
-Prisma를 사용하여 데이터베이스 스키마를 마이그레이션합니다. 이 명령어는 `prisma/schema.prisma` 파일의 내용을 바탕으로 데이터베이스를 설정합니다.
-
-```bash
-pnpm prisma migrate dev
-```
-
-(만약 초기 데이터(seed)가 필요하다면, `prisma/seed.ts` (또는 `.js`) 파일을 작성 또는 확인하고 다음 명령어를 실행하세요: `pnpm prisma db seed`)
-
-**5. 개발 서버 실행 (Run Development Server):**
-
-```bash
-pnpm dev
-```
-
-애플리케이션은 기본적으로 `http://localhost:3000` 에서 실행됩니다.
-
-## 🔧 코드 품질 관리 (Code Quality)
-
-이 프로젝트는 일관된 코드 품질과 스타일을 유지하기 위해 다음 도구들을 사용합니다:
-
-**Linting 및 Formatting:**
-
-```bash
-# ESLint로 코드 검사
-pnpm lint
-
-# ESLint로 자동 수정 가능한 문제들 수정
-pnpm lint:fix
-
-# Prettier로 코드 포맷팅
-pnpm format
-
-# Prettier로 포맷팅 검사 (CI/CD에서 사용)
-pnpm format:check
-
-# TypeScript 타입 검사
-pnpm type-check
-
-# 모든 검사 실행 (타입 체크 + 린트 + 포맷 검사)
-pnpm check-all
-```
-
-**개발 환경 설정:**
-
-VS Code를 사용하는 경우, 다음 확장 프로그램들이 자동으로 추천됩니다:
-- ESLint
-- Prettier
-- Tailwind CSS IntelliSense
-- TypeScript and JavaScript Language Features
-
-저장 시 자동으로 ESLint 수정과 Prettier 포맷팅이 적용되도록 설정되어 있습니다.
-
-**6. 빌드 및 프로덕션 실행 (Build and Run for Production):**
-
-```bash
-pnpm build   # 프로덕션용으로 애플리케이션 빌드
-pnpm start   # 빌드된 애플리케이션 실행
-```
-
-## 📂 프로젝트 구조 (Project Structure)
-
-프로젝트의 주요 디렉토리 및 파일은 다음과 같은 역할을 수행합니다. 체계적인 구조를 통해 코드의 유지보수성과 확장성을 높이고자 했습니다.
-
-```
-.
-├── app/                      # Next.js App Router: 애플리케이션의 라우팅, UI 렌더링 및 API 로직 담당
-│   ├── (main)/               # 공통 레이아웃을 사용하는 페이지 그룹 (예시)
-│   │   ├── page.tsx          # 웹사이트의 메인 랜딩 페이지 (가게 목록 및 지도 표시)
-│   │   └── layout.tsx        # (main) 그룹 내 페이지들의 공통 UI 셸 (예: 헤더, 푸터)
-│   ├── api/                  # 백엔드 API 엔드포인트 정의
-│   │   └── stores/           # 가게 정보 관련 API (목록 조회, 상세 정보 등)
-│   │       └── route.ts      # /api/stores 엔드포인트의 GET 요청 처리 로직
-│   ├── auth/                 # 사용자 인증 관련 페이지 및 로직
-│   │   ├── callback/         # OAuth 인증 후 리디렉션되는 콜백 처리 라우트
-│   │   └── login/page.tsx    # 로그인 및 회원가입 UI 페이지
-│   ├── store/                # 특정 가게의 상세 정보를 보여주는 페이지
-│   │   └── [id]/page.tsx     # 동적 라우트: /store/가게ID 형태의 URL 처리
-│   ├── profile/page.tsx      # 사용자 프로필 정보 확인 및 수정 페이지
-│   ├── favorites/page.tsx    # 사용자가 즐겨찾기한 가게 목록 페이지
-│   ├── layout.tsx            # 모든 페이지에 적용되는 최상위 루트 레이아웃 (폰트, 테마 프로바이더 등 설정)
-│   └── globals.css           # 전역적으로 적용되는 기본 CSS 스타일
-├── components/               # 애플리케이션 전반에서 사용되는 재사용 가능한 UI 컴포넌트
-│   ├── ui/                   # Shadcn/ui를 통해 생성된 기본 UI 요소 (버튼, 카드, 입력 필드 등)
-│   ├── header.tsx            # 페이지 상단에 위치하는 헤더 (로고, 검색창, 사용자 메뉴 등)
-│   ├── sidebar.tsx           # 검색 필터 또는 추가 메뉴를 위한 사이드바 (필요시 사용)
-│   ├── store-list.tsx        # 가게 목록을 아이템 형태로 표시하는 컴포넌트
-│   ├── store-item.tsx        # 가게 목록 내 개별 가게 아이템 컴포넌트
-│   ├── store-details.tsx     # 가게의 상세 정보를 표시하는 컴포넌트
-│   ├── kakao-map.tsx         # Kakao 지도를 렌더링하고 상호작용하는 메인 지도 컴포넌트
-│   ├── naver-map.tsx         # Naver 지도를 렌더링하고 상호작용하는 보조 지도 컴포넌트
-│   ├── GoogleMapsLoader.tsx  # Google 지도를 렌더링하고 상호작용하는 컴포넌트
-│   └── skeleton-loader.tsx   # 데이터 로딩 중 표시되는 스켈레톤 UI 컴포넌트
-├── contexts/                 # React Context API를 사용한 전역 상태 관리
-│   └── AuthContext.tsx       # 사용자 인증 상태(로그인 여부, 사용자 정보)를 관리하는 컨텍스트
-├── hooks/                    # 재사용 가능한 커스텀 React Hooks
-│   ├── use-stores.ts         # 가게 데이터 fetching, 페이지네이션 및 상태 관리 관련 훅
-│   ├── use-map-view.ts       # 지도 화면 제어 관련 로직을 담은 훅
-│   ├── use-map-markers.ts    # 지도 마커 클러스터링 및 상호작용 관련 훅
-│   └── use-toast.ts          # 사용자 알림(토스트 메시지)을 쉽게 사용할 수 있도록 하는 훅
-├── lib/                      # 애플리케이션 전반에서 사용되는 유틸리티 함수, API 클라이언트, 공통 로직
-│   ├── supabase/             # Supabase 클라이언트 초기화 및 관련 헬퍼 함수 (client.ts, server.ts 등)
-│   ├── api-utils.ts          # API 요청/응답 처리를 위한 공통 유틸리티 함수
-│   ├── api-response.ts       # API 응답 포맷을 일관되게 관리하기 위한 유틸리티
-│   ├── stores.ts             # 가게 데이터 가공 및 필터링 등 관련 유틸리티 함수
-│   ├── map-integration.ts    # 다양한 지도 서비스 통합 및 공통 지도 로직
-│   ├── location-storage.ts   # 사용자의 위치 정보를 브라우저 저장소에 저장하고 불러오는 로직
-│   └── utils.ts              # 기타 범용 유틸리티 함수 (날짜 포맷팅, 문자열 처리 등)
-├── prisma/                   # Prisma ORM 관련 파일
-│   ├── schema.prisma         # 데이터베이스 테이블 구조, 관계, 필드 타입을 정의하는 스키마 파일
-│   └── migrations/           # 데이터베이스 스키마 변경 이력을 관리하는 마이그레이션 파일들
-├── public/                   # 정적 파일 (이미지, 아이콘, 폰트 등)이 위치하는 디렉토리
-├── styles/                   # 전역 스타일 및 Tailwind CSS 관련 설정 (분리된 경우)
-├── types/                    # 애플리케이션에서 사용되는 TypeScript 타입 정의
-│   ├── index.d.ts            # 전역적 또는 모듈 없는 라이브러리 타입 선언
-│   ├── store.ts              # 가게 데이터 관련 타입 (Store, Review 등)
-│   └── supabase.ts           # Supabase 데이터베이스 자동 생성 타입을 확장하거나 커스텀한 타입
-├── .env.sample               # 필요한 환경 변수 목록을 보여주는 샘플 파일. 실제 운영에는 .env.local 사용
-├── next.config.mjs           # Next.js 프로젝트의 빌드, 개발 서버, 라우팅 등 고급 설정
-├── package.json              # 프로젝트의 이름, 버전, 의존성 패키지 목록 및 실행 스크립트 정의
-├── tsconfig.json             # TypeScript 컴파일러 설정 (타입 검사 규칙, 경로 별칭 등)
-└── tailwind.config.ts        # Tailwind CSS 설정 (테마, 플러그인, 커스텀 스타일 등)
-```
-
-## 📊 데이터 흐름 및 사용자 인터랙션 (Data Flow & User Interaction)
-
-이 섹션에서는 Refill Spot 사용자가 식당을 검색하고 정보를 확인하는 주요 과정을 시각화하여 보여줍니다. 핵심적인 사용자 행동과 시스템 내부의 데이터 처리를 단계별로 나누어 이해를 돕고자 합니다.
-
-### 1. 초기 접속 및 위치 기반 가게 검색 흐름
-
-사용자가 처음 서비스에 접속하거나 위치를 기준으로 가게를 검색할 때의 흐름입니다.
-
-```mermaid
-graph TD
-    subgraph "사용자 시작"
-        A["📱 사용자: Refill Spot 접속"]
-    end
-
-    subgraph "📍 1단계: 위치 정보 확보"
-        A --> B{사용자 위치 확인 방법 결정};
-        B -- GPS 우선 --> C["자동: GPS 현재 위치 파악"];
-        B -- 저장된 위치 --> D["자동: 이전 사용 위치 불러오기"];
-        B -- 수동 설정/기본값 --> E["수동: 주소 검색 또는 기본 위치 사용"];
-    end
-
-    subgraph "📡 2단계: 주변 가게 정보 요청 및 응답"
-        F["프론트엔드: 위치 좌표 준비"]
-        C --> F;
-        D --> F;
-        E --> F;
-        F --> G["API 서버에 주변 가게 요청<br>(/api/stores?page=1&limit=20&lat=...&lng=...)"];
-        G --> H[(Supabase DB)];
-        H -- 페이지네이션된 가게 데이터 --> G;
-        G -- JSON 응답 (가게 목록 + 페이지 정보) --> I["프론트엔드: 가게 목록 수신"];
-    end
-
-    subgraph "🖥️ 3단계: 가게 정보 표시"
-        I --> J["화면: 카카오맵에 20개 가게 마커 표시<br>+ 가게 목록 렌더링"];
-        J -- 사용자가 더보기 버튼 클릭 --> L["API: 다음 페이지 가게 로드"];
-        L --> J;
-        J -- 사용자가 특정 가게 선택 --> K["화면: 가게 상세 정보 페이지로 이동<br>(/store/:id)"];
-    end
-
-    style A fill:#FFDEAD,stroke:#333,stroke-width:2px
-    style B fill:#E6E6FA,stroke:#333,stroke-width:2px
-    style F fill:#ADD8E6,stroke:#333,stroke-width:2px
-    style G fill:#ADD8E6,stroke:#333,stroke-width:2px
-    style H fill:#FFFACD,stroke:#333,stroke-width:2px
-    style I fill:#ADD8E6,stroke:#333,stroke-width:2px
-    style J fill:#90EE90,stroke:#333,stroke-width:2px
-    style K fill:#90EE90,stroke:#333,stroke-width:2px
-```
-
-**흐름 설명:**
-
-1.  **사용자 접속 (`📱`):** 사용자가 Refill Spot 웹사이트에 처음 방문합니다.
-2.  **위치 정보 확보 (`📍`):**
-    *   애플리케이션은 사용자의 위치를 파악하려 시도합니다.
-    *   **우선순위:** GPS > 이전에 저장된 위치 > 사용자의 수동 입력 또는 시스템 기본 위치(예: 강남역).
-3.  **주변 가게 정보 요청 (`📡`):**
-    *   확보된 위치 좌표를 사용하여, 프론트엔드는 백엔드 API (`/api/stores`)로 페이지네이션된 가게 목록을 요청합니다.
-    *   첫 번째 요청은 `page=1&limit=20` 형태로 처음 20개 가게만 요청합니다.
-    *   API 서버는 이 요청을 받아 Supabase 데이터베이스에서 조건에 맞는 가게 정보를 페이지별로 조회합니다.
-    *   조회된 가게 목록과 페이지네이션 정보(`hasMore`, `totalPages` 등)를 JSON 형태로 프론트엔드에 응답으로 전달됩니다.
-4.  **가게 정보 표시 (`🖥️`):**
-    *   프론트엔드는 수신된 가게 데이터를 카카오맵에 마커로 표시하고, 화면에 목록 형태로 보여줍니다.
-    *   사용자가 "더보기" 버튼을 클릭하면 다음 페이지의 가게들을 추가로 로드하여 기존 목록에 추가합니다.
-    *   사용자가 목록이나 지도 마커에서 특정 가게를 선택하면, 해당 가게의 상세 정보를 볼 수 있는 페이지로 이동합니다.
-
-### 2. 키워드 검색 흐름
-
-사용자가 검색창에 키워드(가게 이름, 주소 등)를 입력하여 가게를 검색하는 경우의 흐름입니다.
-
-```mermaid
-graph TD
-    subgraph "사용자 시작"
-        L["⌨️ 사용자: 헤더 검색창에 키워드 입력 및 검색 실행"]
-    end
-
-    subgraph "🔍 1단계: 검색 요청 처리"
-        L --> M["검색 요청 API 전달<br>(/api/stores/search?query=...)"];
-        M --> N[(Supabase DB)];
-        N -- 검색 조건에 맞는 가게 데이터 --> M;
-        M -- JSON 응답 --> O["프론트엔드: 검색 결과 수신"];
-    end
-
-    subgraph "🖥️ 2단계: 검색 결과 표시"
-        O --> P["화면: 검색된 가게 목록 및 지도에 마커 표시"];
-        P -- 사용자가 특정 가게 선택 --> Q["화면: 가게 상세 정보 페이지로 이동<br>(/store/:id)"];
-    end
-
-    style L fill:#FFDEAD,stroke:#333,stroke-width:2px
-    style M fill:#ADD8E6,stroke:#333,stroke-width:2px
-    style N fill:#FFFACD,stroke:#333,stroke-width:2px
-    style O fill:#ADD8E6,stroke:#333,stroke-width:2px
-    style P fill:#90EE90,stroke:#333,stroke-width:2px
-    style Q fill:#90EE90,stroke:#333,stroke-width:2px
-```
-
-**흐름 설명:**
-
-1.  **키워드 입력 (`⌨️`):** 사용자가 헤더의 검색창에 원하는 가게 이름, 주소, 또는 관련 키워드를 입력하고 검색을 실행합니다.
-2.  **검색 요청 처리 (`🔍`):**
-    *   프론트엔드는 입력된 키워드를 포함하여 백엔드 검색 API (`/api/stores/search` - *API 경로는 예시이며, 실제 구현에 따라 `/api/stores`에 query 파라미터를 사용할 수도 있음*)로 요청을 보냅니다.
-    *   API 서버는 데이터베이스에서 해당 키워드와 관련성이 높은 가게 정보를 검색합니다.
-    *   검색 결과를 JSON 형태로 프론트엔드에 응답합니다.
-3.  **검색 결과 표시 (`🖥️`):**
-    *   프론트엔드는 받은 데이터를 화면에 목록 및 지도 마커로 표시합니다.
-    *   사용자는 결과 중 하나를 선택하여 상세 페이지로 이동할 수 있습니다.
-
-### 3. 사용자 인증 흐름 (로그인/회원가입)
-
-사용자가 로그인 또는 회원가입을 시도할 때의 상호작용입니다.
-
-```mermaid
-graph TD
-    subgraph "사용자 시작"
-        R["👤 사용자: 로그인 또는 회원가입 시도"]
-    end
-
-    subgraph "🔐 1단계: 인증 정보 제출"
-        R -- 이메일/비밀번호 또는 소셜 로그인 정보 --> S{Supabase Auth API 호출};
-    end
-
-    subgraph "🛡️ 2단계: 인증 처리 및 결과 반환"
-        S <--> T((Supabase Auth 서비스));
-        T -- 인증 성공/실패 결과 --> S;
-        S -- 인증 결과 --> U["프론트엔드: 인증 상태 업데이트"];
-    end
-
-    subgraph "🎉 3단계: 후속 조치"
-        U -- 인증 성공 시 --> V["화면: 로그인 상태로 변경, 개인화 기능 활성화 (예: 즐겨찾기)"];
-        U -- 인증 실패 시 --> W["화면: 오류 메시지 표시"];
-    end
-
-    style R fill:#FFDEAD,stroke:#333,stroke-width:2px
-    style S fill:#ADD8E6,stroke:#333,stroke-width:2px
-    style T fill:#FFFACD,stroke:#333,stroke-width:2px
-    style U fill:#ADD8E6,stroke:#333,stroke-width:2px
-    style V fill:#90EE90,stroke:#333,stroke-width:2px
-    style W fill:#FFB6C1,stroke:#333,stroke-width:2px
-```
-
-**흐름 설명:**
-
-1.  **인증 시도 (`👤`):** 사용자가 로그인 또는 회원가입 버튼을 클릭하고 필요한 정보를 입력합니다.
-2.  **인증 정보 제출 (`🔐`):** 프론트엔드는 사용자가 입력한 정보(이메일/비밀번호) 또는 소셜 로그인 요청을 Supabase Auth API로 전달합니다.
-3.  **인증 처리 (`🛡️`):** Supabase Auth 서비스가 제출된 정보를 검증하여 인증을 처리하고, 그 결과를 프론트엔드에 반환합니다.
-4.  **후속 조치 (`🎉`):**
-    *   **인증 성공 시:** 프론트엔드는 사용자 인증 상태를 업데이트하고, 화면을 로그인된 상태로 변경합니다. 즐겨찾기 같은 개인화된 기능이 활성화될 수 있습니다.
-    *   **인증 실패 시:** 사용자에게 적절한 오류 메시지를 표시합니다.
-
-이러한 흐름들은 Refill Spot의 핵심적인 사용자 경험을 구성하며, 각 단계는 사용자가 원하는 정보를 쉽고 빠르게 찾을 수 있도록 설계되었습니다.
-
-## 🗺️ 카카오맵 통합 (Kakao Map Integration)
-
-Refill Spot의 메인 지도 서비스로 카카오맵을 활용하여 사용자에게 직관적이고 강력한 지도 경험을 제공합니다.
-
-### 주요 기능
-
-*   **🎯 커스텀 마커:** 가게 위치를 나타내는 맞춤형 SVG 마커로 시각적 일관성을 제공합니다.
-*   **📍 현재 위치 표시:** 사용자의 현재 위치를 지도에 표시하여 주변 가게와의 위치 관계를 쉽게 파악할 수 있습니다.
-*   **🔍 마커 클러스터링:** 비슷한 위치의 여러 가게들을 클러스터로 그룹화하여 지도를 깔끔하게 유지합니다.
-*   **💬 정보 팝업:** 마커 클릭 시 가게의 기본 정보(이름, 주소, 평점)를 팝업으로 표시합니다.
-*   **🎮 지도 컨트롤:** 확대/축소, 현재 위치로 이동 등의 직관적인 지도 조작 버튼을 제공합니다.
-*   **📱 반응형 디자인:** 모바일과 데스크톱 환경에서 모두 최적화된 지도 인터페이스를 제공합니다.
-
-### 기술적 구현
-
-*   **TypeScript:** 전체 컴포넌트가 TypeScript로 구현되어 타입 안전성을 보장합니다.
-*   **React Hooks:** `useEffect`, `useCallback` 등의 훅을 활용하여 효율적인 상태 관리와 성능 최적화를 달성합니다.
-*   **동적 스크립트 로딩:** 카카오맵 JavaScript SDK를 동적으로 로드하여 초기 번들 크기를 최적화합니다.
-*   **이벤트 처리:** 마커 클릭, 지도 이동 등의 사용자 상호작용을 체계적으로 처리합니다.
-
-## 📊 스마트 페이지네이션 (Smart Pagination)
-
-성능 최적화와 사용자 경험 향상을 위해 스마트 페이지네이션 시스템을 구현했습니다.
-
-### 핵심 특징
-
-*   **🚀 빠른 초기 로딩:** 처음에는 20개 가게만 로드하여 빠른 초기 로딩 시간을 제공합니다.
-*   **🔄 점진적 로딩:** "더보기" 버튼을 통해 사용자가 원할 때만 추가 데이터를 로드합니다.
-*   **💾 상태 관리:** React Query와 커스텀 훅을 활용하여 효율적인 데이터 캐싱과 상태 관리를 구현합니다.
-*   **📱 무한 스크롤 대안:** 사용자가 제어할 수 있는 더보기 버튼으로 예측 가능한 로딩 경험을 제공합니다.
-
-### API 응답 구조
-
-```json
-{
-  "success": true,
-  "data": [...], // 가게 목록 배열
-  "pagination": {
-    "page": 1,
-    "limit": 20,
-    "total": 150,
-    "hasMore": true,
-    "totalPages": 8
-  }
-}
-```
-
-### 구현된 유틸리티
-
-*   **`fetchStoresWithPagination`:** 페이지네이션이 포함된 가게 데이터를 안전하게 가져오는 유틸리티 함수
-*   **`useStores` 훅:** 가게 데이터 로딩, 페이지네이션, 에러 처리를 통합 관리하는 커스텀 훅
-*   **자동 에러 처리:** API 요청 실패 시 사용자에게 친화적인 에러 메시지 표시
-
-## 🔧 코드 품질 및 아키텍처 개선 (Code Quality & Architecture)
-
-프로젝트 전반의 코드 품질과 유지보수성을 높이기 위한 다양한 개선 사항들을 적용했습니다.
-
-### 유틸리티 함수 체계화
-
-*   **`lib/api-utils.ts`:** API 요청 처리를 위한 공통 유틸리티 함수들을 제공합니다.
-*   **타입 안전성:** 모든 API 응답과 요청에 대한 TypeScript 타입 정의를 강화했습니다.
-*   **에러 핸들링:** 일관된 에러 처리 패턴으로 사용자 경험을 개선했습니다.
-
-### 모듈화된 지도 통합
-
-*   **`lib/map-integration.ts`:** 여러 지도 서비스(카카오, 네이버, 구글)를 위한 공통 인터페이스를 제공합니다.
-*   **확장 가능한 아키텍처:** 새로운 지도 서비스 추가 시 최소한의 코드 변경으로 통합 가능합니다.
-
-### 성능 최적화
-
-*   **지연 로딩:** 필요한 시점에만 지도 스크립트와 마커를 로드합니다.
-*   **메모이제이션:** React.memo와 useCallback을 활용하여 불필요한 리렌더링을 방지합니다.
-*   **번들 최적화:** 동적 임포트를 활용하여 초기 번들 크기를 최소화합니다.
-
-## 📍 중앙화된 위치 서비스 (Centralized Geolocation)
-
-모든 위치 관련 기능을 일관되게 관리하기 위해 `useGeolocation` 커스텀 훅을 구현했습니다.
-
-### 주요 장점
-
-*   **코드 중복 제거:** 여러 컴포넌트에서 반복되던 `navigator.geolocation` 로직을 중앙화
-*   **일관된 에러 처리:** 모든 위치 요청에서 동일한 에러 메시지와 처리 방식 적용
-*   **유연한 옵션 설정:** 컴포넌트별 요구사항에 맞는 맞춤형 옵션 제공
-*   **타입 안전성:** TypeScript를 통한 완전한 타입 지원
-
-### 사용 방법
-
-```typescript
-import { useGeolocation } from "@/hooks/use-geolocation";
-
-function MyComponent() {
-  const geolocation = useGeolocation();
-
-  const handleGetLocation = async () => {
-    try {
-      // 기본 사용법
-      const coordinates = await geolocation.getCurrentPosition();
-      console.log(coordinates); // { lat: number, lng: number }
-
-      // 옵션과 함께 사용
-      const coordinates = await geolocation.getCurrentPosition({
-        saveToStorage: true,
-        source: "gps",
-        showToast: true,
-        customSuccessMessage: "위치를 성공적으로 가져왔습니다!",
-        timeout: 15000,
-      });
-    } catch (error) {
-      // 에러는 자동으로 사용자에게 표시됨
-      console.error("위치 가져오기 실패:", error);
-    }
-  };
-
-  // 편의 메서드 사용
-  const handleQuickLocation = async () => {
-    try {
-      const coordinates = await geolocation.getLocationQuick(); // 기본 설정으로 빠른 위치 가져오기
-    } catch (error) {
-      console.error(error);
-    }
-  };
-
-  return (
-    <div>
-      <button onClick={handleGetLocation}>현재 위치 가져오기</button>
-      <button onClick={handleQuickLocation}>빠른 위치 가져오기</button>
-      
-      {geolocation.isLoading && <p>위치를 가져오는 중...</p>}
-      {geolocation.error && <p>오류: {geolocation.error}</p>}
-      {geolocation.coordinates && (
-        <p>현재 위치: {geolocation.coordinates.lat}, {geolocation.coordinates.lng}</p>
-      )}
-    </div>
-  );
-}
-```
-
-### 훅 기능
-
-*   **getCurrentPosition:** 현재 위치를 가져오는 메인 함수
-*   **watchPosition:** 실시간 위치 추적 (선택적)
-*   **clearWatch:** 위치 추적 중지
-*   **getLocationQuick:** 기본 설정으로 빠른 위치 가져오기
-*   **getLocationSilent:** 토스트 없이 조용히 위치 가져오기
-*   **isSupported:** 브라우저 지원 여부 확인
-*   **reset:** 상태 초기화
-
-### 마이그레이션 가이드
-
-기존 코드에서 새로운 훅으로 마이그레이션하는 방법:
-
-```typescript
-// 기존 방식 (deprecated)
-navigator.geolocation.getCurrentPosition(
-  (position) => {
-    const { latitude, longitude } = position.coords;
-    // 성공 처리
-  },
-  (error) => {
-    // 에러 처리
-  },
-  {
-    enableHighAccuracy: true,
-    timeout: 10000,
-    maximumAge: 0,
-  }
-);
-
-// 새로운 방식 (권장)
-const geolocation = useGeolocation();
-
-try {
-  const coordinates = await geolocation.getCurrentPosition({
-    enableHighAccuracy: true,
-    timeout: 10000,
-    maximumAge: 0,
-    showToast: true,
-  });
-  // coordinates = { lat: number, lng: number }
-} catch (error) {
-  // 에러는 자동으로 처리됨
-}
-```
-
-## 🚀 향후 개발 계획 (Future Development Plans)
-
-### 단기 계획 (1-2개월)
-
-*   **🔍 고급 검색 필터:** 가격대, 음식 종류, 거리별 필터링 기능 추가
-*   **⭐ 리뷰 시스템:** 사용자 리뷰 작성 및 평점 시스템 구현
-*   **📱 PWA 지원:** 모바일 앱과 같은 경험을 제공하는 PWA 기능 추가
-*   **🔔 알림 기능:** 새로운 가게 추가 시 사용자 맞춤형 알림 제공
-
-### 중기 계획 (3-6개월)
-
-*   **🤖 AI 추천 시스템:** 사용자 선호도 기반 개인화된 가게 추천
-*   **📊 데이터 분석:** 가게 이용 패턴 분석 및 트렌드 정보 제공
-*   **🗺️ 오프라인 지도:** 네트워크 연결 없이도 기본 지도 기능 사용 가능
-*   **🎯 광고 시스템:** 가게 사업자를 위한 프로모션 및 광고 플랫폼
-
-### 장기 계획 (6개월 이상)
-
-*   **🌐 다국어 지원:** 영어, 중국어 등 다국어 인터페이스 제공
-*   **📍 실시간 정보:** 가게 혼잡도, 대기시간 등 실시간 정보 제공
-*   **🤝 소셜 기능:** 친구와 가게 정보 공유, 그룹 방문 계획 기능
-*   **💳 결제 연동:** 온라인 예약 및 선결제 시스템 구축
-
-## 🤝 기여하기 (Contributing)
-
-Refill Spot 프로젝트에 기여해주셔서 감사합니다! 다음 방법들로 프로젝트에 참여하실 수 있습니다.
-
-### 기여 방법
-
-1. **이슈 신고:** 버그 발견이나 기능 제안은 [GitHub Issues](https://github.com/Refill-Spot/ex_refill/issues)에서 등록해주세요.
-2. **Pull Request:** 코드 개선이나 새로운 기능 추가는 PR을 통해 제출해주세요.
-3. **문서 개선:** README나 코드 주석 개선도 큰 도움이 됩니다.
-4. **테스트:** 다양한 환경에서의 테스트 결과를 공유해주세요.
-
-### 개발 가이드라인
-
-*   **코드 스타일:** ESLint와 Prettier 설정을 따라주세요.
-*   **커밋 메시지:** 명확하고 설명적인 커밋 메시지를 작성해주세요.
-*   **타입 안전성:** TypeScript 타입 정의를 철저히 해주세요.
-*   **테스트:** 새로운 기능에 대한 테스트 코드를 포함해주세요.
-
-## 📄 라이선스 (License)
-
-이 프로젝트는 MIT 라이선스 하에 배포됩니다. 자세한 내용은 [LICENSE](LICENSE) 파일을 참조하세요.
-
-## 📞 문의 및 지원 (Contact & Support)
-
-*   **GitHub Issues:** [프로젝트 이슈 페이지](https://github.com/Refill-Spot/ex_refill/issues)
-*   **이메일:** refillspot.official@gmail.com
-*   **개발팀:** Refill Spot Development Team
+[![Website](https://img.shields.io/badge/Website-Live-brightgreen)](https://refill-spot.vercel.app)
+[![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Korean](https://img.shields.io/badge/Language-Korean-red)](README.md)
 
 ---
 
-**Refill Spot**과 함께 더 나은 무한리필 식당 검색 경험을 만들어가요! 🎉
+## 📖 서비스 소개
+
+**Refill Spot**은 한국 전역의 무한리필 음식점을 쉽게 찾을 수 있는 웹 서비스입니다. 
+
+더 이상 "무한리필 맛집이 어디에 있지?" 하며 고민하지 마세요. 현재 위치에서 가장 가까운 무한리필 식당부터 원하는 조건의 맛집까지, 모든 것을 한눈에 확인할 수 있습니다.
+
+### 🎯 왜 Refill Spot인가요?
+
+- **🔍 쉬운 검색**: 현재 위치 기반으로 주변 무한리필 맛집을 즉시 검색
+- **📱 모바일 최적화**: 언제 어디서든 편리하게 사용할 수 있는 반응형 디자인
+- **🗺️ 직관적인 지도**: 카카오맵 기반으로 위치를 한눈에 파악
+- **⭐ 신뢰할 수 있는 정보**: 검증된 맛집 정보와 기본 평점 제공
+- **❤️ 개인화 기능**: 즐겨찾기로 나만의 맛집 리스트 관리
+
+---
+
+## ✨ 주요 기능
+
+### 🔍 스마트 검색 시스템
+- **GPS 기반 검색**: 현재 위치에서 가장 가까운 무한리필 식당 자동 검색
+- **카테고리별 필터**: 고기, 해산물, 양식, 한식, 중식, 일식, 카페, 디저트 등 8가지 카테고리
+- **거리 설정**: 1km~5km 범위 내에서 검색 반경 조절
+- **평점 필터**: 최소 평점 기준으로 맛집만 선별
+
+### 🗺️ 인터랙티브 지도
+- **카카오맵 연동**: 친숙한 카카오맵으로 위치 확인
+- **커스텀 마커**: 무한리필 식당만을 위한 전용 마커 디자인
+- **실시간 위치**: 현재 위치와 맛집까지의 거리 정보 제공
+- **길찾기 연동**: 원클릭으로 네이버맵/카카오맵 길찾기 실행
+
+### 📊 신뢰할 수 있는 정보
+- **검증된 정보**: 직접 확인한 맛집 정보와 기본 평점 제공
+- **상세 정보**: 운영시간, 전화번호, 주소, 메뉴 정보
+- **정확한 데이터**: 지속적으로 업데이트되는 맛집 데이터베이스
+
+### 👤 개인화 서비스
+- **간편 로그인**: Google, Kakao 소셜 로그인 지원
+- **즐겨찾기**: 마음에 드는 맛집을 저장하고 관리
+- **공유 기능**: 친구들과 맛집 정보 간편 공유
+- **프로필 관리**: 개인 정보 및 설정 관리
+
+---
+
+## 🚀 서비스 이용방법
+
+### 1️⃣ 위치 기반 검색
+1. **Refill Spot 접속** → [refill-spot.vercel.app](https://refill-spot.vercel.app)
+2. **위치 허용** → 브라우저에서 위치 접근 허용
+3. **자동 검색** → 주변 무한리필 맛집이 지도와 리스트에 표시
+
+### 2️⃣ 맞춤 검색
+1. **검색 조건 설정** → 카테고리, 거리, 평점 필터 활용
+2. **결과 확인** → 조건에 맞는 맛집들을 지도에서 확인
+3. **상세 정보** → 원하는 맛집 클릭으로 자세한 정보 확인
+
+### 3️⃣ 맛집 정보 활용
+1. **상세 페이지** → 운영시간, 메뉴, 평점 등 종합 정보 확인
+2. **길찾기** → 네이버맵/카카오맵으로 바로 길찾기
+3. **즐겨찾기** → 마음에 드는 맛집을 저장하여 나중에 쉽게 찾기
+
+---
+
+## 📱 지원 환경
+
+### 🖥️ 웹 브라우저
+- **Chrome** (권장)
+- **Safari**
+- **Firefox**
+- **Edge**
+
+### 📱 모바일
+- **iOS Safari**
+- **Android Chrome**
+- **삼성 인터넷**
+
+### 🌐 반응형 디자인
+- **데스크톱**: 1200px 이상
+- **태블릿**: 768px ~ 1199px
+- **모바일**: 767px 이하
+
+---
+
+## 🎨 서비스 특징
+
+### 🏆 차별화된 장점
+1. **무한리필 전문**: 오직 무한리필 식당만을 위한 특화된 서비스
+2. **실시간 정보**: 네이버/카카오 API 연동으로 최신 정보 제공
+3. **사용자 중심**: 직관적인 UI/UX로 누구나 쉽게 사용
+4. **모바일 최적화**: 외출 중에도 편리하게 사용할 수 있는 모바일 인터페이스
+
+### 🔧 기술적 특징
+- **Next.js 15**: 최신 React 프레임워크로 빠른 로딩 속도
+- **TypeScript**: 안정적이고 신뢰할 수 있는 코드 품질
+- **Supabase**: 실시간 데이터베이스와 인증 시스템
+- **Tailwind CSS**: 아름답고 일관된 디자인
+
+---
+
+## 📊 서비스 현황 (2025년 기준)
+
+- **🏪 등록 맛집**: 200+ 개소
+- **📍 서비스 지역**: 서울특별시 (확장 예정)
+- **🎯 주요 카테고리**: 8개 음식 카테고리
+- **⭐ 평균 만족도**: 검증된 맛집 정보 제공
+
+---
+
+## 🗺️ 지원 지역
+
+### 🌟 현재 서비스 지역
+- **서울특별시**: 강남, 홍대, 명동, 이태원, 잠실, 신촌 등 전 지역
+
+### 🚀 확장 예정 지역 (순차적 확장)
+1. **경기도**: 수원, 성남, 고양, 부천 등 
+2. **인천광역시**: 부평, 계양, 연수 등 
+3. **부산광역시**: 해운대, 서면, 광안리 등 
+4. **대구광역시**: 동성로, 수성구 등 
+5. **대전광역시**: 둔산, 유성 등 
+6. **기타 지역**: 광주, 울산, 세종 등
+
+---
+
+## 💬 자주 묻는 질문 (FAQ)
+
+### Q: 회원가입 없이도 사용할 수 있나요?
+A: 네! 기본적인 맛집 검색과 정보 확인은 회원가입 없이도 가능합니다. 즐겨찾기 등 개인화 기능을 이용하려면 로그인이 필요합니다.
+
+### Q: 정보가 정확한가요?
+A: 운영진이 직접 확인한 검증된 정보를 제공하므로 높은 정확도를 보장합니다. 하지만 매장 사정에 따라 변경될 수 있으니 방문 전 확인을 권장합니다.
+
+### Q: 새로운 맛집 등록은 어떻게 하나요?
+A: 현재는 운영진이 직접 검증 후 등록하고 있습니다. 추천하고 싶은 맛집이 있다면 문의 메일로 연락해 주세요.
+
+### Q: 모바일 앱은 없나요?
+A: 현재는 웹 서비스로만 제공하고 있으며, PWA(Progressive Web App) 기능으로 모바일 앱과 같은 경험을 제공합니다.
+
+---
+
+## 🔮 로드맵
+
+### 🎯 2025년 3분기
+- [ ] **지역 확장**: 경기도 주요 도시 서비스 시작
+- [ ] **리뷰 시스템**: 사용자 리뷰 작성 및 관리 기능
+- [ ] **네이버/카카오 평점 연동**: 실시간 평점 정보 제공
+- [ ] **PWA 기능**: 모바일 앱과 같은 사용자 경험
+
+### 🚀 2025년 4분기
+- [ ] **인천 서비스**: 인천광역시 맛집 정보 추가
+- [ ] **고급 검색**: 가격대, 특수 옵션 등 세부 필터
+- [ ] **AI 추천**: 개인 취향 기반 맛집 추천
+- [ ] **소셜 기능**: 친구와 맛집 공유 및 그룹 기능
+
+### 🌟 2026년 1분기
+- [ ] **부산 서비스**: 부산광역시 맛집 정보 추가
+- [ ] **실시간 정보**: 혼잡도, 대기시간 등 라이브 정보
+- [ ] **예약 시스템**: 온라인 예약 및 알림 기능
+- [ ] **다국어 지원**: 영어, 중국어 등 외국인 관광객 지원
+
+### 🔮 2026년 2분기
+- [ ] **대구 서비스**: 대구광역시 맛집 정보 추가
+- [ ] **비즈니스 파트너십**: 가맹점 제휴 및 할인 혜택
+- [ ] **모바일 앱**: 네이티브 iOS/Android 앱 출시
+- [ ] **결제 연동**: 온라인 결제 및 포인트 시스템
+
+### 🎊 2026년 3분기
+- [ ] **전국 서비스**: 대전, 광주, 울산 등 전국 확대
+- [ ] **글로벌 서비스**: 해외 한국 음식점 정보 제공
+- [ ] **프랜차이즈**: 무한리필 전문 플랫폼으로 확장
+
+---
+
+## 📞 문의 및 지원
+
+### 🔗 연락처
+- **📧 이메일**: refillspot.official@gmail.com
+- **🐛 버그 신고**: [GitHub Issues](https://github.com/Refill-Spot/ex_refill/issues)
+- **💡 기능 제안**: [GitHub Discussions](https://github.com/Refill-Spot/ex_refill/discussions)
+
+### 🤝 협업 문의
+- **🏪 매장 등록**: 무한리필 식당 사장님들의 제휴 문의 환영
+- **📊 데이터 파트너십**: 맛집 정보 제공 업체와의 협력
+- **🎨 디자인/개발**: 프로젝트 기여자 모집
+
+---
+
+## 📄 저작권 및 라이선스
+
+- **서비스**: © 2025 Refill Spot Team. All rights reserved.
+- **소스코드**: MIT License
+
+---
+
+## 🎉 마지막으로
+
+**Refill Spot**은 무한리필을 사랑하는 모든 분들을 위해 만들어진 서비스입니다. 
+
+더 많은 사람들이 맛있는 무한리필 맛집을 쉽게 찾을 수 있도록 지속적으로 개선해 나가겠습니다. 
+
+여러분의 소중한 피드백과 제안을 언제나 환영합니다! 🍽️✨
+
+---
+
+**🔗 지금 바로 시작하기: [refill-spot.vercel.app](https://refill-spot.vercel.app)**
+
+[![Start Now](https://img.shields.io/badge/Start%20Now-Visit%20Website-orange?style=for-the-badge&logo=web)](https://refill-spot.vercel.app)

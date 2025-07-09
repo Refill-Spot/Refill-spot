@@ -183,8 +183,8 @@ A: 현재는 웹 서비스로만 제공하고 있으며, PWA(Progressive Web App
 
 ### 🔗 연락처
 - **📧 이메일**: refillspot.official@gmail.com
-- **🐛 버그 신고**: [GitHub Issues](https://github.com/Refill-Spot/ex_refill/issues)
-- **💡 기능 제안**: [GitHub Discussions](https://github.com/Refill-Spot/ex_refill/discussions)
+- **🐛 버그 신고**: [GitHub Issues](https://github.com/Refill-Spot/Refill-spot/issues)
+- **💡 기능 제안**: [GitHub Discussions](https://github.com/Refill-Spot/Refill-spot/discussions)
 
 ### 🤝 협업 문의
 - **🏪 매장 등록**: 무한리필 식당 사장님들의 제휴 문의 환영

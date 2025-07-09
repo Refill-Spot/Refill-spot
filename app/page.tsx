@@ -302,14 +302,16 @@ function HomeContent() {
           description: `이전에 설정한 ${sourceText} 주변의 가게를 표시합니다.`,
         });
       } else {
-        // 저장된 위치 정보가 없으면 기본 위치 사용
+        // 저장된 위치 정보가 없으면 기본 위치 사용 (강남역 - 헬로 브라질강남역 좌표)
         const defaultLocation = {
-          lat: 37.498095,
-          lng: 127.02761,
+          lat: 37.5006249,
+          lng: 127.0277083,
         };
 
+        console.log("🎯 기본 위치 설정 (서울 강남구 중심):", defaultLocation);
         setUserLocation(defaultLocation);
-        await fetchStores(defaultLocation.lat, defaultLocation.lng, 5);
+        console.log("📡 fetchStores 호출 - 위치 기반 검색:", defaultLocation.lat, defaultLocation.lng, "반경: 10km");
+        await fetchStores(defaultLocation.lat, defaultLocation.lng, 10);
 
         // 기본 위치 저장
         saveUserLocation({

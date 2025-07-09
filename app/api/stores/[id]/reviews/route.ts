@@ -1,4 +1,4 @@
-import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { createRouteHandlerSupabaseClient } from "@/lib/supabase/server";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(
@@ -16,21 +16,22 @@ export async function POST(
   }
 
   try {
-    const supabase = await createServerSupabaseClient();
+    const supabase = createRouteHandlerSupabaseClient(request);
 
     // 현재 로그인한 사용자 확인
     const {
-      data: { session },
-    } = await supabase.auth.getSession();
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
 
-    if (!session) {
+    if (authError || !user) {
       return NextResponse.json(
         { error: "로그인이 필요합니다." },
         { status: 401 }
       );
     }
 
-    const userId = session.user.id;
+    const userId = user.id;
 
     // 가게 존재 확인
     const { data: store, error: storeError } = await supabase
@@ -177,7 +178,7 @@ export async function DELETE(
   }
 
   try {
-    const supabase = await createServerSupabaseClient();
+    const supabase = createRouteHandlerSupabaseClient(request);
     const {
       data: { session },
     } = await supabase.auth.getSession();

@@ -126,7 +126,7 @@ export default function FavoritesPage() {
               <div className="flex flex-col md:flex-row">
                 <div className="h-48 md:h-auto md:w-48 relative flex-shrink-0">
                   <Image
-                    src="/placeholder.svg"
+                    src={store.imageUrls && store.imageUrls.length > 0 ? store.imageUrls[0] : "/placeholder.svg"}
                     alt={`${store.name} 이미지`}
                     fill
                     sizes="(max-width: 768px) 100vw, 192px"
@@ -205,14 +205,15 @@ export default function FavoritesPage() {
                     </div>
                   )}
 
-                  {store.price && (
+                  {/* 가격 정보는 현재 Store 타입에 없어서 주석 처리 */}
+                  {/* {store.price && (
                     <div className="mt-2 text-sm text-gray-600">
                       <span className="font-medium">가격: </span>
                       <span className="font-semibold text-[#FF5722]">
                         {store.price}
                       </span>
                     </div>
-                  )}
+                  )} */}
 
                   <div className="mt-3 flex flex-wrap gap-2">
                     {store.categories.map((category: string, index: number) => (
@@ -222,7 +223,7 @@ export default function FavoritesPage() {
                     ))}
                   </div>
 
-                  {store.refillItems && store.refillItems.length > 0 && (
+                  {store.refillItems && Array.isArray(store.refillItems) && store.refillItems.length > 0 && (
                     <div className="mt-3">
                       <div className="flex items-center gap-1 text-sm text-[#FF5722]">
                         <Utensils className="h-4 w-4" />
@@ -231,9 +232,9 @@ export default function FavoritesPage() {
                       <ul className="mt-1 text-sm text-gray-600 pl-5 grid grid-cols-2 gap-x-2">
                         {store.refillItems
                           .slice(0, 4)
-                          .map((item: string, index: number) => (
+                          .map((item: any, index: number) => (
                             <li key={index} className="line-clamp-1">
-                              • {item}
+                              • {typeof item === 'string' ? item : item.name}
                             </li>
                           ))}
                         {store.refillItems.length > 4 && (

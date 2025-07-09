@@ -1,5 +1,4 @@
-import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
-import { cookies } from "next/headers";
+import { createRouteHandlerSupabaseClient } from "@/lib/supabase/server";
 import { NextRequest, NextResponse } from "next/server";
 import { apiResponse } from "@/lib/api-response";
 import { checkAdminAccessForAPI } from "@/lib/auth-utils";
@@ -9,24 +8,23 @@ type ContactUpdate = Database["public"]["Tables"]["contacts"]["Update"];
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // 관리자 권한 확인
-    const adminCheck = await checkAdminAccessForAPI();
+    const adminCheck = await checkAdminAccessForAPI(request);
     if (!adminCheck.isAdmin) {
       return apiResponse.error(adminCheck.error || "관리자 권한이 필요합니다.", adminCheck.status);
     }
 
-    const contactId = parseInt(params.id);
+    const { id } = await params;
+    const contactId = parseInt(id);
 
     if (isNaN(contactId)) {
       return apiResponse.error("유효하지 않은 문의사항 ID입니다.", 400);
     }
 
-    const supabase = createRouteHandlerClient<Database>({ 
-      cookies: () => cookies() 
-    });
+    const supabase = createRouteHandlerSupabaseClient(request);
 
     const { data, error } = await supabase
       .from("contacts")
@@ -51,16 +49,17 @@ export async function GET(
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // 관리자 권한 확인
-    const adminCheck = await checkAdminAccessForAPI();
+    const adminCheck = await checkAdminAccessForAPI(request);
     if (!adminCheck.isAdmin) {
       return apiResponse.error(adminCheck.error || "관리자 권한이 필요합니다.", adminCheck.status);
     }
 
-    const contactId = parseInt(params.id);
+    const { id } = await params;
+    const contactId = parseInt(id);
 
     if (isNaN(contactId)) {
       return apiResponse.error("유효하지 않은 문의사항 ID입니다.", 400);
@@ -73,9 +72,7 @@ export async function PATCH(
       return apiResponse.error("유효하지 않은 상태값입니다.", 400);
     }
 
-    const supabase = createRouteHandlerClient<Database>({ 
-      cookies: () => cookies() 
-    });
+    const supabase = createRouteHandlerSupabaseClient(request);
 
     const updateData: ContactUpdate = {
       status,
@@ -109,24 +106,23 @@ export async function PATCH(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // 관리자 권한 확인
-    const adminCheck = await checkAdminAccessForAPI();
+    const adminCheck = await checkAdminAccessForAPI(request);
     if (!adminCheck.isAdmin) {
       return apiResponse.error(adminCheck.error || "관리자 권한이 필요합니다.", adminCheck.status);
     }
 
-    const contactId = parseInt(params.id);
+    const { id } = await params;
+    const contactId = parseInt(id);
 
     if (isNaN(contactId)) {
       return apiResponse.error("유효하지 않은 문의사항 ID입니다.", 400);
     }
 
-    const supabase = createRouteHandlerClient<Database>({ 
-      cookies: () => cookies() 
-    });
+    const supabase = createRouteHandlerSupabaseClient(request);
 
     const { error } = await supabase
       .from("contacts")

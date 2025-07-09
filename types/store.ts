@@ -1,3 +1,6 @@
+import { Json } from '@/types/supabase';
+import { MenuItem } from '@/types/menu';
+
 // 데이터베이스에서 가져오는 원본 가게 데이터 타입 (Supabase 응답 형식)
 export interface StoreFromDb {
   id: number;
@@ -10,12 +13,15 @@ export interface StoreFromDb {
   position_lng: number;
   position_x: number;
   position_y: number;
-  refill_items: string[] | null;
-  description: string | null;
+  refill_items: MenuItem[] | null;
   open_hours: string | null;
-  price: string | null;
-  categories: Array<{ category: { name: string } }>;
+  phone_number: string | null;
+  break_time: string | null;
+  categories: Array<{ category: { name: string } }> | string[];
   image_urls?: string[] | null;
+  created_at: string;
+  updated_at: string;
+  geom?: unknown;
   [key: string]: any;
 }
 
@@ -36,10 +42,9 @@ export interface Store {
     x: number;
     y: number;
   };
-  refillItems: string[] | null;
-  description: string | null;
+  refillItems: MenuItem[] | null;
   openHours: string | null;
-  price: string | null;
+  phoneNumber: string | null;
   imageUrls?: string[] | null;
 }
 

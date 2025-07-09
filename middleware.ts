@@ -28,10 +28,11 @@ export async function middleware(request: NextRequest) {
     }
   );
 
-  // 사용자 세션 갱신
+  // 사용자 인증 확인
   const {
-    data: { session },
-  } = await supabase.auth.getSession();
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
 
   // 보호된 경로 확인 및 처리
   const pathname = request.nextUrl.pathname;
@@ -52,7 +53,7 @@ export async function middleware(request: NextRequest) {
 
   // 관리자 경로 접근 제어
   if (adminRequiredPaths.some((path) => pathname.startsWith(path))) {
-    if (!session) {
+    if (authError || !user) {
       const redirectUrl = new URL("/login", request.url);
       redirectUrl.searchParams.set("next", pathname);
       return NextResponse.redirect(redirectUrl);
@@ -63,7 +64,7 @@ export async function middleware(request: NextRequest) {
       const { data: profile } = await supabase
         .from("profiles")
         .select("role, is_admin")
-        .eq("id", session.user.id)
+        .eq("id", user.id)
         .single();
 
       const isAdmin = profile?.is_admin === true || profile?.role === "admin";
@@ -78,14 +79,14 @@ export async function middleware(request: NextRequest) {
   }
 
   // 인증이 필요한 경로이나 로그인하지 않은 경우
-  if (authRequiredPaths.some((path) => pathname.startsWith(path)) && !session) {
+  if (authRequiredPaths.some((path) => pathname.startsWith(path)) && (authError || !user)) {
     const redirectUrl = new URL("/login", request.url);
     redirectUrl.searchParams.set("next", pathname);
     return NextResponse.redirect(redirectUrl);
   }
 
   // 로그인 상태에서 접근 불가능한 경로인데 로그인한 경우
-  if (publicOnlyPaths.some((path) => pathname.startsWith(path)) && session) {
+  if (publicOnlyPaths.some((path) => pathname.startsWith(path)) && user && !authError) {
     return NextResponse.redirect(new URL("/", request.url));
   }
 

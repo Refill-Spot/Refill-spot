@@ -44,19 +44,29 @@ export async function GET(request: NextRequest) {
       ? `${validStoreName} ${validAddress.split(" ").slice(0, 2).join(" ")}`
       : validStoreName;
 
-    // 네이버 및 카카오 API 병렬 호출
-    const [naverRating, kakaoRating] = await Promise.all([
+    // 네이버 및 카카오 API 병렬 호출 (에러 안전 처리)
+    const [naverRating, kakaoRating] = await Promise.allSettled([
       getNaverPlaceRating(searchQuery),
       getKakaoPlaceRating(searchQuery),
     ]);
+
+    // 결과 처리
+    const naverScore = naverRating.status === 'fulfilled' ? naverRating.value : 0;
+    const kakaoScore = kakaoRating.status === 'fulfilled' ? kakaoRating.value : 0;
+
+    // 평균 계산 (유효한 평점만 사용)
+    const validRatings = [naverScore, kakaoScore].filter(rating => rating > 0);
+    const averageRating = validRatings.length > 0 
+      ? validRatings.reduce((sum, rating) => sum + rating, 0) / validRatings.length 
+      : 0;
 
     // 결과 반환
     return NextResponse.json({
       success: true,
       data: {
-        naverRating: Number(naverRating.toFixed(1)), // 소수점 첫째 자리까지
-        kakaoRating: Number(kakaoRating.toFixed(1)), // 소수점 첫째 자리까지
-        averageRating: Number(((naverRating + kakaoRating) / 2).toFixed(1)),
+        naverRating: Number(naverScore.toFixed(1)),
+        kakaoRating: Number(kakaoScore.toFixed(1)),
+        averageRating: Number(averageRating.toFixed(1)),
       },
     });
   } catch (error) {

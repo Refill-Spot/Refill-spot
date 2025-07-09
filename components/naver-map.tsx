@@ -549,22 +549,13 @@ export default function NaverMap({
                       ? `${selectedStore.distance}m`
                       : t("no_distance_info")}
                   </span>
-                  <span>|</span>
-                  {selectedStore.categories.map((category, index) => (
-                    <Badge
-                      key={index}
-                      variant="outline"
-                      className="px-2 py-0 text-xs"
-                    >
-                      {category}
-                    </Badge>
-                  ))}
                 </div>
               </div>
             </div>
-            <p className="text-xs text-gray-500 mt-2 line-clamp-2">
+            {/* 설명 정보는 현재 Store 타입에 없어서 주석 처리 */}
+            {/* <p className="text-xs text-gray-500 mt-2 line-clamp-2">
               {selectedStore.description || t("no_description")}
-            </p>
+            </p> */}
             <Link href={`/store/${selectedStore.id}`}>
               <Button className="w-full mt-3 bg-[#FF5722] hover:bg-[#E64A19]">
                 {t("view_details")}

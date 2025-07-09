@@ -63,8 +63,8 @@ export default function AdminContactsPage() {
   const [loading, setLoading] = useState(true);
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
   const [filters, setFilters] = useState({
-    status: "",
-    type: "",
+    status: "all",
+    type: "all",
     search: "",
   });
   const [pagination, setPagination] = useState({
@@ -84,8 +84,8 @@ export default function AdminContactsPage() {
         limit: pagination.limit.toString(),
       });
 
-      if (filters.status) params.append("status", filters.status);
-      if (filters.type) params.append("type", filters.type);
+      if (filters.status && filters.status !== "all") params.append("status", filters.status);
+      if (filters.type && filters.type !== "all") params.append("type", filters.type);
 
       const response = await fetch(`/api/contact?${params.toString()}`);
       
@@ -268,7 +268,7 @@ export default function AdminContactsPage() {
                         <SelectValue placeholder="전체" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">전체</SelectItem>
+                        <SelectItem value="all">전체</SelectItem>
                         <SelectItem value="pending">대기중</SelectItem>
                         <SelectItem value="in_progress">처리중</SelectItem>
                         <SelectItem value="completed">완료</SelectItem>
@@ -283,7 +283,7 @@ export default function AdminContactsPage() {
                         <SelectValue placeholder="전체" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">전체</SelectItem>
+                        <SelectItem value="all">전체</SelectItem>
                         <SelectItem value="store_registration">가게 등록</SelectItem>
                         <SelectItem value="inquiry">일반 문의</SelectItem>
                         <SelectItem value="feedback">피드백</SelectItem>

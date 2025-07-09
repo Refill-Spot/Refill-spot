@@ -624,7 +624,7 @@ export default function KakaoMap({
           isManualSearch: isManualSearchRef.current
         });
         
-        if (stores.length > 1 && !isManualSearchRef.current) {
+        if (stores.length > 0 && !isManualSearchRef.current) {
           const bounds = new window.kakao.maps.LatLngBounds();
 
           // 사용자 위치가 있으면 포함
@@ -861,27 +861,18 @@ export default function KakaoMap({
                       ? `${selectedStore.distance}km`
                       : "거리 정보 없음"}
                   </span>
-                  <span>|</span>
-                  {selectedStore.categories.map((category, index) => (
-                    <Badge
-                      key={index}
-                      variant="outline"
-                      className="px-2 py-0 text-xs"
-                    >
-                      {category}
-                    </Badge>
-                  ))}
                 </div>
               </div>
             </div>
-            <p className="text-xs text-gray-500 mt-2 line-clamp-2">
-              {selectedStore.description || "설명이 없습니다."}
-            </p>
-            <Link href={`/store/${selectedStore.id}`}>
-              <Button className="w-full mt-3 bg-[#FF5722] hover:bg-[#E64A19]">
-                상세 보기
-              </Button>
-            </Link>
+            <Button 
+              className="w-full mt-3 bg-[#FF5722] hover:bg-[#E64A19]"
+              onClick={() => {
+                // 간단한 URL로 새 탭에서 열기
+                window.open(`/store/${selectedStore.id}`, "_blank");
+              }}
+            >
+              상세 보기
+            </Button>
           </CardContent>
         </Card>
       )}
@@ -899,7 +890,7 @@ export default function KakaoMap({
       )}
 
       {/* 지도 컨트롤 */}
-      <div className="absolute top-4 right-4 flex flex-col gap-2 z-10">
+      <div className="absolute bottom-4 left-4 flex flex-col gap-2 z-10">
         <Button
           variant="secondary"
           size="icon"

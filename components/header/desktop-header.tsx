@@ -7,7 +7,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Filter, MapPin, Menu, Info, MessageCircle } from "lucide-react";
+import { Filter, MapPin, Menu, Info, MessageCircle, Bell } from "lucide-react";
 import Link from "next/link";
 import { LocationDialog } from "./location-dialog";
 import { SearchInput } from "./search-input";
@@ -54,6 +54,12 @@ export function DesktopHeader({
                 <Link href="/onboarding" className="flex items-center w-full">
                   <Info className="h-4 w-4 mr-2 text-[#2196F3]" />
                   서비스 소개
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/announcements" className="flex items-center w-full">
+                  <Bell className="h-4 w-4 mr-2 text-[#FF9800]" />
+                  공지사항
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>

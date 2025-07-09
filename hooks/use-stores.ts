@@ -21,7 +21,19 @@ export interface StoreFilters {
   sort?: "default" | "rating" | "distance";
 }
 
-export function useFetchStores(initialFilters?: StoreFilters) {
+// 반환 타입 정의
+export interface UseFetchStoresResult {
+  stores: Store[];
+  loading: boolean;
+  error: string | null;
+  setFilters: (filters: StoreFilters) => void;
+  resetFilters: () => void;
+  refetch: () => void;
+}
+
+export function useFetchStores(
+  initialFilters?: StoreFilters
+): UseFetchStoresResult {
   const [stores, setStores] = useState<Store[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -103,6 +115,7 @@ export function useFetchStores(initialFilters?: StoreFilters) {
         console.error("가게 데이터가 올바른 형식이 아닙니다:", storeData);
         storeData = [];
       }
+
 
       // 데이터가 비어있는 경우 로그 남기기
       if (storeData.length === 0) {

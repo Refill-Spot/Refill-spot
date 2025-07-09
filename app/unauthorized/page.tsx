@@ -61,7 +61,7 @@ export default function UnauthorizedPage() {
 
           <div className="text-center pt-4 border-t border-gray-200">
             <p className="text-xs text-gray-500">
-              관리자 권한 문의: refillspot@gmail.com
+              관리자 권한 문의: refillspot.official@gmail.com
             </p>
           </div>
         </CardContent>

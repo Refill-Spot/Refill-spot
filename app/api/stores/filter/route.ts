@@ -68,9 +68,16 @@ export async function POST(request: NextRequest) {
       // 카테고리 필터링 (클라이언트 사이드)
       if (categories && categories.length > 0) {
         filteredStores = filteredStores.filter((store: StoreFromDb) => {
-          const storeCategories = store.categories.map(
-            (item: { category: { name: string } }) => item.category.name
-          );
+          let storeCategories: string[] = [];
+          if (Array.isArray(store.categories) && store.categories.length > 0) {
+            if (typeof store.categories[0] === 'string') {
+              storeCategories = store.categories as string[];
+            } else if (typeof store.categories[0] === 'object' && store.categories[0] !== null && 'category' in store.categories[0]) {
+              storeCategories = (store.categories as Array<{ category: { name: string } }>).map(
+                (item) => item.category.name
+              );
+            }
+          }
           return categories.some((cat) => storeCategories.includes(cat));
         });
       }

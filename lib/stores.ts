@@ -1,5 +1,6 @@
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { Store, StoreFromDb } from "@/types/store";
+import { MenuItem } from "@/types/menu";
 
 // 카테고리 아이템 타입 정의
 interface CategoryItem {
@@ -13,10 +14,24 @@ export function mapStoreFromDb(
   store: StoreFromDb,
   distance?: number | string | null
 ): Store {
-  const categories =
-    store.categories?.map((item: CategoryItem) => item.category.name) || [];
 
-  return {
+  // PostGIS 함수에서 반환하는 categories는 JSON 배열 형태이고,
+  // 기존 쿼리에서 반환하는 categories는 중첩된 객체 구조
+  let categories: string[] = [];
+  
+  if (store.categories) {
+    if (Array.isArray(store.categories) && store.categories.length > 0) {
+      if (typeof store.categories[0] === 'string') {
+        // PostGIS 함수에서 반환하는 경우: ["카테고리1", "카테고리2"]
+        categories = store.categories as string[];
+      } else if (typeof store.categories[0] === 'object' && store.categories[0] !== null && 'category' in store.categories[0]) {
+        // 기존 쿼리에서 반환하는 경우: [{category: {name: "카테고리1"}}]
+        categories = (store.categories as Array<{ category: { name: string } }>).map((item) => item.category.name);
+      }
+    }
+  }
+
+  const mappedStore = {
     id: store.id,
     name: store.name,
     address: store.address,
@@ -32,12 +47,32 @@ export function mapStoreFromDb(
       x: store.position_x,
       y: store.position_y,
     },
-    refillItems: store.refill_items || [],
-    description: store.description,
+    refillItems: (() => {
+      if (!store.refill_items) return null;
+      
+      // PostGIS 함수에서 오는 경우 이미 파싱된 배열
+      if (Array.isArray(store.refill_items)) {
+        return store.refill_items as MenuItem[];
+      }
+      
+      // 직접 DB에서 오는 경우 JSON 문자열일 수 있음
+      if (typeof store.refill_items === 'string') {
+        try {
+          return JSON.parse(store.refill_items) as MenuItem[];
+        } catch (e) {
+          console.error('refill_items JSON 파싱 오류:', e);
+          return null;
+        }
+      }
+      
+      return store.refill_items as MenuItem[];
+    })(),
     openHours: store.open_hours,
-    price: store.price,
+    phoneNumber: store.phone_number,
     imageUrls: store.image_urls || [],
   };
+
+  return mappedStore;
 }
 
 // 가게 목록 조회

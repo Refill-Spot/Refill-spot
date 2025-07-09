@@ -51,7 +51,10 @@ function AuthPageContent() {
     email: "",
     password: "",
     confirmPassword: "",
+    agreeAll: false,
     agreeTerms: false,
+    agreePrivacy: false,
+    agreeLocation: false,
   });
 
   // 로그인 폼 핸들러
@@ -66,11 +69,29 @@ function AuthPageContent() {
   // 회원가입 폼 핸들러
   const handleRegisterChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type, checked } = e.target;
-    setRegisterForm({
-      ...registerForm,
+    setRegisterForm((prev) => ({
+      ...prev,
       [name]: type === "checkbox" ? checked : value,
-    });
+    }));
   };
+
+  const handleAgreeAllChange = (checked: boolean) => {
+    setRegisterForm((prev) => ({
+      ...prev,
+      agreeAll: checked,
+      agreeTerms: checked,
+      agreePrivacy: checked,
+      agreeLocation: checked,
+    }));
+  };
+
+  useEffect(() => {
+    const { agreeTerms, agreePrivacy, agreeLocation } = registerForm;
+    setRegisterForm((prev) => ({
+      ...prev,
+      agreeAll: agreeTerms && agreePrivacy && agreeLocation,
+    }));
+  }, [registerForm.agreeTerms, registerForm.agreePrivacy, registerForm.agreeLocation]);
 
   // 로그인 제출
   const handleLoginSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -102,8 +123,8 @@ function AuthPageContent() {
     }
 
     // 약관 동의 확인
-    if (!registerForm.agreeTerms) {
-      setError("이용약관에 동의해주세요.");
+    if (!registerForm.agreeTerms || !registerForm.agreePrivacy || !registerForm.agreeLocation) {
+      setError("모든 필수 약관에 동의해주세요.");
       return;
     }
 
@@ -337,27 +358,89 @@ function AuthPageContent() {
                       required
                     />
                   </div>
-                  <div className="flex items-center space-x-2">
-                    <Checkbox
-                      id="agree-terms"
-                      name="agreeTerms"
-                      checked={registerForm.agreeTerms}
-                      onCheckedChange={(checked) =>
-                        setRegisterForm({
-                          ...registerForm,
-                          agreeTerms: !!checked,
-                        })
-                      }
-                    />
-                    <Label htmlFor="agree-terms" className="text-sm">
-                      <Link
-                        href="/terms"
-                        className="text-[#2196F3] hover:underline"
-                      >
-                        이용약관
-                      </Link>
-                      에 동의합니다
-                    </Label>
+                  <div className="space-y-3 rounded-lg border border-gray-200 p-4">
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="agree-all"
+                        name="agreeAll"
+                        checked={registerForm.agreeAll}
+                        onCheckedChange={handleAgreeAllChange}
+                      />
+                      <Label htmlFor="agree-all" className="text-sm font-bold">
+                        전체 동의
+                      </Label>
+                    </div>
+                    <div className="border-t border-gray-200 pt-3 space-y-2">
+                      <div className="flex items-center space-x-2">
+                        <Checkbox
+                          id="agree-terms"
+                          name="agreeTerms"
+                          checked={registerForm.agreeTerms}
+                          onCheckedChange={(checked) =>
+                            setRegisterForm({
+                              ...registerForm,
+                              agreeTerms: !!checked,
+                            })
+                          }
+                        />
+                        <Label htmlFor="agree-terms" className="text-sm">
+                          <Link
+                            href="/terms"
+                            className="text-[#2196F3] hover:underline"
+                            target="_blank"
+                          >
+                            이용약관
+                          </Link>
+                          에 동의합니다 (필수)
+                        </Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Checkbox
+                          id="agree-privacy"
+                          name="agreePrivacy"
+                          checked={registerForm.agreePrivacy}
+                          onCheckedChange={(checked) =>
+                            setRegisterForm({
+                              ...registerForm,
+                              agreePrivacy: !!checked,
+                            })
+                          }
+                        />
+                        <Label htmlFor="agree-privacy" className="text-sm">
+                          <Link
+                            href="/privacy"
+                            className="text-[#2196F3] hover:underline"
+                            target="_blank"
+                          >
+                            개인정보처리방침
+                          </Link>
+                          에 동의합니다 (필수)
+                        </Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Checkbox
+                          id="agree-location"
+                          name="agreeLocation"
+                          checked={registerForm.agreeLocation}
+                          onCheckedChange={(checked) =>
+                            setRegisterForm({
+                              ...registerForm,
+                              agreeLocation: !!checked,
+                            })
+                          }
+                        />
+                        <Label htmlFor="agree-location" className="text-sm">
+                          <Link
+                            href="/location-terms"
+                            className="text-[#2196F3] hover:underline"
+                            target="_blank"
+                          >
+                            위치기반서비스 이용약관
+                          </Link>
+                          에 동의합니다 (필수)
+                        </Label>
+                      </div>
+                    </div>
                   </div>
                 </CardContent>
                 <CardFooter className="flex flex-col space-y-4">

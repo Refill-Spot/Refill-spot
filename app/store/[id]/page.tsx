@@ -855,6 +855,14 @@ export default function StorePage() {
                 </li>
                 <li>
                   <button
+                    onClick={() => router.push('/announcements')}
+                    className="hover:text-[#FF5722] transition-colors"
+                  >
+                    공지사항
+                  </button>
+                </li>
+                <li>
+                  <button
                     onClick={() => router.push('/onboarding')}
                     className="hover:text-[#FF5722] transition-colors"
                   >
@@ -913,20 +921,17 @@ export default function StorePage() {
           <div className="border-t border-gray-200 mt-8 pt-6 space-y-4">
             {/* 약관 링크들 */}
             <div className="flex flex-wrap justify-center gap-4 text-sm text-gray-500">
-              <button className="hover:text-[#FF5722] transition-colors">
+              <a href="/privacy" target="_blank" rel="noopener noreferrer" className="hover:text-[#FF5722] transition-colors">
                 개인정보처리방침
-              </button>
+              </a>
               <span>|</span>
-              <button
-                onClick={() => router.push('/terms')}
-                className="hover:text-[#FF5722] transition-colors"
-              >
+              <a href="/terms" target="_blank" rel="noopener noreferrer" className="hover:text-[#FF5722] transition-colors">
                 이용약관
-              </button>
+              </a>
               <span>|</span>
-              <button className="hover:text-[#FF5722] transition-colors">
+              <a href="/location-terms" target="_blank" rel="noopener noreferrer" className="hover:text-[#FF5722] transition-colors">
                 위치기반 서비스 이용약관
-              </button>
+              </a>
             </div>
 
             {/* 회사 정보 */}

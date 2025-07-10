@@ -128,11 +128,11 @@ export const useStoreStore = create<StoreState>((set, get) => ({
   // 특정 가게 상세 정보 가져오기
   fetchStoreById: async (id) => {
     try {
-      console.log('🔍 [Store] fetchStoreById called', { id });
+      console.log("🔍 [Store] fetchStoreById called", { id });
       set({ storeLoading: true, storeError: null });
       const storeData = await getStoreById(id);
 
-      console.log('🔍 [Store] getStoreById result', { 
+      console.log("🔍 [Store] getStoreById result", { 
         id, 
         storeData: storeData ? {
           id: storeData.id,
@@ -140,12 +140,12 @@ export const useStoreStore = create<StoreState>((set, get) => ({
           openHours: storeData.openHours,
           hasOpenHours: !!storeData.openHours,
           openHoursType: typeof storeData.openHours,
-          openHoursLength: storeData.openHours?.length
-        } : null 
+          openHoursLength: storeData.openHours?.length,
+        } : null, 
       });
 
       if (!storeData) {
-        console.log('🔍 [Store] No store data found');
+        console.log("🔍 [Store] No store data found");
         set({
           storeError: "가게 정보를 찾을 수 없습니다.",
           storeLoading: false,
@@ -153,7 +153,7 @@ export const useStoreStore = create<StoreState>((set, get) => ({
         return;
       }
 
-      console.log('🔍 [Store] Setting currentStore', { storeData });
+      console.log("🔍 [Store] Setting currentStore", { storeData });
       set({ currentStore: storeData, storeLoading: false });
 
       // 리뷰 함께 로드
@@ -174,12 +174,14 @@ export const useStoreStore = create<StoreState>((set, get) => ({
           `
           *,
           profiles:profiles(username)
-        `
+        `,
         )
         .eq("store_id", storeId)
         .order("created_at", { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+throw error;
+}
 
       // 리뷰 데이터 가공
       const formattedReviews = data.map((review: any) => ({
@@ -220,7 +222,9 @@ export const useStoreStore = create<StoreState>((set, get) => ({
           .eq("user_id", userId)
           .eq("store_id", storeId);
 
-        if (error) throw error;
+        if (error) {
+throw error;
+}
       } else {
         // 즐겨찾기 추가
         const { error } = await supabaseBrowser.from("favorites").insert({
@@ -228,7 +232,9 @@ export const useStoreStore = create<StoreState>((set, get) => ({
           store_id: storeId,
         });
 
-        if (error) throw error;
+        if (error) {
+throw error;
+}
       }
 
       // 즐겨찾기 목록 갱신
@@ -249,7 +255,9 @@ export const useStoreStore = create<StoreState>((set, get) => ({
         .select("store_id")
         .eq("user_id", userId);
 
-      if (favoriteError) throw favoriteError;
+      if (favoriteError) {
+throw favoriteError;
+}
 
       if (favoriteData && favoriteData.length > 0) {
         const storeIds = favoriteData.map((item) => item.store_id);
@@ -263,11 +271,13 @@ export const useStoreStore = create<StoreState>((set, get) => ({
             categories:store_categories(
               category:categories(name)
             )
-          `
+          `,
           )
           .in("id", storeIds);
 
-        if (storesError) throw storesError;
+        if (storesError) {
+throw storesError;
+}
 
         // 가게 데이터 가공 - mapStoreFromDb 사용
         const formattedStores = storesData.map((store) => mapStoreFromDb(store));
@@ -297,11 +307,13 @@ export const useStoreStore = create<StoreState>((set, get) => ({
           `
           *,
           profiles:profiles(username)
-        `
+        `,
         )
         .single();
 
-      if (error) throw error;
+      if (error) {
+throw error;
+}
 
       // 리뷰 목록 갱신
       get().fetchReviews(storeId);
@@ -314,7 +326,9 @@ export const useStoreStore = create<StoreState>((set, get) => ({
   updateReview: async (reviewId, rating, content) => {
     try {
       const { currentStore } = get();
-      if (!currentStore) return;
+      if (!currentStore) {
+return;
+}
 
       const { error } = await supabaseBrowser
         .from("reviews")
@@ -325,7 +339,9 @@ export const useStoreStore = create<StoreState>((set, get) => ({
         })
         .eq("id", reviewId);
 
-      if (error) throw error;
+      if (error) {
+throw error;
+}
 
       // 리뷰 목록 갱신
       get().fetchReviews(currentStore.id);

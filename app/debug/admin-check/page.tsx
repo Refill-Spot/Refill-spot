@@ -11,7 +11,7 @@ export default function AdminCheckDebugPage() {
   const checkAdmin = async () => {
     setLoading(true);
     try {
-      const response = await fetch('/api/auth/check-admin');
+      const response = await fetch("/api/auth/check-admin");
       const data = await response.json();
       setResult({
         status: response.status,

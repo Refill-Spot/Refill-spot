@@ -86,7 +86,7 @@ export default function NaverMap({
             variant: "destructive",
           });
           setLocationError(t("location_error_description"));
-        }
+        },
       );
     } else {
       toast({
@@ -100,14 +100,16 @@ export default function NaverMap({
 
   // 지도 초기화
   useEffect(() => {
-    if (!naverMapLoaded || !mapRef.current) return;
+    if (!naverMapLoaded || !mapRef.current) {
+return;
+}
 
     try {
       // window.naver가 정의되어 있는지 확인
-      if (!window.naver || !window.naver.maps) {
+      if (!window.naver?.maps) {
         console.error("네이버 지도 API가 로드되지 않았습니다.");
         setLocationError(
-          "지도 API를 로드하는데 실패했습니다. 페이지를 새로고침해 주세요."
+          "지도 API를 로드하는데 실패했습니다. 페이지를 새로고침해 주세요.",
         );
         return;
       }
@@ -135,7 +137,7 @@ export default function NaverMap({
         new window.naver.maps.Marker({
           position: new window.naver.maps.LatLng(
             userLocation.lat,
-            userLocation.lng
+            userLocation.lng,
           ),
           map: newMap,
           icon: {
@@ -163,7 +165,7 @@ export default function NaverMap({
     } catch (error) {
       console.error("지도 초기화 오류:", error);
       setLocationError(
-        "지도를 초기화하는데 실패했습니다. 페이지를 새로고침해 주세요."
+        "지도를 초기화하는데 실패했습니다. 페이지를 새로고침해 주세요.",
       );
       toast({
         title: t("map_initialization_error"),
@@ -185,9 +187,7 @@ export default function NaverMap({
     (map: any, markers: any[]) => {
       if (
         !enableClustering ||
-        !window.naver ||
-        !window.naver.maps ||
-        !window.naver.maps.MarkerClustering
+        !window.naver?.maps?.MarkerClustering
       ) {
         return null;
       }
@@ -242,12 +242,14 @@ export default function NaverMap({
 
       return cluster;
     },
-    [enableClustering, markerClusters]
+    [enableClustering, markerClusters],
   );
 
   // 가게 마커 추가
   useEffect(() => {
-    if (!map || !stores.length || !window.naver || !window.naver.maps) return;
+    if (!map || !stores.length || !window.naver?.maps) {
+return;
+}
 
     try {
       // 기존 마커 제거
@@ -259,9 +261,7 @@ export default function NaverMap({
       // 각 가게별 마커 생성
       for (const store of stores) {
         if (
-          !store ||
-          !store.position ||
-          !store.position.lat ||
+          !store?.position?.lat ||
           !store.position.lng
         ) {
           console.warn("유효하지 않은 가게 데이터:", store);
@@ -270,7 +270,7 @@ export default function NaverMap({
 
         const markerPosition = new window.naver.maps.LatLng(
           store.position.lat,
-          store.position.lng
+          store.position.lng,
         );
 
         const marker = new window.naver.maps.Marker({
@@ -362,8 +362,8 @@ export default function NaverMap({
               map.panTo(
                 new window.naver.maps.LatLng(
                   store.position.lat,
-                  store.position.lng
-                )
+                  store.position.lng,
+                ),
               );
             }
           }
@@ -381,14 +381,14 @@ export default function NaverMap({
         // 사용자 위치가 있으면 포함
         if (userLocation) {
           bounds.extend(
-            new window.naver.maps.LatLng(userLocation.lat, userLocation.lng)
+            new window.naver.maps.LatLng(userLocation.lat, userLocation.lng),
           );
         }
 
         // 모든 가게 위치 포함
         stores.forEach((store) => {
           bounds.extend(
-            new window.naver.maps.LatLng(store.position.lat, store.position.lng)
+            new window.naver.maps.LatLng(store.position.lat, store.position.lng),
           );
         });
 
@@ -512,7 +512,7 @@ export default function NaverMap({
               <div
                 className="w-20 h-20 rounded-md bg-gray-200 flex-shrink-0"
                 style={{
-                  backgroundImage: `url('/placeholder.svg?height=80&width=80')`,
+                  backgroundImage: "url('/placeholder.svg?height=80&width=80')",
                   backgroundSize: "cover",
                 }}
                 role="img"
@@ -571,7 +571,7 @@ export default function NaverMap({
           variant="secondary"
           size="icon"
           className="bg-white shadow-md h-8 w-8"
-          onClick={() => map && map.setZoom(map.getZoom() + 1)}
+          onClick={() => map?.setZoom(map.getZoom() + 1)}
           aria-label={t("zoom_in")}
         >
           <span className="text-lg font-bold">+</span>
@@ -580,7 +580,7 @@ export default function NaverMap({
           variant="secondary"
           size="icon"
           className="bg-white shadow-md h-8 w-8"
-          onClick={() => map && map.setZoom(map.getZoom() - 1)}
+          onClick={() => map?.setZoom(map.getZoom() - 1)}
           aria-label={t("zoom_out")}
         >
           <span className="text-lg font-bold">-</span>

@@ -9,7 +9,7 @@ interface GoogleMapsLoaderProps {
 export default function GoogleMapsLoader({ children }: GoogleMapsLoaderProps) {
   useEffect(() => {
     // Google Maps API가 이미 로드되었는지 확인
-    if (window.google && window.google.maps) {
+    if (window.google?.maps) {
       return;
     }
 
@@ -32,7 +32,7 @@ export default function GoogleMapsLoader({ children }: GoogleMapsLoaderProps) {
     return () => {
       // 컴포넌트 언마운트 시 스크립트 제거
       const existingScript = document.querySelector(
-        `script[src*="maps.googleapis.com"]`
+        "script[src*=\"maps.googleapis.com\"]",
       );
       if (existingScript) {
         document.head.removeChild(existingScript);

@@ -11,6 +11,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/components/ui/use-toast";
+import { SearchInput } from "@/components/header/search-input";
 import { getUserLocation, isLocationValid } from "@/lib/location-storage";
 import { Store } from "@/types/store";
 import { MenuItem } from "@/types/menu";
@@ -80,7 +81,9 @@ export default function StorePage() {
   }, [params.id, toast]);
 
   const handleViewInNaverMap = () => {
-    if (!store) return;
+    if (!store) {
+return;
+}
 
     // 네이버 지도 앱으로 열기 시도
     const naverMapUrl = `nmap://place?lat=${store.position.lat}&lng=${
@@ -89,13 +92,13 @@ export default function StorePage() {
 
     // 앱이 설치되어 있지 않으면 웹으로 리다이렉트
     const webMapUrl = `https://map.naver.com/v5/search/${encodeURIComponent(
-      store.name
+      store.name,
     )}?c=${store.position.lng},${store.position.lat},15,0,0,0,dh`;
 
     // 모바일에서는 앱 링크 시도, 데스크톱에서는 바로 웹으로
     if (
       /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
-        navigator.userAgent
+        navigator.userAgent,
       )
     ) {
       window.location.href = naverMapUrl;
@@ -124,14 +127,16 @@ export default function StorePage() {
         });
         router.push(`/?${params.toString()}`);
       } else {
-        router.push('/');
+        router.push("/");
       }
     }
   };
 
   // 즐겨찾기 토글 핸들러
   const handleToggleFavorite = async () => {
-    if (!store) return;
+    if (!store) {
+return;
+}
     await toggleFavorite(store.id);
   };
 
@@ -147,7 +152,9 @@ export default function StorePage() {
 
   // 공유 핸들러
   const handleShare = async () => {
-    if (!store) return;
+    if (!store) {
+return;
+}
 
     const shareData = {
       title: `${store.name} - Refill Spot`,
@@ -162,30 +169,82 @@ export default function StorePage() {
         return;
       }
     } catch (error) {
-      console.error('Web Share API 오류:', error);
+      console.error("Web Share API 오류:", error);
     }
 
     // Web Share API를 지원하지 않는 경우 클립보드로 복사
     try {
       await navigator.clipboard.writeText(window.location.href);
       toast({
-        title: '링크 복사 완료',
-        description: '가게 링크가 클립보드에 복사되었습니다.',
+        title: "링크 복사 완료",
+        description: "가게 링크가 클립보드에 복사되었습니다.",
       });
     } catch (error) {
-      console.error('클립보드 복사 오류:', error);
+      console.error("클립보드 복사 오류:", error);
       // 클립보드 API도 실패한 경우 fallback
-      const textArea = document.createElement('textarea');
+      const textArea = document.createElement("textarea");
       textArea.value = window.location.href;
       document.body.appendChild(textArea);
       textArea.select();
-      document.execCommand('copy');
+      document.execCommand("copy");
       document.body.removeChild(textArea);
       
       toast({
-        title: '링크 복사 완료',
-        description: '가게 링크가 클립보드에 복사되었습니다.',
+        title: "링크 복사 완료",
+        description: "가게 링크가 클립보드에 복사되었습니다.",
       });
+    }
+  };
+
+  // 검색 핸들러
+  const handlePlaceSelect = (place: any) => {
+    if (!place?.geometry?.location) {
+return;
+}
+    
+    const lat = place.geometry.location.lat();
+    const lng = place.geometry.location.lng();
+    
+    // 지도 페이지로 이동하면서 위치 정보 전달
+    router.push(`/?lat=${lat}&lng=${lng}&distance=5`);
+  };
+
+  const handleManualSearch = async (searchText: string) => {
+    if (!window.google?.maps) {
+      toast({
+        title: "오류",
+        description: "Google Maps API가 로드되지 않았습니다.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      // Geocoding을 사용하여 검색어를 위치로 변환
+      const geocoder = new window.google.maps.Geocoder();
+      
+      geocoder.geocode(
+        { 
+          address: searchText, 
+          componentRestrictions: { country: "kr" }, 
+        },
+        (results: any, status: any) => {
+          if (status === window.google.maps.GeocoderStatus.OK && results?.[0]) {
+            const lat = results[0].geometry.location.lat();
+            const lng = results[0].geometry.location.lng();
+            
+            // 검색한 위치로 지도 페이지 이동
+            router.push(`/?lat=${lat}&lng=${lng}&distance=5&searchLocation=${encodeURIComponent(searchText)}`);
+          } else {
+            // Geocoding이 실패한 경우 기존 방식으로 fallback
+            router.push(`/?search=${encodeURIComponent(searchText)}`);
+          }
+        },
+      );
+    } catch (error) {
+      console.error("Geocoding error:", error);
+      // 오류 발생 시 기존 방식으로 fallback
+      router.push(`/?search=${encodeURIComponent(searchText)}`);
     }
   };
 
@@ -219,22 +278,16 @@ export default function StorePage() {
       <div className="bg-white border-b border-gray-200 sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-2 py-3">
           <div className="flex items-center">
-            {/* 왼쪽: 뒤로가기 + 가게정보 */}
-            <div className="flex items-center gap-3 w-60">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleGoBack}
-                className="p-2 hover:bg-gray-100"
-              >
-                <ArrowLeft className="w-5 h-5" />
-              </Button>
-              <h1 className="text-lg font-semibold text-gray-900">가게 정보</h1>
+            {/* 왼쪽: 빈 공간 */}
+            <div className="w-60">
             </div>
             
             {/* 중간: 로고 + 프로젝트명 + 검색창 */}
             <div className="flex items-center gap-12 flex-1 justify-center">
-              <div className="flex items-center space-x-2">
+              <button 
+                onClick={() => router.push("/")}
+                className="flex items-center space-x-2 hover:opacity-80 transition-opacity"
+              >
                 <div className="bg-gradient-to-br from-orange-500 to-red-500 rounded-lg p-2">
                   <svg
                     className="w-6 h-6 text-white"
@@ -254,29 +307,13 @@ export default function StorePage() {
                   <h1 className="text-xl font-bold text-gray-900">Refill-spot</h1>
                   <p className="text-xs text-gray-500">무한리필 가게 찾기</p>
                 </div>
-              </div>
-              <div className="relative flex-1 max-w-lg">
-                <input
-                  type="text"
-                  placeholder="지역, 주소를 입력하세요"
-                  className="w-full pr-10 pl-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 p-0"
-                >
-                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                    />
-                  </svg>
-                </Button>
-              </div>
+              </button>
+              <SearchInput
+                className="flex-1 max-w-lg"
+                onPlaceSelect={handlePlaceSelect}
+                onManualSearch={handleManualSearch}
+                placeholder="지역, 주소를 입력하세요"
+              />
             </div>
             
             {/* 오른쪽: 로그인/사용자 정보 */}
@@ -353,7 +390,7 @@ export default function StorePage() {
                 </DropdownMenu>
               ) : (
                 <Button
-                  onClick={() => router.push('/login')}
+                  onClick={() => router.push("/login")}
                   variant="outline"
                   size="sm"
                 >
@@ -378,7 +415,7 @@ export default function StorePage() {
                 className="w-full h-auto max-h-full object-contain"
                 onError={(e) => {
                   const target = e.target as HTMLImageElement;
-                  target.style.display = 'none';
+                  target.style.display = "none";
                   const parent = target.parentElement;
                   if (parent) {
                     parent.innerHTML = `
@@ -419,11 +456,11 @@ export default function StorePage() {
                 <Heart 
                   className={`w-4 h-4 mr-1 ${
                     store && isFavorite(store.id) 
-                      ? 'fill-red-500 text-red-500' 
-                      : ''
+                      ? "fill-red-500 text-red-500" 
+                      : ""
                   }`} 
                 />
-                {store && isFavorite(store.id) ? '저장됨' : '저장'}
+                {store && isFavorite(store.id) ? "저장됨" : "저장"}
               </Button>
               <Button
                 variant="secondary"
@@ -450,7 +487,7 @@ export default function StorePage() {
                         {store.rating.naver > 0 ? store.rating.naver : store.rating.kakao}
                       </span>
                       <span className="text-white/80 text-sm">
-                        ({store.rating.naver > 0 ? '네이버' : '카카오'} 평점)
+                        ({store.rating.naver > 0 ? "네이버" : "카카오"} 평점)
                       </span>
                     </div>
                   )}
@@ -568,7 +605,9 @@ export default function StorePage() {
                             {(() => {
                               // 운영시간 파싱 로직
                               const parseBusinessHours = () => {
-                                if (!store.openHours) return [];
+                                if (!store.openHours) {
+return [];
+}
                                 
                                 const hoursString = store.openHours;
                                 const dayPatterns = ["월", "화", "수", "목", "금", "토", "일"];
@@ -620,7 +659,7 @@ export default function StorePage() {
                               
                               const businessHours = parseBusinessHours();
                               const today = new Date().getDay();
-                              const days = ['일', '월', '화', '수', '목', '금', '토'];
+                              const days = ["일", "월", "화", "수", "목", "금", "토"];
                               const todayName = days[today];
                               
                               return businessHours.map((item, index) => (
@@ -674,7 +713,7 @@ export default function StorePage() {
                           <div>
                             {(() => {
                               const today = new Date().getDay();
-                              const days = ['일', '월', '화', '수', '목', '금', '토'];
+                              const days = ["일", "월", "화", "수", "목", "금", "토"];
                               const todayName = days[today];
                               
                               // 오늘 요일에 해당하는 운영시간 찾기
@@ -728,8 +767,8 @@ export default function StorePage() {
                     {store.refillItems
                       .sort((a, b) => {
                         // order 필드를 기준으로 정렬
-                        const orderA = typeof a === 'object' && a.order ? a.order : 999;
-                        const orderB = typeof b === 'object' && b.order ? b.order : 999;
+                        const orderA = typeof a === "object" && a.order ? a.order : 999;
+                        const orderB = typeof b === "object" && b.order ? b.order : 999;
                         return orderA - orderB;
                       })
                       .slice(0, showAllMenus ? store.refillItems.length : 3)
@@ -740,9 +779,9 @@ export default function StorePage() {
                         >
                           <div className="flex items-center gap-3">
                             <span className="font-medium text-gray-900">
-                              {typeof item === 'string' ? item : item.name}
+                              {typeof item === "string" ? item : item.name}
                             </span>
-                            {typeof item === 'object' && item.is_recommended && (
+                            {typeof item === "object" && item.is_recommended && (
                               <Badge className="bg-[#FF5722] text-white text-xs">
                                 추천
                               </Badge>
@@ -751,7 +790,7 @@ export default function StorePage() {
                           <div className="flex-1 mx-4 border-b-2 border-dotted border-gray-400"></div>
                           <div className="text-right">
                             <span className="font-semibold text-[#FF5722]">
-                              {typeof item === 'string' ? '' : item.price || '가격 문의'}
+                              {typeof item === "string" ? "" : item.price || "가격 문의"}
                             </span>
                           </div>
                         </div>
@@ -847,7 +886,7 @@ export default function StorePage() {
               <ul className="space-y-2 text-sm text-gray-600">
                 <li>
                   <button
-                    onClick={() => router.push('/')}
+                    onClick={() => router.push("/")}
                     className="hover:text-[#FF5722] transition-colors"
                   >
                     가게 찾기
@@ -855,7 +894,7 @@ export default function StorePage() {
                 </li>
                 <li>
                   <button
-                    onClick={() => router.push('/announcements')}
+                    onClick={() => router.push("/announcements")}
                     className="hover:text-[#FF5722] transition-colors"
                   >
                     공지사항
@@ -863,7 +902,7 @@ export default function StorePage() {
                 </li>
                 <li>
                   <button
-                    onClick={() => router.push('/onboarding')}
+                    onClick={() => router.push("/onboarding")}
                     className="hover:text-[#FF5722] transition-colors"
                   >
                     서비스 소개
@@ -871,7 +910,7 @@ export default function StorePage() {
                 </li>
                 <li>
                   <button
-                    onClick={() => router.push('/contact')}
+                    onClick={() => router.push("/contact")}
                     className="hover:text-[#FF5722] transition-colors"
                   >
                     문의하기
@@ -888,7 +927,7 @@ export default function StorePage() {
                   <>
                     <li>
                       <button
-                        onClick={() => router.push('/profile')}
+                        onClick={() => router.push("/profile")}
                         className="hover:text-[#FF5722] transition-colors"
                       >
                         프로필
@@ -896,7 +935,7 @@ export default function StorePage() {
                     </li>
                     <li>
                       <button
-                        onClick={() => router.push('/favorites')}
+                        onClick={() => router.push("/favorites")}
                         className="hover:text-[#FF5722] transition-colors"
                       >
                         즐겨찾기
@@ -906,7 +945,7 @@ export default function StorePage() {
                 ) : (
                   <li>
                     <button
-                      onClick={() => router.push('/login')}
+                      onClick={() => router.push("/login")}
                       className="hover:text-[#FF5722] transition-colors"
                     >
                       로그인 / 회원가입

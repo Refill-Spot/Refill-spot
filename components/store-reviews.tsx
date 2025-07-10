@@ -29,7 +29,7 @@ export default function StoreReviews({
   const { toast } = useToast();
   const { t, locale } = useTranslation();
   const [reviews, setReviews] = useState<FormattedReview[]>(
-    initialReviews || []
+    initialReviews || [],
   );
   const [userReview, setUserReview] = useState({
     rating: 0,
@@ -43,7 +43,7 @@ export default function StoreReviews({
   useEffect(() => {
     if (user && reviews.length > 0) {
       const existingReview = reviews.find(
-        (review) => review.user.id === user.id
+        (review) => review.user.id === user.id,
       );
 
       if (existingReview) {
@@ -66,7 +66,7 @@ export default function StoreReviews({
           `
           *,
           profiles:profiles(username)
-        `
+        `,
         )
         .eq("store_id", storeId)
         .order("created_at", { ascending: false });
@@ -152,7 +152,7 @@ export default function StoreReviews({
             `
             *,
             profiles:profiles(username)
-          `
+          `,
           )
           .single();
 
@@ -174,7 +174,7 @@ export default function StoreReviews({
             `
             *,
             profiles:profiles(username)
-          `
+          `,
           )
           .single();
 

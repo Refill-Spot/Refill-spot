@@ -44,7 +44,7 @@ export async function GET(request: NextRequest) {
               response.cookies.set({ name, value: "", ...options });
             },
           },
-        }
+        },
       );
 
       const { data, error } = await supabase.auth.exchangeCodeForSession(code);
@@ -52,7 +52,7 @@ export async function GET(request: NextRequest) {
       if (error) {
         console.error("OAuth 콜백 오류:", error);
         return NextResponse.redirect(
-          new URL("/login?error=oauth_error", request.url)
+          new URL("/login?error=oauth_error", request.url),
         );
       }
 
@@ -90,7 +90,7 @@ export async function GET(request: NextRequest) {
       // 캐시 방지 헤더 추가
       response.headers.set(
         "Cache-Control",
-        "no-cache, no-store, max-age=0, must-revalidate"
+        "no-cache, no-store, max-age=0, must-revalidate",
       );
       response.headers.set("Pragma", "no-cache");
       response.headers.set("Expires", "0");
@@ -99,7 +99,7 @@ export async function GET(request: NextRequest) {
     } catch (error) {
       console.error("OAuth 콜백 처리 오류:", error);
       return NextResponse.redirect(
-        new URL("/login?error=callback_error", request.url)
+        new URL("/login?error=callback_error", request.url),
       );
     }
   }

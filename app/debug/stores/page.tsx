@@ -41,7 +41,7 @@ export default function DebugStoresPage() {
         // 3. 강남구 좌표로 필터링된 가게 조회
         console.log("3️⃣ 강남구 좌표로 필터링된 가게 API 호출...");
         const filteredResponse = await fetch(
-          "/api/stores?lat=37.5006249&lng=127.0277083&radius=10&page=1&limit=50"
+          "/api/stores?lat=37.5006249&lng=127.0277083&radius=10&page=1&limit=50",
         );
         const filteredData = await filteredResponse.json();
         console.log("필터링된 가게 응답:", filteredData);

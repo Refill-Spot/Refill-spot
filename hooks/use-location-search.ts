@@ -175,41 +175,35 @@ export function useLocationSearch({
       setIsLoading(true);
 
       try {
-        const { suggestions } = await window.google.maps.places.AutocompleteSuggestion.fetchAutocompleteSuggestions({
-          input: searchText,
-          includedPrimaryTypes: ["establishment"],
-          includedRegionCodes: ["kr"],
-          locationRestriction: {
-            circle: {
-              center: { lat: 37.5665, lng: 126.9780 }, // 서울 중심
-              radius: 100000, // 100km
-            },
+        const service = new window.google.maps.places.AutocompleteService();
+        
+        service.getPlacePredictions(
+          {
+            input: searchText,
+            types: ['establishment'],
+            componentRestrictions: { country: 'kr' },
+            location: new window.google.maps.LatLng(37.5665, 126.9780),
+            radius: 100000,
           },
-        });
-
-        if (suggestions && suggestions.length > 0) {
-          const firstSuggestion = suggestions[0];
-          const convertedResult = {
-            place_id: firstSuggestion.placePrediction?.placeId || firstSuggestion.queryPrediction?.text?.text,
-            description: firstSuggestion.placePrediction?.text?.text || firstSuggestion.queryPrediction?.text?.text,
-            structured_formatting: {
-              main_text: firstSuggestion.placePrediction?.structuredFormat?.mainText?.text || firstSuggestion.queryPrediction?.text?.text,
-              secondary_text: firstSuggestion.placePrediction?.structuredFormat?.secondaryText?.text || "",
-            },
-          };
-          setSelectedPlace(convertedResult);
-          handlePlaceSelect(convertedResult);
-        } else {
-          handleDirectGeocoding(searchText);
-        }
+          (predictions: any, status: any) => {
+            if (status === window.google.maps.places.PlacesServiceStatus.OK && predictions && predictions.length > 0) {
+              const firstPrediction = predictions[0];
+              const convertedResult = {
+                place_id: firstPrediction.place_id,
+                description: firstPrediction.description,
+                structured_formatting: firstPrediction.structured_formatting,
+              };
+              setSelectedPlace(convertedResult);
+              handlePlaceSelect(convertedResult);
+            } else {
+              handleDirectGeocoding(searchText);
+            }
+            setIsLoading(false);
+          }
+        );
       } catch (error) {
         console.error("수동 검색 오류:", error);
-        toast({
-          title: "검색 오류",
-          description: "주소 검색 중 오류가 발생했습니다.",
-          variant: "destructive",
-        });
-        setIsLoading(false);
+        handleDirectGeocoding(searchText);
       }
     },
     [handlePlaceSelect, toast]

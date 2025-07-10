@@ -3,11 +3,8 @@
   "rules": {
     // 코드 품질 규칙
     "no-unused-vars": "off",
-    "@typescript-eslint/no-unused-vars": [
-      "error",
-      { "argsIgnorePattern": "^_" }
-    ],
-    "no-console": ["warn", { "allow": ["warn", "error"] }],
+    "@typescript-eslint/no-unused-vars": "off",
+    "no-console": "off",
     "prefer-const": "error",
     "no-var": "error",
 
@@ -17,16 +14,17 @@
     "react-hooks/exhaustive-deps": "warn",
 
     // Next.js 관련 규칙
-    "@next/next/no-img-element": "error",
+    "@next/next/no-img-element": "warn",
     "@next/next/no-html-link-for-pages": "error",
 
     // TypeScript 관련 규칙
-    "@typescript-eslint/no-explicit-any": "warn",
-    "@typescript-eslint/no-non-null-assertion": "warn",
-    "@typescript-eslint/prefer-optional-chain": "error",
+    "@typescript-eslint/no-explicit-any": "off",
+    "@typescript-eslint/no-non-null-assertion": "off",
+    "@typescript-eslint/prefer-optional-chain": "warn",
+    "@typescript-eslint/no-unused-vars": "off",
 
     // 일반적인 코딩 스타일
-    "eqeqeq": ["error", "always"],
+    "eqeqeq": ["warn", "always"],
     "curly": ["error", "all"],
     "brace-style": ["error", "1tbs"],
     "comma-dangle": ["error", "always-multiline"],

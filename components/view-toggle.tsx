@@ -1,7 +1,7 @@
-"use client"
+"use client";
 
-import { Map, List } from "lucide-react"
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
+import { Map, List } from "lucide-react";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 
 interface ViewToggleProps {
   view: "map" | "list"
@@ -22,5 +22,5 @@ export default function ViewToggle({ view, setView }: ViewToggleProps) {
         </ToggleGroupItem>
       </ToggleGroup>
     </div>
-  )
+  );
 }

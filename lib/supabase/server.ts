@@ -22,7 +22,7 @@ export const createServerSupabaseClient = async () => {
           (await cookieStore).set({ name, value: "", ...options });
         },
       },
-    }
+    },
   );
 };
 
@@ -50,6 +50,6 @@ export const createRouteHandlerSupabaseClient = (request: NextRequest) => {
           response.cookies.set({ name, value: "", ...options });
         },
       },
-    }
+    },
   );
 };

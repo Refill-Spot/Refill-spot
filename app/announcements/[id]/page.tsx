@@ -57,7 +57,7 @@ export default function AnnouncementDetailPage({ params }: AnnouncementDetailPag
   const formatContent = (content: string) => {
     // 간단한 마크다운 스타일 지원
     return content
-      .split('\n')
+      .split("\n")
       .map((line, index) => (
         <p key={index} className="mb-2 last:mb-0 leading-relaxed">
           {line}

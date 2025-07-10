@@ -113,7 +113,7 @@ export const SearchInput = forwardRef<HTMLDivElement, SearchInputProps>(
         )}
       </div>
     );
-  }
+  },
 );
 
 SearchInput.displayName = "SearchInput";

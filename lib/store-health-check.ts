@@ -14,7 +14,7 @@ export interface StoreTestResult {
 }
 
 export async function runStoreHealthCheck(
-  supabaseClient?: any
+  supabaseClient?: any,
 ): Promise<StoreTestResult> {
   const supabase = supabaseClient ?? (await createServerSupabaseClient());
   // 1. 기본 연결 테스트
@@ -27,7 +27,7 @@ export async function runStoreHealthCheck(
 
   if (countError) {
     throw new Error(
-      `stores 테이블 조회 오류: ${countError.message || countError}`
+      `stores 테이블 조회 오류: ${countError.message || countError}`,
     );
   }
 
@@ -41,7 +41,7 @@ export async function runStoreHealthCheck(
 
   if (sampleError) {
     throw new Error(
-      `샘플 데이터 조회 오류: ${sampleError.message || sampleError}`
+      `샘플 데이터 조회 오류: ${sampleError.message || sampleError}`,
     );
   }
 
@@ -71,7 +71,7 @@ export async function runStoreHealthCheck(
       lat: testLat,
       lng: testLng,
       radius_meters: testRadius,
-    }
+    },
   );
 
   if (rpcError) {

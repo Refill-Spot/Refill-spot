@@ -7,7 +7,7 @@ import type { Database } from "@/types/supabase";
 // 공지사항 상세 조회 (게시된 공지사항은 모든 사용자 가능)
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const { id } = await params;
@@ -56,7 +56,7 @@ export async function GET(
 // 공지사항 수정 (관리자 전용)
 export async function PUT(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const { id } = await params;
@@ -147,7 +147,7 @@ export async function PUT(
 // 공지사항 삭제 (관리자 전용)
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const { id } = await params;

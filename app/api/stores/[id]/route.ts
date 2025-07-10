@@ -19,7 +19,7 @@ interface FormattedStore extends Store {
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
   const storeId = parseInt(id);
@@ -30,7 +30,7 @@ export async function GET(
         code: "invalid_id",
         message: "올바르지 않은 가게 ID입니다.",
       },
-      400
+      400,
     );
   }
 
@@ -46,7 +46,7 @@ export async function GET(
         categories:store_categories(
           category:categories(name)
         )
-      `
+      `,
       )
       .eq("id", storeId)
       .single();
@@ -58,7 +58,7 @@ export async function GET(
             code: "store_not_found",
             message: "가게를 찾을 수 없습니다.",
           },
-          404
+          404,
         );
       }
       throw storeError;
@@ -103,7 +103,7 @@ export async function GET(
         message: "가게 정보를 불러오는 중 오류가 발생했습니다.",
         details: error,
       },
-      500
+      500,
     );
   }
 }

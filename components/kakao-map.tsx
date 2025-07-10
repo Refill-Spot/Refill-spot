@@ -55,7 +55,7 @@ export default function KakaoMap({
   const [markerClusters, setMarkerClusters] = useState<any>(null);
   const [isMapInitialized, setIsMapInitialized] = useState(false);
   const [selectedStore, setSelectedStore] = useState<Store | null>(
-    propSelectedStore || null
+    propSelectedStore || null,
   );
   const { toast } = useToast();
   const geolocation = useGeolocation();
@@ -74,14 +74,14 @@ export default function KakaoMap({
     if (!kakaoApiKey || kakaoApiKey === "demo") {
       console.warn("카카오 지도 API 키가 설정되지 않았습니다.");
       setLocationError(
-        "카카오 지도 API 키가 필요합니다. .env.local 파일에 NEXT_PUBLIC_KAKAO_API_KEY를 설정해주세요."
+        "카카오 지도 API 키가 필요합니다. .env.local 파일에 NEXT_PUBLIC_KAKAO_API_KEY를 설정해주세요.",
       );
     }
   }, [kakaoApiKey]);
 
   // 컴포넌트 마운트 시 카카오 API 상태 확인
   useEffect(() => {
-    if (window.kakao && window.kakao.maps) {
+    if (window.kakao?.maps) {
       console.log("카카오 API가 이미 로드되어 있음 - 즉시 사용 가능");
       setKakaoMapLoaded(true);
     }
@@ -105,7 +105,7 @@ export default function KakaoMap({
   // 카카오 지도 API 로드 완료 핸들러
   const handleKakaoMapLoaded = () => {
     console.log("카카오 지도 스크립트 로드 완료");
-    if (window.kakao && window.kakao.maps) {
+    if (window.kakao?.maps) {
       console.log("카카오 지도 API 사용 가능");
       setKakaoMapLoaded(true);
     } else {
@@ -121,7 +121,7 @@ export default function KakaoMap({
         lat: lat.toFixed(8), 
         lng: lng.toFixed(8),
         rawLat: lat,
-        rawLng: lng
+        rawLng: lng,
       });
       setShowSearchButton(true);
       // 위치 변경은 저장하지만 자동 검색은 하지 않음
@@ -129,7 +129,7 @@ export default function KakaoMap({
         onLocationChange(lat, lng);
       }
     },
-    [onLocationChange]
+    [onLocationChange],
   );
 
   // 수동 검색 실행
@@ -143,7 +143,7 @@ export default function KakaoMap({
       console.log("🔍 지도 줌 레벨 정보:", {
         현재레벨: currentLevel,
         최소레벨: map.getMinLevel ? map.getMinLevel() : "확인불가",
-        최대레벨: map.getMaxLevel ? map.getMaxLevel() : "확인불가"
+        최대레벨: map.getMaxLevel ? map.getMaxLevel() : "확인불가",
       });
       
       // 수동 검색 모드 활성화 (ref 사용으로 re-render 방지)
@@ -165,12 +165,12 @@ export default function KakaoMap({
             currentLevel: map.getLevel(),
             savedLevel: savedZoomLevelRef.current,
             isManualSearch: isManualSearchRef.current,
-            timestamp: new Date().toISOString()
+            timestamp: new Date().toISOString(),
           });
           console.log("🗺️ 최종 지도 상태:", {
             center: center,
             level: map.getLevel(),
-            bounds: map.getBounds()
+            bounds: map.getBounds(),
           });
           onManualSearch(lat, lng);
           setShowSearchButton(false);
@@ -189,13 +189,13 @@ export default function KakaoMap({
 
       if (map) {
         map.setCenter(
-          new window.kakao.maps.LatLng(coordinates.lat, coordinates.lng)
+          new window.kakao.maps.LatLng(coordinates.lat, coordinates.lng),
         );
         // 현재 위치 마커 추가
         new window.kakao.maps.Marker({
           position: new window.kakao.maps.LatLng(
             coordinates.lat,
-            coordinates.lng
+            coordinates.lng,
           ),
           map: map,
           image: new window.kakao.maps.MarkerImage(
@@ -207,7 +207,7 @@ export default function KakaoMap({
               </svg>
             `),
             new window.kakao.maps.Size(30, 30),
-            { offset: new window.kakao.maps.Point(15, 15) }
+            { offset: new window.kakao.maps.Point(15, 15) },
           ),
         });
       }
@@ -221,7 +221,7 @@ export default function KakaoMap({
   // 지도 초기화 (한 번만 실행)
   useEffect(() => {
     // 카카오 API가 로드되어 있는지 먼저 확인
-    if (!window.kakao || !window.kakao.maps) {
+    if (!window.kakao?.maps) {
       console.log("카카오 API가 아직 로드되지 않음");
       // 카카오 API가 로드되어 있다면 강제로 로드 완료 처리
       if (window.kakao) {
@@ -233,7 +233,9 @@ export default function KakaoMap({
       return;
     }
 
-    if (!mapRef.current || map) return;
+    if (!mapRef.current || map) {
+return;
+}
 
     // 컨테이너가 보이는 상태에서만 초기화
     if (!isVisible) {
@@ -246,10 +248,10 @@ export default function KakaoMap({
 
     try {
       // window.kakao가 정의되어 있는지 확인
-      if (!window.kakao || !window.kakao.maps) {
+      if (!window.kakao?.maps) {
         console.error("카카오 지도 API가 로드되지 않았습니다.");
         setLocationError(
-          "지도 API를 로드하는데 실패했습니다. 페이지를 새로고침해 주세요."
+          "지도 API를 로드하는데 실패했습니다. 페이지를 새로고침해 주세요.",
         );
         return;
       }
@@ -312,7 +314,7 @@ export default function KakaoMap({
           console.log(
             "🔄 지도 초기화 완료 후 기존 가게 데이터 확인:",
             stores.length,
-            "개"
+            "개",
           );
           // stores useEffect가 다시 실행되어 마커가 추가됨
         }
@@ -334,7 +336,7 @@ export default function KakaoMap({
     } catch (error) {
       console.error("지도 초기화 오류:", error);
       setLocationError(
-        "지도를 초기화하는데 실패했습니다. 페이지를 새로고침해 주세요."
+        "지도를 초기화하는데 실패했습니다. 페이지를 새로고침해 주세요.",
       );
       toast({
         title: "지도 초기화 오류",
@@ -372,7 +374,7 @@ export default function KakaoMap({
     // 지도 중심을 사용자 위치로 설정
     const userLatLng = new window.kakao.maps.LatLng(
       userLocation.lat,
-      userLocation.lng
+      userLocation.lng,
     );
 
     // 수동 검색 중이 아닐 때만 지도 중심 이동
@@ -396,7 +398,7 @@ export default function KakaoMap({
           </svg>
         `),
         new window.kakao.maps.Size(30, 30),
-        { offset: new window.kakao.maps.Point(15, 15) }
+        { offset: new window.kakao.maps.Point(15, 15) },
       ),
     });
 
@@ -428,9 +430,7 @@ export default function KakaoMap({
     (map: any, markers: any[]) => {
       if (
         !enableClustering ||
-        !window.kakao ||
-        !window.kakao.maps ||
-        !window.kakao.maps.MarkerClusterer
+        !window.kakao?.maps?.MarkerClusterer
       ) {
         return null;
       }
@@ -488,7 +488,7 @@ export default function KakaoMap({
 
       return cluster;
     },
-    [enableClustering, markerClusters]
+    [enableClustering, markerClusters],
   );
 
   // 가게 마커 추가
@@ -497,15 +497,14 @@ export default function KakaoMap({
       hasMap: !!map,
       storeCount: stores.length,
       hasKakao: !!window.kakao,
-      hasKakaoMaps: !!(window.kakao && window.kakao.maps),
+      hasKakaoMaps: !!(window.kakao?.maps),
       stores: stores.slice(0, 1), // 첫 번째 가게 데이터만 확인
     });
 
     if (
       !map ||
       !stores.length ||
-      !window.kakao ||
-      !window.kakao.maps ||
+      !window.kakao?.maps ||
       !isVisible ||
       !isMapInitialized
     ) {
@@ -520,7 +519,7 @@ export default function KakaoMap({
           hasMap: !!map,
           storeCount: stores.length,
           hasKakao: !!window.kakao,
-          hasKakaoMaps: !!(window.kakao && window.kakao.maps),
+          hasKakaoMaps: !!(window.kakao?.maps),
           isVisible,
           isMapInitialized,
           mapObject: map,
@@ -533,7 +532,7 @@ export default function KakaoMap({
     // 지도가 준비될 때까지 약간의 지연
     const timeoutId = setTimeout(() => {
       // 지도가 여전히 유효한지 다시 확인
-      if (!map || !window.kakao || !window.kakao.maps) {
+      if (!map || !window.kakao?.maps) {
         console.log("⚠️ 지도 상태가 변경됨. 마커 추가 중단");
         return;
       }
@@ -550,9 +549,7 @@ export default function KakaoMap({
         // 각 가게별 마커 생성
         for (const store of stores) {
           if (
-            !store ||
-            !store.position ||
-            !store.position.lat ||
+            !store?.position?.lat ||
             !store.position.lng
           ) {
             console.warn("❌ 유효하지 않은 가게 데이터:", store);
@@ -562,7 +559,7 @@ export default function KakaoMap({
           try {
             const markerPosition = new window.kakao.maps.LatLng(
               store.position.lat,
-              store.position.lng
+              store.position.lng,
             );
 
             // 커스텀 마커 이미지 생성
@@ -575,7 +572,7 @@ export default function KakaoMap({
                 </svg>
               `),
               new window.kakao.maps.Size(40, 40),
-              { offset: new window.kakao.maps.Point(20, 40) }
+              { offset: new window.kakao.maps.Point(20, 40) },
             );
 
             const marker = new window.kakao.maps.Marker({
@@ -621,7 +618,7 @@ export default function KakaoMap({
         // 수동 검색이 아닐 때만 지도 범위 자동 조정
         console.log("🔍 범위 조정 체크:", {
           storeCount: stores.length,
-          isManualSearch: isManualSearchRef.current
+          isManualSearch: isManualSearchRef.current,
         });
         
         if (stores.length > 0 && !isManualSearchRef.current) {
@@ -630,7 +627,7 @@ export default function KakaoMap({
           // 사용자 위치가 있으면 포함
           if (userLocation) {
             bounds.extend(
-              new window.kakao.maps.LatLng(userLocation.lat, userLocation.lng)
+              new window.kakao.maps.LatLng(userLocation.lat, userLocation.lng),
             );
           }
 
@@ -639,8 +636,8 @@ export default function KakaoMap({
             bounds.extend(
               new window.kakao.maps.LatLng(
                 store.position.lat,
-                store.position.lng
-              )
+                store.position.lng,
+              ),
             );
           });
 
@@ -657,7 +654,7 @@ export default function KakaoMap({
             console.log("🔄 줌 레벨 복원 시작:", {
               저장된레벨: savedZoomLevelRef.current,
               현재레벨: beforeLevel,
-              차이: savedZoomLevelRef.current - beforeLevel
+              차이: savedZoomLevelRef.current - beforeLevel,
             });
             
             const savedLevel = savedZoomLevelRef.current;
@@ -673,7 +670,7 @@ export default function KakaoMap({
               if (validLevel !== savedLevel) {
                 console.log("⚠️ 줌 레벨 범위 조정:", {
                   원본: savedLevel,
-                  조정됨: validLevel
+                  조정됨: validLevel,
                 });
               }
               
@@ -686,7 +683,7 @@ export default function KakaoMap({
                   복원전레벨: beforeRestoreLevel,
                   요청한레벨: validLevel,
                   실제레벨: afterLevel,
-                  성공여부: afterLevel === validLevel
+                  성공여부: afterLevel === validLevel,
                 });
                 
                 // 만약 복원이 실패했다면 한 번 더 시도
@@ -785,7 +782,7 @@ export default function KakaoMap({
         src={`//dapi.kakao.com/v2/maps/sdk.js?appkey=${kakaoApiKey}&libraries=services,clusterer&autoload=false`}
         onLoad={() => {
           console.log("카카오 지도 스크립트 로드됨");
-          if (window.kakao && window.kakao.maps) {
+          if (window.kakao?.maps) {
             window.kakao.maps.load(() => {
               console.log("카카오 지도 API 초기화 완료");
               handleKakaoMapLoaded();
@@ -895,7 +892,7 @@ export default function KakaoMap({
           variant="secondary"
           size="icon"
           className="bg-white shadow-md h-8 w-8"
-          onClick={() => map && map.setLevel(map.getLevel() - 1)}
+          onClick={() => map?.setLevel(map.getLevel() - 1)}
           aria-label="확대"
         >
           <span className="text-lg font-bold">+</span>
@@ -904,7 +901,7 @@ export default function KakaoMap({
           variant="secondary"
           size="icon"
           className="bg-white shadow-md h-8 w-8"
-          onClick={() => map && map.setLevel(map.getLevel() + 1)}
+          onClick={() => map?.setLevel(map.getLevel() + 1)}
           aria-label="축소"
         >
           <span className="text-lg font-bold">-</span>

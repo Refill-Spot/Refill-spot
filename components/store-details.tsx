@@ -90,7 +90,9 @@ export default function StoreDetails({ storeId }: StoreDetailsProps) {
 
   // 네이버 지도로 이동
   const handleViewInNaverMap = () => {
-    if (!currentStore) return;
+    if (!currentStore) {
+return;
+}
 
     const { lat, lng } = currentStore.position;
     const storeName = encodeURIComponent(currentStore.name);
@@ -108,7 +110,9 @@ export default function StoreDetails({ storeId }: StoreDetailsProps) {
   // 즐겨찾기 상태 확인
   useEffect(() => {
     const checkFavoriteStatus = async () => {
-      if (!user || !currentStore) return;
+      if (!user || !currentStore) {
+return;
+}
 
       const { data, error } = await supabaseBrowser
         .from("favorites")
@@ -131,7 +135,7 @@ export default function StoreDetails({ storeId }: StoreDetailsProps) {
   useEffect(() => {
     if (user && reviews.length > 0) {
       const existingReview = reviews.find(
-        (review: FormattedReview) => review.user.id === user.id
+        (review: FormattedReview) => review.user.id === user.id,
       );
 
       if (existingReview) {
@@ -145,15 +149,17 @@ export default function StoreDetails({ storeId }: StoreDetailsProps) {
 
   // 실시간 평점 조회
   useEffect(() => {
-    if (!currentStore) return;
+    if (!currentStore) {
+return;
+}
     const fetchLiveRating = async () => {
       setLiveRatingLoading(true);
       setLiveRatingError(null);
       try {
         const res = await fetch(
           `/api/stores/ratings?name=${encodeURIComponent(
-            currentStore.name
-          )}&address=${encodeURIComponent(currentStore.address)}`
+            currentStore.name,
+          )}&address=${encodeURIComponent(currentStore.address)}`,
         );
         const data = await res.json();
         if (res.ok && data.success && data.data) {
@@ -266,7 +272,7 @@ export default function StoreDetails({ storeId }: StoreDetailsProps) {
         await updateReview(
           existingReview.id,
           userReview.rating,
-          userReview.content
+          userReview.content,
         );
 
         toast({
@@ -279,7 +285,7 @@ export default function StoreDetails({ storeId }: StoreDetailsProps) {
           currentStore.id,
           user.id,
           userReview.rating,
-          userReview.content
+          userReview.content,
         );
 
         toast({
@@ -301,7 +307,9 @@ export default function StoreDetails({ storeId }: StoreDetailsProps) {
 
   // 이미지 업로드 핸들러
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!e.target.files || e.target.files.length === 0 || !currentStore) return;
+    if (!e.target.files || e.target.files.length === 0 || !currentStore) {
+return;
+}
     const file = e.target.files[0];
     setUploading(true);
     try {
@@ -316,7 +324,7 @@ export default function StoreDetails({ storeId }: StoreDetailsProps) {
         // imageUrls에 추가 (최대 3장)
         const newUrls = [...(currentStore.imageUrls || []), data.url].slice(
           0,
-          3
+          3,
         );
         // DB 업데이트
         await supabaseBrowser
@@ -354,14 +362,18 @@ export default function StoreDetails({ storeId }: StoreDetailsProps) {
 
   // 리뷰 삭제 핸들러
   const handleDeleteReview = async (reviewId: number) => {
-    if (!user || !currentStore) return;
-    if (!window.confirm("정말로 이 리뷰를 삭제하시겠습니까?")) return;
+    if (!user || !currentStore) {
+return;
+}
+    if (!window.confirm("정말로 이 리뷰를 삭제하시겠습니까?")) {
+return;
+}
     try {
       const res = await fetch(
         `/api/stores/${currentStore.id}/reviews?reviewId=${reviewId}`,
         {
           method: "DELETE",
-        }
+        },
       );
       const data = await res.json();
       if (res.ok) {
@@ -413,7 +425,7 @@ export default function StoreDetails({ storeId }: StoreDetailsProps) {
     reviews.length > 0
       ? reviews.reduce(
           (sum: number, review: FormattedReview) => sum + review.rating,
-          0
+          0,
         ) / reviews.length
       : 0;
 
@@ -445,7 +457,9 @@ export default function StoreDetails({ storeId }: StoreDetailsProps) {
 
   // openHours 문자열을 파싱하여 요일별 시간 정보로 변환
   const parseBusinessHours = () => {
-    if (!storeData.openHours) return [];
+    if (!storeData.openHours) {
+return [];
+}
 
     const hoursString = storeData.openHours;
     const dayPatterns = ["월", "화", "수", "목", "금", "토", "일"];
@@ -516,9 +530,13 @@ export default function StoreDetails({ storeId }: StoreDetailsProps) {
   // 오늘 요일의 영업시간 가져오기
   const getTodayHours = () => {
     const todayInfo = businessHours.find((h) => h.day === todayDayOfWeek);
-    if (!todayInfo) return "영업시간 정보가 없습니다.";
+    if (!todayInfo) {
+return "영업시간 정보가 없습니다.";
+}
 
-    if (todayInfo.isClosed) return "오늘은 휴무일입니다.";
+    if (todayInfo.isClosed) {
+return "오늘은 휴무일입니다.";
+}
     return todayInfo.hours;
   };
 
@@ -604,7 +622,7 @@ export default function StoreDetails({ storeId }: StoreDetailsProps) {
                   <div className="flex items-center gap-2 mt-1">
                     <div className="flex items-center">
                       {renderStars(
-                        liveRating ? liveRating.naver : storeData.rating.naver
+                        liveRating ? liveRating.naver : storeData.rating.naver,
                       )}
                       <span className="ml-2 text-sm text-gray-500">
                         (네이버)
@@ -613,7 +631,7 @@ export default function StoreDetails({ storeId }: StoreDetailsProps) {
                     <span className="mx-1">|</span>
                     <div className="flex items-center">
                       {renderStars(
-                        liveRating ? liveRating.kakao : storeData.rating.kakao
+                        liveRating ? liveRating.kakao : storeData.rating.kakao,
                       )}
                       <span className="ml-2 text-sm text-gray-500">
                         (카카오)
@@ -667,7 +685,7 @@ export default function StoreDetails({ storeId }: StoreDetailsProps) {
                       // 앱이 설치되어 있지 않은 경우를 위한 대체 URL (1초 후)
                       setTimeout(() => {
                         window.location.href = `https://map.kakao.com/link/to/${encodeURIComponent(
-                          storeData.name
+                          storeData.name,
                         )},${storeData.position.lat},${storeData.position.lng}`;
                       }, 1000);
                     }}
@@ -692,7 +710,7 @@ export default function StoreDetails({ storeId }: StoreDetailsProps) {
                       >
                         {category}
                       </Badge>
-                    )
+                    ),
                   )}
                 </div>
               </div>
@@ -844,7 +862,7 @@ export default function StoreDetails({ storeId }: StoreDetailsProps) {
                             )}
                           </div>
                         </div>
-                      )
+                      ),
                     )
                   ) : (
                     <div className="text-sm text-gray-500 p-3 bg-gray-50 rounded-lg">
@@ -1007,9 +1025,9 @@ export default function StoreDetails({ storeId }: StoreDetailsProps) {
               onClick={() =>
                 window.open(
                   `https://search.naver.com/search.naver?query=${encodeURIComponent(
-                    storeData.name + " " + storeData.address
+                    storeData.name + " " + storeData.address,
                   )}`,
-                  "_blank"
+                  "_blank",
                 )
               }
             >
@@ -1022,9 +1040,9 @@ export default function StoreDetails({ storeId }: StoreDetailsProps) {
               onClick={() =>
                 window.open(
                   `https://search.daum.net/search?q=${encodeURIComponent(
-                    storeData.name + " " + storeData.address
+                    storeData.name + " " + storeData.address,
                   )}`,
-                  "_blank"
+                  "_blank",
                 )
               }
             >

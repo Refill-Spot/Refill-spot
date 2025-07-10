@@ -19,7 +19,7 @@ export const fetchFilteredStores = async (filters: StoreFilters) => {
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
       throw new Error(
-        errorData.error?.message || `HTTP error! status: ${response.status}`
+        errorData.error?.message || `HTTP error! status: ${response.status}`,
       );
     }
 
@@ -52,7 +52,7 @@ export const fetchAllStores = async () => {
   if (!response.ok) {
     const data = await response.json();
     throw new Error(
-      data.error?.message || `HTTP error! status: ${response.status}`
+      data.error?.message || `HTTP error! status: ${response.status}`,
     );
   }
 
@@ -77,7 +77,7 @@ export const fetchAllStores = async () => {
  * @returns 추출된 필터 설정
  */
 export const extractFiltersFromURL = (
-  searchParams: URLSearchParams
+  searchParams: URLSearchParams,
 ): StoreFilters => {
   const filters: StoreFilters = {};
 

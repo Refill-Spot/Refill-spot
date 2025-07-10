@@ -70,7 +70,7 @@ function HomeContent() {
         lng: lng?.toFixed(8), 
         radius, 
         page, 
-        append
+        append,
       });
 
       if (!append) {

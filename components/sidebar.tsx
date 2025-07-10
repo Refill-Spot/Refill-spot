@@ -1,78 +1,290 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { Utensils, Fish, Beef, Pizza, Star } from "lucide-react"
-import { Slider } from "@/components/ui/slider"
-import { Checkbox } from "@/components/ui/checkbox"
-import { Label } from "@/components/ui/label"
-import { Separator } from "@/components/ui/separator"
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
+import { Slider } from "@/components/ui/slider";
+import { useGeolocation } from "@/hooks/use-geolocation";
+import { useTranslation } from "@/hooks/use-translation";
+import {
+  Beef,
+  Coffee,
+  Fish,
+  Pizza,
+  Soup,
+  Star,
+  Utensils,
+} from "lucide-react";
+import React, { memo, useCallback, useState } from "react";
 
-export default function Sidebar() {
-  const [radius, setRadius] = useState([3])
-  const [minRating, setMinRating] = useState(0)
-  const [categories, setCategories] = useState({
-    meat: true,
-    seafood: false,
-    western: true,
-    korean: false,
-  })
+// 필터 타입 정의
+interface FilterOptions {
+  categories?: string[];
+  maxDistance?: number;
+  minRating?: number;
+  latitude?: number;
+  longitude?: number;
+}
 
-  const handleCategoryChange = (category) => {
-    setCategories({
-      ...categories,
-      [category]: !categories[category],
-    })
+// Sidebar 컴포넌트의 props 타입 정의
+interface SidebarProps {
+  onApplyFilters: (filters: FilterOptions) => void;
+  userLocation?: { lat: number; lng: number } | null;
+}
+
+// 메모이제이션된 카테고리 체크박스 컴포넌트
+const CategoryCheckbox = memo(
+  ({
+    id,
+    checked,
+    onChange,
+    icon,
+    label,
+  }: {
+    id: string;
+    checked: boolean;
+    onChange: (checked: boolean) => void;
+    icon: React.ReactNode;
+    label: string;
+  }) => {
+    return (
+      <div className="flex items-center space-x-2">
+        <Checkbox
+          id={id}
+          checked={checked}
+          onCheckedChange={(checked) => {
+            if (typeof checked === "boolean") {
+              onChange(checked);
+            }
+          }}
+        />
+        <Label htmlFor={id} className="flex items-center gap-2 cursor-pointer">
+          {icon}
+          <span>{label}</span>
+        </Label>
+      </div>
+    );
   }
+);
+
+CategoryCheckbox.displayName = "CategoryCheckbox";
+
+function Sidebar({ onApplyFilters, userLocation }: SidebarProps) {
+  const { t } = useTranslation();
+  const geolocation = useGeolocation();
+  const [radius, setRadius] = useState([3]);
+  const [minRating, setMinRating] = useState(0);
+  const [categories, setCategories] = useState({
+    고기: false,
+    해산물: false,
+    양식: false,
+    한식: false,
+    중식: false,
+    일식: false,
+    디저트: false,
+  });
+
+  // useCallback으로 함수 메모이제이션
+  const handleCategoryChange = useCallback(
+    (category: string, checked: boolean) => {
+      setCategories((prev) => ({
+        ...prev,
+        [category]: checked,
+      }));
+    },
+    []
+  );
+
+  const handleApplyFilters = useCallback(async () => {
+    const selectedCategories = Object.entries(categories)
+      .filter(([_, isSelected]) => isSelected)
+      .map(([category]) => category);
+
+    // 현재 사용자 위치가 있으면 사용, 없으면 GPS 요청
+    if (userLocation) {
+      // 기존 사용자 위치 사용
+      onApplyFilters({
+        categories: selectedCategories,
+        maxDistance: radius[0],
+        minRating: minRating,
+        latitude: userLocation.lat,
+        longitude: userLocation.lng,
+      });
+    } else {
+      // GPS로 현재 위치 가져오기
+      try {
+        const coordinates = await geolocation.getCurrentPosition({
+          showToast: false, // 필터 적용시에는 조용히 처리
+          timeout: 5000,
+        });
+
+        // 필터 적용
+        onApplyFilters({
+          categories: selectedCategories,
+          maxDistance: radius[0],
+          minRating: minRating,
+          latitude: coordinates.lat,
+          longitude: coordinates.lng,
+        });
+      } catch (error) {
+        console.error("위치 정보를 가져올 수 없습니다:", error);
+
+        // 위치 정보 없이 필터 적용
+        onApplyFilters({
+          categories: selectedCategories,
+          maxDistance: radius[0],
+          minRating: minRating,
+        });
+      }
+    }
+  }, [
+    categories,
+    radius,
+    minRating,
+    onApplyFilters,
+    userLocation,
+    geolocation,
+  ]);
+
+  const handleResetFilters = useCallback(() => {
+    setRadius([3]);
+    setMinRating(0);
+    setCategories({
+      고기: false,
+      해산물: false,
+      양식: false,
+      한식: false,
+      중식: false,
+      일식: false,
+      디저트: false,
+    });
+
+    onApplyFilters({
+      categories: [],
+      maxDistance: 5,
+      minRating: 0,
+    });
+  }, [onApplyFilters]);
+
+  // 카테고리 체크박스 변경 핸들러
+  const handleMeatChange = useCallback(
+    (checked: boolean) => {
+      handleCategoryChange("고기", checked);
+    },
+    [handleCategoryChange]
+  );
+
+  const handleSeafoodChange = useCallback(
+    (checked: boolean) => {
+      handleCategoryChange("해산물", checked);
+    },
+    [handleCategoryChange]
+  );
+
+  const handleWesternChange = useCallback(
+    (checked: boolean) => {
+      handleCategoryChange("양식", checked);
+    },
+    [handleCategoryChange]
+  );
+
+  const handleKoreanChange = useCallback(
+    (checked: boolean) => {
+      handleCategoryChange("한식", checked);
+    },
+    [handleCategoryChange]
+  );
+
+  const handleChineseChange = useCallback(
+    (checked: boolean) => {
+      handleCategoryChange("중식", checked);
+    },
+    [handleCategoryChange]
+  );
+
+  const handleJapaneseChange = useCallback(
+    (checked: boolean) => {
+      handleCategoryChange("일식", checked);
+    },
+    [handleCategoryChange]
+  );
+
+  const handleDessertChange = useCallback(
+    (checked: boolean) => {
+      handleCategoryChange("디저트", checked);
+    },
+    [handleCategoryChange]
+  );
 
   return (
     <div className="p-4 h-full bg-white">
-      <h2 className="text-lg font-bold mb-4 text-[#333333]">필터</h2>
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-lg font-bold text-[#333333]">필터</h2>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={handleResetFilters}
+          className="text-[#2196F3] hover:text-[#1976d2] hover:bg-[#2196F3]/10"
+        >
+          초기화
+        </Button>
+      </div>
 
       <div className="space-y-6">
         {/* Category filter */}
         <div>
           <h3 className="font-medium mb-3 text-[#333333]">카테고리</h3>
           <div className="space-y-2">
-            <div className="flex items-center space-x-2">
-              <Checkbox id="meat" checked={categories.meat} onCheckedChange={() => handleCategoryChange("meat")} />
-              <Label htmlFor="meat" className="flex items-center gap-2 cursor-pointer">
-                <Beef className="h-4 w-4 text-[#FF5722]" />
-                <span>고기</span>
-              </Label>
-            </div>
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="seafood"
-                checked={categories.seafood}
-                onCheckedChange={() => handleCategoryChange("seafood")}
-              />
-              <Label htmlFor="seafood" className="flex items-center gap-2 cursor-pointer">
-                <Fish className="h-4 w-4 text-[#2196F3]" />
-                <span>해산물</span>
-              </Label>
-            </div>
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="western"
-                checked={categories.western}
-                onCheckedChange={() => handleCategoryChange("western")}
-              />
-              <Label htmlFor="western" className="flex items-center gap-2 cursor-pointer">
-                <Pizza className="h-4 w-4 text-[#FFC107]" />
-                <span>양식</span>
-              </Label>
-            </div>
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="korean"
-                checked={categories.korean}
-                onCheckedChange={() => handleCategoryChange("korean")}
-              />
-              <Label htmlFor="korean" className="flex items-center gap-2 cursor-pointer">
-                <Utensils className="h-4 w-4 text-[#4CAF50]" />
-                <span>한식</span>
-              </Label>
-            </div>
+            <CategoryCheckbox
+              id="meat"
+              checked={categories.고기}
+              onChange={handleMeatChange}
+              icon={<Beef className="h-4 w-4 text-[#FF5722]" />}
+              label={t("meat")}
+            />
+            <CategoryCheckbox
+              id="seafood"
+              checked={categories.해산물}
+              onChange={handleSeafoodChange}
+              icon={<Fish className="h-4 w-4 text-[#2196F3]" />}
+              label={t("seafood")}
+            />
+            <CategoryCheckbox
+              id="western"
+              checked={categories.양식}
+              onChange={handleWesternChange}
+              icon={<Pizza className="h-4 w-4 text-[#FFC107]" />}
+              label={t("western")}
+            />
+            <CategoryCheckbox
+              id="korean"
+              checked={categories.한식}
+              onChange={handleKoreanChange}
+              icon={<Utensils className="h-4 w-4 text-[#4CAF50]" />}
+              label={t("korean")}
+            />
+            <CategoryCheckbox
+              id="chinese"
+              checked={categories.중식}
+              onChange={handleChineseChange}
+              icon={<Soup className="h-4 w-4 text-[#FF9800]" />}
+              label={t("chinese")}
+            />
+            <CategoryCheckbox
+              id="japanese"
+              checked={categories.일식}
+              onChange={handleJapaneseChange}
+              icon={<Fish className="h-4 w-4 text-[#E91E63]" />}
+              label={t("japanese")}
+            />
+            <CategoryCheckbox
+              id="dessert"
+              checked={categories.디저트}
+              onChange={handleDessertChange}
+              icon={<Coffee className="h-4 w-4 text-[#795548]" />}
+              label={t("dessert")}
+            />
           </div>
         </div>
 
@@ -119,7 +331,16 @@ export default function Sidebar() {
             ))}
           </div>
         </div>
+
+        <Button
+          onClick={handleApplyFilters}
+          className="w-full bg-[#FF5722] hover:bg-[#E64A19] mt-4"
+        >
+          필터 적용
+        </Button>
       </div>
     </div>
-  )
+  );
 }
+
+export default memo(Sidebar);

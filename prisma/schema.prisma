@@ -1,0 +1,81 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id             Int       @id @default(autoincrement())
+  email          String    @unique
+  username       String
+  password       String
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  refreshToken   String?
+  favorites      Favorite[]
+  reviews        Review[]
+  @@map("users")
+}
+
+model Store {
+  id             Int       @id @default(autoincrement())
+  name           String
+  address        String
+  description    String?
+  positionLat    Float
+  positionLng    Float
+  positionX      Float
+  positionY      Float
+  distance       String?
+  categories     Category[]
+  naverRating    Float?
+  kakaoRating    Float?
+  openHours      String?
+  price          String?
+  refillItems    String[]
+  imageUrls      String[]
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  favorites      Favorite[]
+  reviews        Review[]
+  
+  @@index([positionLat, positionLng])
+  @@map("stores")
+}
+
+model Category {
+  id        Int       @id @default(autoincrement())
+  name      String    @unique
+  stores    Store[]
+  
+  @@map("categories")
+}
+
+model Favorite {
+  id        Int       @id @default(autoincrement())
+  userId    Int
+  storeId   Int
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  store     Store     @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, storeId])
+  @@map("favorites")
+}
+
+model Review {
+  id        Int       @id @default(autoincrement())
+  userId    Int
+  storeId   Int
+  rating    Float
+  content   String
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  store     Store     @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  
+  @@map("reviews")
+}

@@ -1,106 +1,163 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
-import { ScrollArea } from "@/components/ui/scroll-area"
-import { MapPin, Navigation, Clock, Utensils } from "lucide-react"
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { useAuth } from "@/contexts/AuthContext";
+import { useFavorites } from "@/hooks/use-favorites";
+import { getUserLocation, isLocationValid } from "@/lib/location-storage";
+import { Store } from "@/types/store";
+import { Heart, MapPin } from "lucide-react";
+import Image from "next/image";
+import { useRouter } from "next/navigation";
+import { memo, useState } from "react";
 
-export default function StoreList({ stores = [] }) {
-  const [selectedStore, setSelectedStore] = useState(null)
+interface StoreListProps {
+  stores: Store[];
+}
+
+function StoreList({ stores = [] }: StoreListProps) {
+  const [selectedStore, setSelectedStore] = useState<Store | null>(null);
+  const router = useRouter();
+  const { user } = useAuth();
+  const { isFavorite, toggleFavorite } = useFavorites();
+
+  const handleStoreClick = (store: Store) => {
+    setSelectedStore(store);
+    // 간단한 URL로 새 탭에서 열기
+    window.open(`/store/${store.id}`, "_blank");
+  };
+
+  const handleFavoriteClick = async (e: React.MouseEvent, storeId: number) => {
+    e.stopPropagation(); // 카드 클릭 이벤트 방지
+    await toggleFavorite(storeId);
+  };
 
   return (
-    <div className="h-full bg-[#F5F5F5] p-4">
+    <section className="h-full bg-[#F5F5F5] p-4" aria-label="가게 목록">
       <ScrollArea className="h-full">
-        <div className="space-y-4 pr-2">
+        <div className="space-y-3 pr-2">
           {stores.length > 0 ? (
             stores.map((store) => (
-              <Card
+              <article
                 key={store.id}
                 className={`overflow-hidden transition-all hover:shadow-md cursor-pointer ${
                   selectedStore?.id === store.id ? "ring-2 ring-[#FF5722]" : ""
                 }`}
-                onClick={() => setSelectedStore(store)}
+                onClick={() => handleStoreClick(store)}
               >
-                <div className="flex md:flex-row flex-col">
-                  <div
-                    className="md:w-32 w-full h-32 md:h-full bg-gray-200 flex-shrink-0"
-                    style={{
-                      backgroundImage: `url('/placeholder.svg?height=128&width=128')`,
-                      backgroundSize: "cover",
-                      backgroundPosition: "center",
-                    }}
-                  ></div>
-                  <CardContent className="p-4 flex-1">
-                    <div className="flex justify-between items-start">
-                      <h3 className="font-bold text-[#333333] text-lg">{store.name}</h3>
-                      <Badge variant="outline" className="bg-[#FF5722]/10 text-[#FF5722] border-[#FF5722]/20">
-                        {store.price}
-                      </Badge>
-                    </div>
+                <Card className="h-36">
+                  <div className="flex h-full">
+                    <figure className="w-24 h-full relative flex-shrink-0">
+                      {store.imageUrls && store.imageUrls.length > 0 ? (
+                        <Image
+                          src={store.imageUrls[0]}
+                          alt={`${store.name} 대표 이미지`}
+                          fill
+                          sizes="96px"
+                          style={{ objectFit: "cover" }}
+                          loading="lazy"
+                          placeholder="blur"
+                          blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCdABmX/9k="
+                          className="rounded-l-lg"
+                        />
+                      ) : (
+                        <div className="w-full h-full bg-gray-200 flex items-center justify-center rounded-l-lg">
+                          <span className="text-gray-400 text-xs">
+                            이미지 없음
+                          </span>
+                        </div>
+                      )}
+                    </figure>
+                    <CardContent className="flex-1 p-4 flex flex-col justify-between">
+                      <div className="flex-1">
+                        <header className="mb-2 flex items-start justify-between">
+                          <h3 className="font-bold text-[#333333] text-lg leading-tight flex-1">
+                            {store.name}
+                          </h3>
+                          {user && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={(e) => handleFavoriteClick(e, store.id)}
+                              className="p-1 h-8 w-8 flex-shrink-0 ml-2"
+                            >
+                              <Heart
+                                className={`h-4 w-4 ${
+                                  isFavorite(store.id)
+                                    ? "fill-[#FF5722] text-[#FF5722]"
+                                    : "text-gray-400 hover:text-[#FF5722]"
+                                }`}
+                              />
+                            </Button>
+                          )}
+                        </header>
 
-                    <div className="flex items-center gap-1 text-sm mt-1">
-                      <span className="text-[#FFA726]">★</span>
-                      <span>{store.rating.naver}</span>
-                      <span className="text-gray-400">(Naver)</span>
-                      <span className="mx-1">|</span>
-                      <span className="text-[#FFA726]">★</span>
-                      <span>{store.rating.kakao}</span>
-                      <span className="text-gray-400">(Kakao)</span>
-                    </div>
+                        <div className="flex items-center gap-1 text-sm mb-2">
+                          <span className="text-[#FFA726]">★</span>
+                          <span>{store.rating.naver}</span>
+                          <span className="text-gray-400">(네이버)</span>
+                          <span className="mx-1">|</span>
+                          <span className="text-[#FFA726]">★</span>
+                          <span>{store.rating.kakao}</span>
+                          <span className="text-gray-400">(카카오)</span>
+                          {store.distance && (
+                            <>
+                              <span className="mx-1">•</span>
+                              <span className="text-gray-500">
+                                {store.distance}km
+                              </span>
+                            </>
+                          )}
+                        </div>
 
-                    <div className="flex items-center gap-2 mt-2 text-sm text-gray-600">
-                      <MapPin className="h-4 w-4 text-[#2196F3]" />
-                      <span className="line-clamp-1">{store.address}</span>
-                    </div>
-
-                    {store.openHours && (
-                      <div className="flex items-center gap-2 mt-1 text-sm text-gray-600">
-                        <Clock className="h-4 w-4 text-gray-400" />
-                        <span className="line-clamp-1">{store.openHours}</span>
+                        <address className="flex items-center gap-1 text-sm text-gray-600 not-italic line-clamp-1">
+                          <MapPin className="h-4 w-4 text-[#2196F3] flex-shrink-0" />
+                          <span className="line-clamp-1">{store.address}</span>
+                        </address>
                       </div>
-                    )}
 
-                    <div className="flex flex-wrap gap-2 mt-3">
-                      {store.categories.map((category, index) => (
-                        <Badge key={index} variant="secondary" className="bg-[#FFA726]/10 text-[#FFA726] border-none">
-                          {category}
-                        </Badge>
-                      ))}
-                    </div>
-
-                    {store.refillItems && store.refillItems.length > 0 && (
-                      <div className="flex items-center gap-2 mt-2 text-xs text-gray-500">
-                        <Utensils className="h-3 w-3 text-[#FF5722]" />
-                        <span>
-                          무한리필: {store.refillItems.slice(0, 3).join(", ")}
-                          {store.refillItems.length > 3 ? " 외" : ""}
-                        </span>
+                      <div className="mt-2">
+                        <div
+                          className="flex flex-wrap gap-1"
+                          aria-label="카테고리"
+                        >
+                          {store.categories
+                            .slice(0, 2)
+                            .map((category, index) => (
+                              <Badge
+                                key={index}
+                                variant="secondary"
+                                className="bg-[#FFA726]/10 text-[#FFA726] border-none text-sm px-2 py-1"
+                              >
+                                {category}
+                              </Badge>
+                            ))}
+                          {store.categories.length > 2 && (
+                            <span className="text-sm text-gray-400">
+                              +{store.categories.length - 2}
+                            </span>
+                          )}
+                        </div>
                       </div>
-                    )}
-
-                    <div className="mt-4 flex gap-2">
-                      <Button size="sm" className="bg-[#FF5722] hover:bg-[#E64A19] flex-1">
-                        상세 보기
-                      </Button>
-                      <Button size="sm" variant="outline" className="flex-1">
-                        <Navigation className="h-4 w-4 mr-1" />
-                        길찾기
-                      </Button>
-                    </div>
-                  </CardContent>
-                </div>
-              </Card>
+                    </CardContent>
+                  </div>
+                </Card>
+              </article>
             ))
           ) : (
-            <div className="text-center py-12">
+            <div className="text-center py-12" role="status" aria-live="polite">
               <p className="text-gray-500">검색 결과가 없습니다</p>
-              <p className="text-sm text-gray-400 mt-2">다른 검색어나 필터 조건을 시도해보세요</p>
+              <p className="text-sm text-gray-400 mt-2">
+                다른 검색어나 필터 조건을 시도해보세요
+              </p>
             </div>
           )}
         </div>
       </ScrollArea>
-    </div>
-  )
+    </section>
+  );
 }
+
+export default memo(StoreList);

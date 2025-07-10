@@ -1,23 +1,45 @@
-import "./globals.css"
-import { Inter } from "next/font/google"
-import { ThemeProvider } from "@/components/theme-provider"
+import GoogleMapsLoader from "@/components/GoogleMapsLoader";
+import { ThemeProvider } from "@/components/theme-provider";
+import { Toaster } from "@/components/ui/toaster";
+import { AuthProvider } from "@/contexts/AuthContext";
+import { Inter } from "next/font/google";
+import { ReactNode } from "react";
+import "./globals.css";
 
-const inter = Inter({ subsets: ["latin"] })
+const inter = Inter({ subsets: ["latin"] });
 
 export const metadata = {
-  title: "Refill Spot - 무한리필 식당 찾기",
-  description: "주변의 무한리필 식당을 쉽게 찾아보세요",
-    generator: 'v0.dev'
+  title: "Refill-spot - 무한리필 가게 찾기",
+  description: "주변의 무한리필 가게를 쉽게 찾아보세요",
+  generator: "v0.dev",
+  icons: {
+    icon: '/icon',
+    apple: '/apple-icon',
+  },
+};
+
+interface RootLayoutProps {
+  children: ReactNode;
 }
 
-export default function RootLayout({ children }) {
+export default function RootLayout({ children }: RootLayoutProps) {
   return (
-    <html lang="ko">
+    <html lang="ko" suppressHydrationWarning>
       <body className={inter.className}>
-        <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
-          {children}
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="light"
+          enableSystem
+          disableTransitionOnChange
+        >
+          <AuthProvider>
+            <GoogleMapsLoader>
+              {children}
+              <Toaster />
+            </GoogleMapsLoader>
+          </AuthProvider>
         </ThemeProvider>
       </body>
     </html>
-  )
+  );
 }

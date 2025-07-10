@@ -58,7 +58,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error("Profile loading timeout")), 10000);
+        setTimeout(() => reject(new Error("Profile loading timeout")), 5000);
       });
 
       try {
@@ -104,6 +104,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const profileData = await Promise.race([loadProfile(), timeoutPromise]);
         setProfile(profileData as any);
         
+        // 프로필 로딩 완료 시 완료 토스트 (소셜 로그인의 경우)
+        if (user.app_metadata?.provider && user.app_metadata.provider !== "email") {
+          setTimeout(() => {
+            toast({
+              title: "설정 완료",
+              description: "계정 설정이 완료되었습니다!",
+            });
+          }, 500);
+        }
+        
       } catch (error) {
         authLogger.error("Profile data loading failed", error);
         // 에러가 발생해도 기본 프로필은 설정 (사용자 경험 우선)
@@ -113,7 +123,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setProfile({ username: fallbackUsername, role: 'user', is_admin: false });
       }
     },
-    [supabase]
+    [supabase, toast]
   );
 
   // 초기 사용자 상태 확인
@@ -155,14 +165,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setProfile(null);
       } finally {
         if (mounted) {
-          // 최소 200ms 로딩 시간으로 깜빡임 방지
+          // 최소 100ms 로딩 시간으로 깜빡임 방지 (단축)
           setTimeout(() => {
             if (mounted) {
               setLoading(false);
               setInitialized(true);
               authLogger.debug("인증 초기화 완료");
             }
-          }, 200);
+          }, 100);
         }
       }
     };
@@ -202,15 +212,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // 로그인 성공 시 처리 (OAuth 포함)
         if (event === "SIGNED_IN" && user) {
           authLogger.info("SIGNED_IN 이벤트 처리");
-          toast({
-            title: "로그인 성공",
-            description: "환영합니다!",
-          });
-
+          
           // OAuth 로그인인지 확인 (provider 정보가 있으면 OAuth)
           const isOAuthLogin =
             user.app_metadata?.provider &&
             user.app_metadata.provider !== "email";
+
+          // 소셜 로그인의 경우 프로필 처리 중임을 알림
+          if (isOAuthLogin) {
+            toast({
+              title: "로그인 성공",
+              description: "프로필을 설정하고 있습니다...",
+            });
+          } else {
+            toast({
+              title: "로그인 성공",
+              description: "환영합니다!",
+            });
+          }
 
           // 로그인 페이지나 온보딩 페이지에서 로그인한 경우 메인으로 리다이렉트
           const currentPath = window.location.pathname;

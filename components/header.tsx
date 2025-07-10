@@ -212,9 +212,17 @@ export default function Header({
           {/* 사용자 메뉴 (공통) - 오른쪽 끝 */}
           <div className="flex items-center space-x-4 ml-auto">
             {loading ? (
-              <div className="animate-pulse flex items-center space-x-2">
-                <div className="h-8 w-8 bg-gray-300 rounded-full"></div>
-                <div className="h-4 w-16 bg-gray-300 rounded hidden md:block"></div>
+              <div className="flex items-center space-x-2">
+                <div className="relative">
+                  <div className="h-8 w-8 bg-gray-300 rounded-full animate-pulse"></div>
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="h-4 w-4 border-2 border-orange-500 border-t-transparent rounded-full animate-spin"></div>
+                  </div>
+                </div>
+                <div className="hidden md:flex flex-col">
+                  <div className="h-3 w-16 bg-gray-300 rounded animate-pulse mb-1"></div>
+                  <div className="h-2 w-12 bg-gray-200 rounded animate-pulse"></div>
+                </div>
               </div>
             ) : user ? (
               <DropdownMenu>

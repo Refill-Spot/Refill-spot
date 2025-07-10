@@ -60,7 +60,7 @@ export interface PlacesService {
 // Google Maps API 로드 함수
 export const loadGoogleMapsAPI = (): Promise<any> => {
   return new Promise((resolve, reject) => {
-    if (typeof window !== "undefined" && window.google && window.google.maps) {
+    if (typeof window !== "undefined" && window.google?.maps) {
       resolve(window.google);
       return;
     }
@@ -73,8 +73,7 @@ export const loadGoogleMapsAPI = (): Promise<any> => {
     script.onload = () => {
       if (
         typeof window !== "undefined" &&
-        window.google &&
-        window.google.maps
+        window.google?.maps
       ) {
         resolve(window.google);
       } else {
@@ -192,7 +191,7 @@ export const searchPlaces = async (input: string): Promise<PlaceResult[]> => {
 
 // 장소 상세 정보 가져오기
 export const getPlaceDetails = async (
-  placeId: string
+  placeId: string,
 ): Promise<PlaceResult> => {
   try {
     const service = await getPlacesService();
@@ -213,7 +212,7 @@ export const getPlaceDetails = async (
           } else {
             reject(new Error(`Place details error: ${status}`));
           }
-        }
+        },
       );
     });
   } catch (error) {

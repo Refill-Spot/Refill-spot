@@ -21,18 +21,20 @@ export default function ClientSearchPage() {
   } = useMapView();
 
   const [sort, setSort] = useState<"default" | "rating" | "distance">(
-    "default"
+    "default",
   );
   const [isFilterOpen, setIsFilterOpen] = useState(false);
 
   // 주소/지역명 검색 핸들러
   const handleSearchWithGeocode = async (query: string) => {
-    if (!query || !query.trim()) return;
+    if (!query?.trim()) {
+return;
+}
 
     try {
       // 1. geocode API 호출하여 주소를 좌표로 변환
       const res = await fetch(
-        `/api/geocode?address=${encodeURIComponent(query)}`
+        `/api/geocode?address=${encodeURIComponent(query)}`,
       );
       const data = await res.json();
 
@@ -56,12 +58,12 @@ export default function ClientSearchPage() {
     }&name=${encodeURIComponent(store.name)}&appname=com.refillspot.app`;
 
     const webMapUrl = `https://map.naver.com/v5/search/${encodeURIComponent(
-      store.name
+      store.name,
     )}?c=${store.position.lng},${store.position.lat},15,0,0,0,dh`;
 
     if (
       /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
-        navigator.userAgent
+        navigator.userAgent,
       )
     ) {
       window.location.href = naverMapUrl;

@@ -11,7 +11,7 @@ const LOCATION_EXPIRY_TIME = 30 * 60 * 1000; // 30분
 
 // 위치 정보 저장
 export function saveUserLocation(
-  location: Omit<UserLocation, "timestamp">
+  location: Omit<UserLocation, "timestamp">,
 ): void {
   try {
     const locationData: UserLocation = {
@@ -28,7 +28,9 @@ export function saveUserLocation(
 export function getUserLocation(): UserLocation | null {
   try {
     const stored = sessionStorage.getItem(LOCATION_STORAGE_KEY);
-    if (!stored) return null;
+    if (!stored) {
+return null;
+}
 
     const locationData: UserLocation = JSON.parse(stored);
 
@@ -56,7 +58,9 @@ export function clearUserLocation(): void {
 
 // 위치 정보가 유효한지 확인
 export function isLocationValid(location: UserLocation | null): boolean {
-  if (!location) return false;
+  if (!location) {
+return false;
+}
 
   return (
     typeof location.lat === "number" &&

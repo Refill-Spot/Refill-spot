@@ -3,7 +3,7 @@
 // 사용자가 관리자인지 확인하는 클라이언트 사이드 함수
 export async function checkCurrentUserAdmin() {
   try {
-    const response = await fetch('/api/auth/check-admin');
+    const response = await fetch("/api/auth/check-admin");
     if (!response.ok) {
       return { isAdmin: false, error: "권한 확인 실패" };
     }

@@ -89,7 +89,7 @@ export default function NewAnnouncementPage() {
 
     try {
       const newAnnouncement = await createAnnouncement(submitData);
-      router.push(`/admin/announcements`);
+      router.push("/admin/announcements");
     } catch (error) {
       // 에러는 hook에서 처리됨
     }
@@ -236,7 +236,7 @@ export default function NewAnnouncementPage() {
                     )}
                     {formData.content && (
                       <div className="text-sm text-muted-foreground">
-                        {formData.content.split('\n').map((line, index) => (
+                        {formData.content.split("\n").map((line, index) => (
                           <p key={index} className="mb-1 last:mb-0">
                             {line}
                           </p>

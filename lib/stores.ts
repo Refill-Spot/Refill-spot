@@ -12,7 +12,7 @@ interface CategoryItem {
 // 공통 매핑 함수 - StoreFromDb를 Store로 변환
 export function mapStoreFromDb(
   store: StoreFromDb,
-  distance?: number | string | null
+  distance?: number | string | null,
 ): Store {
 
   // PostGIS 함수에서 반환하는 categories는 JSON 배열 형태이고,
@@ -21,10 +21,10 @@ export function mapStoreFromDb(
   
   if (store.categories) {
     if (Array.isArray(store.categories) && store.categories.length > 0) {
-      if (typeof store.categories[0] === 'string') {
+      if (typeof store.categories[0] === "string") {
         // PostGIS 함수에서 반환하는 경우: ["카테고리1", "카테고리2"]
         categories = store.categories as string[];
-      } else if (typeof store.categories[0] === 'object' && store.categories[0] !== null && 'category' in store.categories[0]) {
+      } else if (typeof store.categories[0] === "object" && store.categories[0] !== null && "category" in store.categories[0]) {
         // 기존 쿼리에서 반환하는 경우: [{category: {name: "카테고리1"}}]
         categories = (store.categories as Array<{ category: { name: string } }>).map((item) => item.category.name);
       }
@@ -48,7 +48,9 @@ export function mapStoreFromDb(
       y: store.position_y,
     },
     refillItems: (() => {
-      if (!store.refill_items) return null;
+      if (!store.refill_items) {
+return null;
+}
       
       // PostGIS 함수에서 오는 경우 이미 파싱된 배열
       if (Array.isArray(store.refill_items)) {
@@ -56,11 +58,11 @@ export function mapStoreFromDb(
       }
       
       // 직접 DB에서 오는 경우 JSON 문자열일 수 있음
-      if (typeof store.refill_items === 'string') {
+      if (typeof store.refill_items === "string") {
         try {
           return JSON.parse(store.refill_items) as MenuItem[];
         } catch (e) {
-          console.error('refill_items JSON 파싱 오류:', e);
+          console.error("refill_items JSON 파싱 오류:", e);
           return null;
         }
       }
@@ -85,7 +87,7 @@ export async function getStores(): Promise<Store[]> {
       categories:store_categories(
         category:categories(name)
       )
-    `
+    `,
     )
     .order("name");
 
@@ -102,7 +104,7 @@ export async function getStores(): Promise<Store[]> {
 export async function getNearbyStores(
   lat: number,
   lng: number,
-  radius: number = 5000
+  radius: number = 5000,
 ): Promise<Store[]> {
   // Supabase RPC 함수를 호출하여 반경 내 가게 검색
   const { data, error } = await supabaseBrowser.rpc("stores_within_radius", {
@@ -123,7 +125,7 @@ export async function getNearbyStores(
 
   // 공통 매핑 함수 사용
   return data.map((store: StoreFromDb) =>
-    mapStoreFromDb(store, store.distance)
+    mapStoreFromDb(store, store.distance),
   );
 }
 
@@ -137,7 +139,7 @@ export async function getStoreById(id: number): Promise<Store | null> {
       categories:store_categories(
         category:categories(name)
       )
-    `
+    `,
     )
     .eq("id", id)
     .single();

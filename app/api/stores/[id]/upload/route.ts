@@ -4,7 +4,7 @@ import { v4 as uuidv4 } from "uuid";
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
   const storeId = id;
@@ -19,7 +19,7 @@ export async function POST(
     if (!user) {
       return NextResponse.json(
         { error: "로그인이 필요합니다." },
-        { status: 401 }
+        { status: 401 },
       );
     }
 
@@ -29,7 +29,7 @@ export async function POST(
     if (!file) {
       return NextResponse.json(
         { error: "파일이 필요합니다." },
-        { status: 400 }
+        { status: 400 },
       );
     }
 

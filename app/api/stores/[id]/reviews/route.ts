@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
   const storeId = parseInt(id);
@@ -11,7 +11,7 @@ export async function POST(
   if (isNaN(storeId)) {
     return NextResponse.json(
       { error: "올바르지 않은 가게 ID입니다." },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
@@ -27,7 +27,7 @@ export async function POST(
     if (authError || !user) {
       return NextResponse.json(
         { error: "로그인이 필요합니다." },
-        { status: 401 }
+        { status: 401 },
       );
     }
 
@@ -43,7 +43,7 @@ export async function POST(
     if (storeError) {
       return NextResponse.json(
         { error: "해당 가게를 찾을 수 없습니다." },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
@@ -53,14 +53,14 @@ export async function POST(
     if (!rating || rating < 1 || rating > 5) {
       return NextResponse.json(
         { error: "평점은 1에서 5 사이의 값이어야 합니다." },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     if (!content || content.trim().length === 0) {
       return NextResponse.json(
         { error: "리뷰 내용을 입력해주세요." },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -92,7 +92,7 @@ export async function POST(
           `
           *,
           profiles:profiles(username)
-        `
+        `,
         )
         .single();
 
@@ -128,7 +128,7 @@ export async function POST(
           `
           *,
           profiles:profiles(username)
-        `
+        `,
         )
         .single();
 
@@ -157,14 +157,14 @@ export async function POST(
     console.error("리뷰 작성 오류:", error);
     return NextResponse.json(
       { error: "리뷰 등록 중 오류가 발생했습니다." },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
   const storeId = parseInt(id);
@@ -173,7 +173,7 @@ export async function DELETE(
   if (isNaN(storeId) || isNaN(reviewId)) {
     return NextResponse.json(
       { error: "올바르지 않은 요청입니다." },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
@@ -185,7 +185,7 @@ export async function DELETE(
     if (!session) {
       return NextResponse.json(
         { error: "로그인이 필요합니다." },
-        { status: 401 }
+        { status: 401 },
       );
     }
     const userId = session.user.id;
@@ -200,13 +200,13 @@ export async function DELETE(
     if (error || !review) {
       return NextResponse.json(
         { error: "리뷰를 찾을 수 없습니다." },
-        { status: 404 }
+        { status: 404 },
       );
     }
     if (review.user_id !== userId) {
       return NextResponse.json(
         { error: "본인 리뷰만 삭제할 수 있습니다." },
-        { status: 403 }
+        { status: 403 },
       );
     }
 
@@ -225,7 +225,7 @@ export async function DELETE(
     console.error("리뷰 삭제 오류:", error);
     return NextResponse.json(
       { error: "리뷰 삭제 중 오류가 발생했습니다." },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

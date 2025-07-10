@@ -13,7 +13,7 @@ export function calculateDistance(
   lat1: number,
   lng1: number,
   lat2: number,
-  lng2: number
+  lng2: number,
 ): number {
   const R = 6371e3; // 지구 반지름 (미터)
   const φ1 = (lat1 * Math.PI) / 180;

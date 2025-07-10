@@ -29,13 +29,15 @@ export async function GET(request: NextRequest) {
           user_lat: latitude,
           user_lng: longitude,
           radius_km: radiusKm,
-        }
+        },
       );
 
-      if (storeError) throw storeError;
+      if (storeError) {
+throw storeError;
+}
 
       console.log(
-        `PostGIS 공간 쿼리: 중심점 (${latitude}, ${longitude}), 반경 ${radiusKm}km, 총 ${stores.length}개 가게 발견`
+        `PostGIS 공간 쿼리: 중심점 (${latitude}, ${longitude}), 반경 ${radiusKm}km, 총 ${stores.length}개 가게 발견`,
       );
 
       // PostGIS에서 이미 거리 계산과 정렬이 완료되었으므로 추가 필터링만 수행
@@ -46,15 +48,19 @@ export async function GET(request: NextRequest) {
           const kakaoRating = store.kakao_rating || 0;
           const maxRating = Math.max(naverRating, kakaoRating);
 
-          if (minRating > 0 && maxRating < minRating) return false;
+          if (minRating > 0 && maxRating < minRating) {
+return false;
+}
 
           // 카테고리 필터링 (PostGIS 함수에서 categories가 JSON 배열로 반환됨)
           if (selectedCategories.length > 0) {
             const categories = store.categories || [];
             const hasMatchingCategory = selectedCategories.some((category) =>
-              categories.includes(category)
+              categories.includes(category),
             );
-            if (!hasMatchingCategory) return false;
+            if (!hasMatchingCategory) {
+return false;
+}
           }
 
           return true;
@@ -89,23 +95,25 @@ export async function GET(request: NextRequest) {
           headers: {
             "Cache-Control": "public, s-maxage=180, stale-while-revalidate=300", // 캐시 시간 단축
           },
-        }
+        },
       );
     } else {
       // 위치 정보가 없는 경우: PostGIS 기본 추천 함수 사용
       console.log("위치 정보 없음 - PostGIS 기본 추천 가게 제공 (강남구 중심)");
 
       const { data: stores, error: storeError } = await supabase.rpc(
-        "get_default_recommended_stores"
+        "get_default_recommended_stores",
       );
 
-      if (storeError) throw storeError;
+      if (storeError) {
+throw storeError;
+}
 
       // PostGIS에서 이미 거리 계산과 정렬이 완료된 데이터 매핑
       const formattedStores = stores
         .slice(0, 30) // 최종 30개 선택
         .map((store: any) =>
-          mapStoreFromDb(store, store.distance_km.toString())
+          mapStoreFromDb(store, store.distance_km.toString()),
         );
 
       return NextResponse.json(
@@ -115,7 +123,7 @@ export async function GET(request: NextRequest) {
           headers: {
             "Cache-Control": "public, s-maxage=300, stale-while-revalidate=600",
           },
-        }
+        },
       );
     }
   } catch (error: any) {
@@ -126,7 +134,7 @@ export async function GET(request: NextRequest) {
         message: "가게 정보를 불러오는 중 오류가 발생했습니다.",
         details: error,
       },
-      500
+      500,
     );
   }
 }

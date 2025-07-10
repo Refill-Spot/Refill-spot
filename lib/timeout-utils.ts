@@ -17,7 +17,7 @@ export const API_REQUEST_TIMEOUT = 15000; // 15초
  */
 export const createTimeoutPromise = (
   ms: number = DEFAULT_TIMEOUT,
-  errorMessage: string = "요청 시간이 초과되었습니다."
+  errorMessage: string = "요청 시간이 초과되었습니다.",
 ): Promise<never> => {
   return new Promise((_, reject) => {
     setTimeout(() => {
@@ -36,7 +36,7 @@ export const createTimeoutPromise = (
  * @returns AbortController 및 타임아웃 ID
  */
 export const createTimeoutController = (
-  ms: number = DEFAULT_TIMEOUT
+  ms: number = DEFAULT_TIMEOUT,
 ): {
   controller: AbortController;
   timeoutId: NodeJS.Timeout;
@@ -63,7 +63,7 @@ export const createTimeoutController = (
 export const fetchWithTimeout = async (
   url: string,
   options: RequestInit = {},
-  timeout: number = API_REQUEST_TIMEOUT
+  timeout: number = API_REQUEST_TIMEOUT,
 ): Promise<Response> => {
   const { controller, cleanup } = createTimeoutController(timeout);
 
@@ -91,7 +91,7 @@ export const fetchWithTimeout = async (
 export const withTimeout = async <T>(
   promise: Promise<T>,
   timeout: number = DEFAULT_TIMEOUT,
-  errorMessage: string = "요청 시간이 초과되었습니다."
+  errorMessage: string = "요청 시간이 초과되었습니다.",
 ): Promise<T> => {
   const timeoutPromise = createTimeoutPromise(timeout, errorMessage);
   return Promise.race([promise, timeoutPromise]);
@@ -111,7 +111,7 @@ export const getPositionWithTimeout = (
     enableHighAccuracy: true,
     timeout: LOCATION_TIMEOUT,
     maximumAge: 0,
-  }
+  },
 ): Promise<GeolocationPosition> => {
   return new Promise((resolve, reject) => {
     if (typeof navigator !== "undefined" && navigator.geolocation) {

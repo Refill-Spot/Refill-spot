@@ -65,7 +65,7 @@ const CategoryCheckbox = memo(
         </Label>
       </div>
     );
-  }
+  },
 );
 
 CategoryCheckbox.displayName = "CategoryCheckbox";
@@ -93,7 +93,7 @@ function Sidebar({ onApplyFilters, userLocation }: SidebarProps) {
         [category]: checked,
       }));
     },
-    []
+    [],
   );
 
   const handleApplyFilters = useCallback(async () => {
@@ -172,49 +172,49 @@ function Sidebar({ onApplyFilters, userLocation }: SidebarProps) {
     (checked: boolean) => {
       handleCategoryChange("고기", checked);
     },
-    [handleCategoryChange]
+    [handleCategoryChange],
   );
 
   const handleSeafoodChange = useCallback(
     (checked: boolean) => {
       handleCategoryChange("해산물", checked);
     },
-    [handleCategoryChange]
+    [handleCategoryChange],
   );
 
   const handleWesternChange = useCallback(
     (checked: boolean) => {
       handleCategoryChange("양식", checked);
     },
-    [handleCategoryChange]
+    [handleCategoryChange],
   );
 
   const handleKoreanChange = useCallback(
     (checked: boolean) => {
       handleCategoryChange("한식", checked);
     },
-    [handleCategoryChange]
+    [handleCategoryChange],
   );
 
   const handleChineseChange = useCallback(
     (checked: boolean) => {
       handleCategoryChange("중식", checked);
     },
-    [handleCategoryChange]
+    [handleCategoryChange],
   );
 
   const handleJapaneseChange = useCallback(
     (checked: boolean) => {
       handleCategoryChange("일식", checked);
     },
-    [handleCategoryChange]
+    [handleCategoryChange],
   );
 
   const handleDessertChange = useCallback(
     (checked: boolean) => {
       handleCategoryChange("디저트", checked);
     },
-    [handleCategoryChange]
+    [handleCategoryChange],
   );
 
   return (

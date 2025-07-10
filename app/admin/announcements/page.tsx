@@ -106,7 +106,9 @@ export default function AdminAnnouncementsPage() {
   };
 
   const truncateContent = (content: string, maxLength: number = 100) => {
-    if (content.length <= maxLength) return content;
+    if (content.length <= maxLength) {
+return content;
+}
     return content.substring(0, maxLength) + "...";
   };
 
@@ -333,7 +335,9 @@ export default function AdminAnnouncementsPage() {
                   const startPage = Math.max(1, pagination.page - 2);
                   const pageNumber = startPage + i;
                   
-                  if (pageNumber > pagination.totalPages) return null;
+                  if (pageNumber > pagination.totalPages) {
+return null;
+}
                   
                   return (
                     <Button

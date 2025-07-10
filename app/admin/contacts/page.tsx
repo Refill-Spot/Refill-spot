@@ -32,7 +32,7 @@ import {
   MapPin,
   Store,
   MessageSquare,
-  User
+  User,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -84,8 +84,12 @@ export default function AdminContactsPage() {
         limit: pagination.limit.toString(),
       });
 
-      if (filters.status && filters.status !== "all") params.append("status", filters.status);
-      if (filters.type && filters.type !== "all") params.append("type", filters.type);
+      if (filters.status && filters.status !== "all") {
+params.append("status", filters.status);
+}
+      if (filters.type && filters.type !== "all") {
+params.append("type", filters.type);
+}
 
       const response = await fetch(`/api/contact?${params.toString()}`);
       
@@ -163,25 +167,25 @@ export default function AdminContactsPage() {
   const checkAdminStatus = async () => {
     try {
       if (!user) {
-        router.push('/login');
+        router.push("/login");
         return;
       }
 
-      const response = await fetch('/api/auth/check-admin');
+      const response = await fetch("/api/auth/check-admin");
       if (!response.ok) {
-        throw new Error('권한 확인 실패');
+        throw new Error("권한 확인 실패");
       }
 
       const data = await response.json();
       if (data.success && data.data.isAdmin) {
         setIsAdmin(true);
       } else {
-        router.push('/unauthorized');
+        router.push("/unauthorized");
         return;
       }
     } catch (error) {
-      console.error('관리자 권한 확인 오류:', error);
-      router.push('/unauthorized');
+      console.error("관리자 권한 확인 오류:", error);
+      router.push("/unauthorized");
       return;
     } finally {
       setIsAdminChecking(false);

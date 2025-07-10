@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
           code: "invalid_request",
           message: "유효한 필터 조건이 제공되지 않았습니다.",
         },
-        400
+        400,
       );
     }
 
@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
       // 검색어 필터링
       if (query && typeof query === "string" && query.trim()) {
         queryBuilder = queryBuilder.or(
-          `name.ilike.%${query}%,address.ilike.%${query}%`
+          `name.ilike.%${query}%,address.ilike.%${query}%`,
         );
       }
 
@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
             message: "가게 정보를 조회하는 중 오류가 발생했습니다.",
             details: error,
           },
-          500
+          500,
         );
       }
 
@@ -70,11 +70,11 @@ export async function POST(request: NextRequest) {
         filteredStores = filteredStores.filter((store: StoreFromDb) => {
           let storeCategories: string[] = [];
           if (Array.isArray(store.categories) && store.categories.length > 0) {
-            if (typeof store.categories[0] === 'string') {
+            if (typeof store.categories[0] === "string") {
               storeCategories = store.categories as string[];
-            } else if (typeof store.categories[0] === 'object' && store.categories[0] !== null && 'category' in store.categories[0]) {
+            } else if (typeof store.categories[0] === "object" && store.categories[0] !== null && "category" in store.categories[0]) {
               storeCategories = (store.categories as Array<{ category: { name: string } }>).map(
-                (item) => item.category.name
+                (item) => item.category.name,
               );
             }
           }
@@ -92,7 +92,7 @@ export async function POST(request: NextRequest) {
             latitude,
             longitude,
             store.position_lat,
-            store.position_lng
+            store.position_lng,
           );
           const distance = distanceInMeters / 1000; // km로 변환
 
@@ -125,7 +125,7 @@ export async function POST(request: NextRequest) {
             ? Math.round((store as any).distance * 100) / 100 + ""
             : null;
           return mapStoreFromDb(store, distance);
-        }
+        },
       );
 
       return successResponse(formattedStores);
@@ -136,7 +136,7 @@ export async function POST(request: NextRequest) {
           message: "요청 데이터가 유효하지 않습니다.",
           details: validationError.errors || validationError,
         },
-        400
+        400,
       );
     }
   } catch (error: any) {
@@ -148,7 +148,7 @@ export async function POST(request: NextRequest) {
         message: error.message || "가게 필터링 중 오류가 발생했습니다.",
         details: error,
       },
-      500
+      500,
     );
   }
 }

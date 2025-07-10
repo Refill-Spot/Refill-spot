@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
           error: "유효하지 않은 요청입니다.",
           details: validationResult.error.format(),
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -51,8 +51,8 @@ export async function GET(request: NextRequest) {
     ]);
 
     // 결과 처리
-    const naverScore = naverRating.status === 'fulfilled' ? naverRating.value : 0;
-    const kakaoScore = kakaoRating.status === 'fulfilled' ? kakaoRating.value : 0;
+    const naverScore = naverRating.status === "fulfilled" ? naverRating.value : 0;
+    const kakaoScore = kakaoRating.status === "fulfilled" ? kakaoRating.value : 0;
 
     // 평균 계산 (유효한 평점만 사용)
     const validRatings = [naverScore, kakaoScore].filter(rating => rating > 0);
@@ -76,7 +76,7 @@ export async function GET(request: NextRequest) {
         success: false,
         error: "별점 정보를 가져오는 중 오류가 발생했습니다.",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

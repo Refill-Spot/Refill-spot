@@ -64,7 +64,7 @@ export async function POST(request: NextRequest) {
         id: data.id,
         message: "문의가 성공적으로 접수되었습니다.",
       },
-      201
+      201,
     );
   } catch (error) {
     apiLogger.error("Contact API error", error);

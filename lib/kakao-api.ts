@@ -45,7 +45,7 @@ interface KakaoPlaceDetailResult {
  */
 export async function searchKakaoPlaces(
   query: string,
-  options?: { x?: number; y?: number; radius?: number }
+  options?: { x?: number; y?: number; radius?: number },
 ): Promise<KakaoPlaceSearchResult[]> {
   if (!KAKAO_API_KEY) {
     console.warn("카카오 API 키가 설정되지 않았습니다.");
@@ -66,7 +66,7 @@ export async function searchKakaoPlaces(
           radius: options?.radius,
           sort: "accuracy", // 정확도 순 정렬
         },
-      }
+      },
     );
 
     return response.data.documents;
@@ -82,7 +82,7 @@ export async function searchKakaoPlaces(
  * @returns 장소 상세 정보 (평점 포함)
  */
 export async function getKakaoPlaceDetail(
-  id: string
+  id: string,
 ): Promise<KakaoPlaceDetailResult | null> {
   if (!KAKAO_API_KEY) {
     console.warn("카카오 API 키가 설정되지 않았습니다.");
@@ -99,7 +99,7 @@ export async function getKakaoPlaceDetail(
           "User-Agent": "Mozilla/5.0", // API 호출 시 유저 에이전트 필요할 수 있음
           Referer: "https://map.kakao.com/",
         },
-      }
+      },
     );
 
     // 응답 데이터 구조에 따라 필요한 정보 추출
@@ -128,7 +128,9 @@ export async function getKakaoPlaceDetail(
  * 카카오 API 응답에서 영업시간 추출
  */
 function extractBusinessHours(data: any): string[] | undefined {
-  if (!data || !data.openHour) return undefined;
+  if (!data?.openHour) {
+return undefined;
+}
 
   // 카카오 API는 영업시간을 다양한 형태로 제공할 수 있음
   // 데이터 구조에 따라 적절히 추출 로직 수정 필요
@@ -149,9 +151,11 @@ function extractBusinessHours(data: any): string[] | undefined {
  * 카카오 API 응답에서 메뉴 정보 추출
  */
 function extractMenus(
-  data: any
+  data: any,
 ): Array<{ name: string; price: string }> | undefined {
-  if (!data || !data.menuInfo || !data.menuInfo.menuList) return undefined;
+  if (!data?.menuInfo?.menuList) {
+return undefined;
+}
 
   return data.menuInfo.menuList.map((menu: any) => ({
     name: menu.menu || "",
@@ -163,7 +167,9 @@ function extractMenus(
  * 카카오 API 응답에서 이미지 URL 목록 추출
  */
 function extractImages(data: any): string[] | undefined {
-  if (!data || !data.imageList) return undefined;
+  if (!data?.imageList) {
+return undefined;
+}
 
   return data.imageList.map((img: any) => img.url || "");
 }
@@ -172,7 +178,9 @@ function extractImages(data: any): string[] | undefined {
  * 카카오 API 응답에서 평점 추출
  */
 function extractRating(data: any): number {
-  if (!data) return 0;
+  if (!data) {
+return 0;
+}
 
   // 카카오 플레이스는 총점 또는 별점 정보를 다양한 필드로 제공할 수 있음
   if (data.feedback && typeof data.feedback.scoresum === "number") {
@@ -210,15 +218,21 @@ export async function getKakaoPlaceRating(query: string): Promise<number> {
   try {
     // 1. 장소 검색
     const places = await searchKakaoPlaces(query);
-    if (!places || places.length === 0) return 0;
+    if (!places || places.length === 0) {
+return 0;
+}
 
     // 2. 첫 번째 결과의 ID로 상세 정보 조회
     const firstPlace = places[0];
-    if (!firstPlace.id) return 0;
+    if (!firstPlace.id) {
+return 0;
+}
 
     // 3. 상세 정보에서 평점 추출
     const details = await getKakaoPlaceDetail(firstPlace.id);
-    if (!details) return 0;
+    if (!details) {
+return 0;
+}
 
     return details.rating || 0;
   } catch (error) {

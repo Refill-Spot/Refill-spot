@@ -46,7 +46,7 @@ interface NaverPlaceDetailResult {
  * @returns 검색 결과 목록
  */
 export async function searchNaverPlaces(
-  query: string
+  query: string,
 ): Promise<NaverPlaceSearchResult[]> {
   if (!NAVER_CLIENT_ID || !NAVER_CLIENT_SECRET) {
     console.warn("네이버 API 키가 설정되지 않았습니다.");
@@ -66,7 +66,7 @@ export async function searchNaverPlaces(
           display: 5,
           sort: "random", // 정확도순 검색
         },
-      }
+      },
     );
 
     // 검색 결과에서 '<b>' 태그 제거 (네이버 API는 키워드를 강조하기 위해 HTML 태그 포함)
@@ -100,7 +100,7 @@ export async function searchNaverPlaces(
  * @returns 장소 상세 정보 (평점 포함)
  */
 export async function getNaverPlaceDetail(
-  id: string
+  id: string,
 ): Promise<NaverPlaceDetailResult | null> {
   if (!NAVER_CLIENT_ID || !NAVER_CLIENT_SECRET) {
     console.warn("네이버 API 키가 설정되지 않았습니다.");
@@ -116,7 +116,7 @@ export async function getNaverPlaceDetail(
           "User-Agent": "Mozilla/5.0", // API 호출 시 유저 에이전트 필요할 수 있음
           Referer: "https://map.naver.com/",
         },
-      }
+      },
     );
 
     // 응답에서 필요한 정보 추출
@@ -146,7 +146,9 @@ export async function getNaverPlaceDetail(
  * 방문자 리뷰와 블로그 리뷰 점수를 가중 평균하여 최종 평점 계산
  */
 function calculateAverageRating(data: any): number {
-  if (!data) return 0;
+  if (!data) {
+return 0;
+}
 
   // 방문자 리뷰 평점 (없으면 0)
   const visitorScore = data.visitorReviewScore || 0;
@@ -154,7 +156,9 @@ function calculateAverageRating(data: any): number {
   const blogScore = data.blogReviewScore || 0;
 
   // 둘 다 0이면 평점 없음
-  if (visitorScore === 0 && blogScore === 0) return 0;
+  if (visitorScore === 0 && blogScore === 0) {
+return 0;
+}
 
   // 방문자 리뷰가 있으면 방문자 리뷰 가중치 높게 (0.7)
   if (visitorScore > 0 && blogScore > 0) {
@@ -179,15 +183,21 @@ export async function getNaverPlaceRating(query: string): Promise<number> {
   try {
     // 1. 장소 검색
     const places = await searchNaverPlaces(query);
-    if (!places || places.length === 0) return 0;
+    if (!places || places.length === 0) {
+return 0;
+}
 
     // 2. 첫 번째 결과의 ID로 상세 정보 조회
     const firstPlace = places[0];
-    if (!firstPlace.id) return 0;
+    if (!firstPlace.id) {
+return 0;
+}
 
     // 3. 상세 정보에서 평점 추출
     const details = await getNaverPlaceDetail(firstPlace.id);
-    if (!details) return 0;
+    if (!details) {
+return 0;
+}
 
     return details.avgRating || 0;
   } catch (error) {

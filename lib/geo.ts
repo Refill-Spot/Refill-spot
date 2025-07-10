@@ -34,13 +34,13 @@ export const findNearbyStores = async (
   filters?: {
     categories?: string[];
     minRating?: number;
-  }
+  },
 ): Promise<FormattedStore[]> => {
   const supabase = supabaseBrowser;
 
   try {
     // PostGIS RPC 함수를 사용하여 반경 내 가게 검색
-    let query = supabase.rpc("stores_filter", {
+    const query = supabase.rpc("stores_filter", {
       lat: latitude,
       lng: longitude,
       max_distance: radius,
@@ -63,7 +63,7 @@ export const findNearbyStores = async (
     // 응답 데이터 가공
     return data.map((store: any) => {
       const categories = store.categories.map(
-        (item: any) => item.category.name
+        (item: any) => item.category.name,
       );
 
       return {
@@ -96,12 +96,12 @@ export const findNearbyStores = async (
 
 // 지오코딩 (주소 → 좌표)
 export const geocodeAddress = async (
-  address: string
+  address: string,
 ): Promise<{ lat: number; lng: number } | null> => {
   try {
     // 네이버 지오코딩 API 사용
     const response = await fetch(
-      `/api/geocode?address=${encodeURIComponent(address)}`
+      `/api/geocode?address=${encodeURIComponent(address)}`,
     );
     const data = await response.json();
 

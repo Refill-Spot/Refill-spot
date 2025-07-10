@@ -62,7 +62,7 @@ function HomeContent() {
       minRating?: number,
       categories?: string[],
       page: number = 1,
-      append: boolean = false
+      append: boolean = false,
     ) => {
       console.log("🔍 fetchStores 호출됨:", { 
         lat: lat?.toFixed(8), 
@@ -72,7 +72,7 @@ function HomeContent() {
         radius, 
         page, 
         append,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       });
 
       if (!append) {
@@ -112,7 +112,7 @@ function HomeContent() {
           page: page,
           limit: "20",
           minRating,
-          categories
+          categories,
         });
 
         // 타임아웃 설정 (10초)
@@ -133,7 +133,7 @@ function HomeContent() {
         if (!response.ok) {
           const errorText = await response.text();
           throw new Error(
-            `HTTP error! status: ${response.status} - ${errorText}`
+            `HTTP error! status: ${response.status} - ${errorText}`,
           );
         }
 
@@ -143,7 +143,7 @@ function HomeContent() {
         if (!data.success || data.error) {
           throw new Error(
             data.error?.message ||
-              "가게 정보를 불러오는 중 오류가 발생했습니다."
+              "가게 정보를 불러오는 중 오류가 발생했습니다.",
           );
         }
 
@@ -196,12 +196,14 @@ function HomeContent() {
         setLoadingMore(false);
       }
     },
-    [toast]
+    [toast],
   );
 
   // 더보기 함수
   const loadMoreStores = useCallback(() => {
-    if (!userLocation || loadingMore || !hasMore) return;
+    if (!userLocation || loadingMore || !hasMore) {
+return;
+}
 
     const nextPage = currentPage + 1;
     fetchStores(
@@ -211,7 +213,7 @@ function HomeContent() {
       undefined,
       undefined,
       nextPage,
-      true
+      true,
     );
   }, [userLocation, loadingMore, hasMore, currentPage]);
 
@@ -350,7 +352,7 @@ function HomeContent() {
       const filteredStores = allStores.filter(
         (store) =>
           store.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          store.address.toLowerCase().includes(searchQuery.toLowerCase())
+          store.address.toLowerCase().includes(searchQuery.toLowerCase()),
       );
       
       setStores(filteredStores);
@@ -398,7 +400,7 @@ function HomeContent() {
         rawLat: lat,
         rawLng: lng,
         radius,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       });
 
       // 위치 설정과 동시에 가게 데이터 fetch
@@ -423,7 +425,7 @@ function HomeContent() {
         description: "설정한 위치 주변의 가게를 표시합니다.",
       });
     },
-    [toast, fetchStores]
+    [toast, fetchStores],
   );
 
   // 검색 처리
@@ -439,7 +441,7 @@ function HomeContent() {
       const filteredStores = stores.filter(
         (store) =>
           store.name.toLowerCase().includes(query.toLowerCase()) ||
-          store.address.toLowerCase().includes(query.toLowerCase())
+          store.address.toLowerCase().includes(query.toLowerCase()),
       );
 
       setStores(filteredStores);
@@ -451,7 +453,7 @@ function HomeContent() {
         });
       }
     },
-    [stores, userLocation, toast]
+    [stores, userLocation, toast],
   );
 
   // 사이드바 필터 적용
@@ -481,15 +483,19 @@ function HomeContent() {
           filters.minRating,
           filters.categories,
           1,
-          false
+          false,
         );
 
         const filterDesc = [];
-        if (radius !== 5) filterDesc.push(`반경 ${radius}km`);
-        if (filters.minRating && filters.minRating > 0)
-          filterDesc.push(`평점 ${filters.minRating}점 이상`);
-        if (filters.categories && filters.categories.length > 0)
-          filterDesc.push(`카테고리: ${filters.categories.join(", ")}`);
+        if (radius !== 5) {
+filterDesc.push(`반경 ${radius}km`);
+}
+        if (filters.minRating && filters.minRating > 0) {
+filterDesc.push(`평점 ${filters.minRating}점 이상`);
+}
+        if (filters.categories && filters.categories.length > 0) {
+filterDesc.push(`카테고리: ${filters.categories.join(", ")}`);
+}
 
         toast({
           title: "필터 적용 완료",
@@ -506,7 +512,7 @@ function HomeContent() {
         });
       }
     },
-    [userLocation, toast]
+    [userLocation, toast],
   );
 
   // 필터 토글 핸들러

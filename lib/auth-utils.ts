@@ -30,7 +30,7 @@ export async function checkAdminAccess() {
       isAdmin, 
       user: user, 
       profile,
-      error: isAdmin ? null : "관리자 권한이 필요합니다." 
+      error: isAdmin ? null : "관리자 권한이 필요합니다.", 
     };
   } catch (error) {
     console.error("관리자 권한 확인 오류:", error);
@@ -75,7 +75,7 @@ export async function checkAdminAccessForAPI(request?: NextRequest) {
       user: user, 
       profile,
       error: isAdmin ? null : "관리자 권한이 필요합니다.",
-      status: isAdmin ? 200 : 403
+      status: isAdmin ? 200 : 403,
     };
   } catch (error) {
     console.error("관리자 권한 확인 오류:", error);

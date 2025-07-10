@@ -61,7 +61,9 @@ export default function FavoritesPage() {
 
   // 즐겨찾기 삭제 처리
   const handleRemoveFavorite = async (storeId: number) => {
-    if (!user) return;
+    if (!user) {
+return;
+}
 
     try {
       await toggleFavorite(storeId, user.id);
@@ -234,7 +236,7 @@ export default function FavoritesPage() {
                           .slice(0, 4)
                           .map((item: any, index: number) => (
                             <li key={index} className="line-clamp-1">
-                              • {typeof item === 'string' ? item : item.name}
+                              • {typeof item === "string" ? item : item.name}
                             </li>
                           ))}
                         {store.refillItems.length > 4 && (
@@ -263,14 +265,14 @@ export default function FavoritesPage() {
                         const naverMapUrl = `nmap://place?lat=${
                           store.position.lat
                         }&lng=${store.position.lng}&name=${encodeURIComponent(
-                          store.name
+                          store.name,
                         )}&appname=com.example.myapp`;
                         window.location.href = naverMapUrl;
 
                         // 앱이 설치되어 있지 않은 경우를 위한 대체 URL (1초 후)
                         setTimeout(() => {
                           window.location.href = `https://map.naver.com/v5/search/${encodeURIComponent(
-                            store.name
+                            store.name,
                           )}`;
                         }, 1000);
                       }}

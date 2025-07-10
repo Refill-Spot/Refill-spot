@@ -1,13 +1,13 @@
-import { ImageResponse } from 'next/og'
+import { ImageResponse } from "next/og";
  
-export const runtime = 'edge'
+export const runtime = "edge";
  
 // Image metadata
 export const size = {
   width: 192,
   height: 192,
-}
-export const contentType = 'image/png'
+};
+export const contentType = "image/png";
  
 // Image generation
 export default function AndroidChrome192() {
@@ -16,14 +16,14 @@ export default function AndroidChrome192() {
       <div
         style={{
           fontSize: 120,
-          background: 'linear-gradient(135deg, #f97316 0%, #dc2626 100%)',
-          width: '100%',
-          height: '100%',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          color: 'white',
-          borderRadius: '24px',
+          background: "linear-gradient(135deg, #f97316 0%, #dc2626 100%)",
+          width: "100%",
+          height: "100%",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          color: "white",
+          borderRadius: "24px",
         }}
       >
         <svg
@@ -42,6 +42,6 @@ export default function AndroidChrome192() {
     ),
     {
       ...size,
-    }
-  )
+    },
+  );
 }

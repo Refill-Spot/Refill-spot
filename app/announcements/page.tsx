@@ -42,7 +42,9 @@ export default function AnnouncementsPage() {
 
 
   const truncateContent = (content: string, maxLength: number = 150) => {
-    if (content.length <= maxLength) return content;
+    if (content.length <= maxLength) {
+return content;
+}
     return content.substring(0, maxLength) + "...";
   };
 
@@ -240,7 +242,9 @@ export default function AnnouncementsPage() {
                     const startPage = Math.max(1, pagination.page - 2);
                     const pageNumber = startPage + i;
                     
-                    if (pageNumber > pagination.totalPages) return null;
+                    if (pageNumber > pagination.totalPages) {
+return null;
+}
                     
                     return (
                       <Button

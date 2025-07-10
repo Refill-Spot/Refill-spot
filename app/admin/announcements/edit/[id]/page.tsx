@@ -18,19 +18,28 @@ import { useEffect, useState } from "react";
 import { AnnouncementFormData } from "@/types/announcements";
 
 interface EditAnnouncementPageProps {
-  params: {
+  params: Promise<{
     id: string;
-  };
+  }>;
 }
 
 export default function EditAnnouncementPage({ params }: EditAnnouncementPageProps) {
-  const { t } = useTranslation();
+  const [id, setId] = useState<string>("");
+  
+  useEffect(() => {
+    const resolveParams = async () => {
+      const resolvedParams = await params;
+      setId(resolvedParams.id);
+    };
+    resolveParams();
+  }, [params]);
+  const { } = useTranslation();
   const router = useRouter();
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
   const [adminCheckLoading, setAdminCheckLoading] = useState(true);
   const [formInitialized, setFormInitialized] = useState(false);
   
-  const { announcement, loading: announcementLoading, error: announcementError } = useAnnouncement(params.id);
+  const { announcement, loading: announcementLoading, error: announcementError } = useAnnouncement(id);
   
   const [formData, setFormData] = useState<AnnouncementFormData>({
     title: "",
@@ -110,9 +119,9 @@ export default function EditAnnouncementPage({ params }: EditAnnouncementPagePro
     }
 
     try {
-      await updateAnnouncement(params.id, submitData);
-      router.push(`/admin/announcements`);
-    } catch (error) {
+      await updateAnnouncement(id, submitData);
+      router.push("/admin/announcements");
+    } catch {
       // 에러는 hook에서 처리됨
     }
   };
@@ -317,7 +326,7 @@ export default function EditAnnouncementPage({ params }: EditAnnouncementPagePro
                     )}
                     {formData.content && (
                       <div className="text-sm text-muted-foreground">
-                        {formData.content.split('\n').map((line, index) => (
+                        {formData.content.split("\n").map((line, index) => (
                           <p key={index} className="mb-1 last:mb-0">
                             {line}
                           </p>
@@ -353,7 +362,7 @@ export default function EditAnnouncementPage({ params }: EditAnnouncementPagePro
                 variant="ghost"
                 disabled={updating}
               >
-                <Link href={`/announcements/${params.id}`}>
+                <Link href={`/announcements/${id}`}>
                   미리보기
                 </Link>
               </Button>

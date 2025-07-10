@@ -49,10 +49,10 @@ export default function SearchFilters({
     initialFilters?.maxDistance || storeFilters.maxDistance || 3,
   ]);
   const [minRating, setMinRating] = useState(
-    initialFilters?.minRating || storeFilters.minRating || 0
+    initialFilters?.minRating || storeFilters.minRating || 0,
   );
   const [searchQuery, setSearchQuery] = useState(
-    initialFilters?.query || storeFilters.query || ""
+    initialFilters?.query || storeFilters.query || "",
   );
   const [categories, setCategories] = useState<Record<string, boolean>>({
     고기:
@@ -237,7 +237,7 @@ export default function SearchFilters({
       router,
       onApplyFilters,
       updateFilters,
-    ]
+    ],
   );
 
   const handleResetFilters = useCallback(() => {

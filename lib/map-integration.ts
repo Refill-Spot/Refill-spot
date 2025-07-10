@@ -29,12 +29,10 @@ export function setupNaverClustering(
   window: any,
   map: any,
   markers: any[],
-  options: ClusteringOptions = {}
+  options: ClusteringOptions = {},
 ) {
   if (
-    !window.naver ||
-    !window.naver.maps ||
-    !window.naver.maps.MarkerClustering
+    !window.naver?.maps?.MarkerClustering
   ) {
     console.error("네이버 맵 클러스터링 모듈이 로드되지 않았습니다.");
     return null;
@@ -93,12 +91,10 @@ export function setupKakaoClustering(
   window: any,
   map: any,
   markers: any[],
-  options: ClusteringOptions = {}
+  options: ClusteringOptions = {},
 ) {
   if (
-    !window.kakao ||
-    !window.kakao.maps ||
-    !window.kakao.maps.MarkerClusterer
+    !window.kakao?.maps?.MarkerClusterer
   ) {
     console.error("카카오 맵 클러스터링 모듈이 로드되지 않았습니다.");
     return null;
@@ -165,7 +161,7 @@ export function setupClustering(
   window: any,
   map: any,
   markers: any[],
-  options?: ClusteringOptions
+  options?: ClusteringOptions,
 ) {
   if (provider === "naver") {
     return setupNaverClustering(window, map, markers, options);

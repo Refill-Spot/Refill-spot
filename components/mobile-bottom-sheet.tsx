@@ -50,7 +50,7 @@ export default function MobileBottomSheet({
                   <div
                     className="w-16 h-16 rounded-md bg-gray-200 flex-shrink-0"
                     style={{
-                      backgroundImage: `url('/placeholder.svg?height=64&width=64')`,
+                      backgroundImage: "url('/placeholder.svg?height=64&width=64')",
                       backgroundSize: "cover",
                     }}
                   ></div>

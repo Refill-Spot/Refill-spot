@@ -109,7 +109,7 @@ export async function GET(req: NextRequest) {
       {
         width: 1200,
         height: 630,
-      }
+      },
     );
   } catch (e: any) {
     return new Response(`OG 이미지 생성 중 오류 발생: ${e.message}`, {

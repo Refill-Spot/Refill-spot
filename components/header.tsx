@@ -97,8 +97,10 @@ export default function Header({
 
   const handleLogout = async () => {
     try {
-      resetOnboardingStatus();
+      // 온보딩 상태 초기화는 로그아웃 성공 후에만 실행
       await signOut();
+      // 로그아웃 성공 후 온보딩 상태 초기화
+      resetOnboardingStatus();
     } catch (error) {
       console.error("헤더 로그아웃 오류:", error);
     }
@@ -219,9 +221,13 @@ export default function Header({
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="sm" className="relative">
                     <User className="h-5 w-5" />
-                    {profile?.username && (
+                    {profile?.username ? (
                       <span className="ml-2 hidden md:inline">
                         {profile.username}
+                      </span>
+                    ) : (
+                      <span className="ml-2 hidden md:inline">
+                        사용자
                       </span>
                     )}
                   </Button>

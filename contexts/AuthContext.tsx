@@ -83,6 +83,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               setProfile(newProfile);
             } else {
               authLogger.error("기본 프로필 생성 실패", createError);
+              // 프로필 생성 실패 시에도 기본 프로필 설정
+              const fallbackProfile = { username, role: 'user', is_admin: false };
+              setProfile(fallbackProfile);
             }
           }
         } catch (error) {
@@ -157,7 +160,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         
         authLogger.debug("Auth state changed", { 
           event, 
-          userEmail: session?.user?.email 
+          userEmail: session?.user?.email,
+          hasSession: !!session,
+          hasUser: !!session?.user
         });
 
         const user = session?.user || null;
@@ -175,6 +180,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         // 로그인 성공 시 처리 (OAuth 포함)
         if (event === "SIGNED_IN" && user) {
+          authLogger.info("SIGNED_IN 이벤트 처리");
           toast({
             title: "로그인 성공",
             description: "환영합니다!",
@@ -185,14 +191,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             user.app_metadata?.provider &&
             user.app_metadata.provider !== "email";
 
-          // 로그인 페이지에서만 홈으로 리다이렉트
-          if (window.location.pathname === "/login") {
+          // 로그인 페이지나 온보딩 페이지에서 로그인한 경우 메인으로 리다이렉트
+          const currentPath = window.location.pathname;
+          if (currentPath === "/login" || currentPath === "/onboarding") {
             router.push("/");
           }
           // 다른 페이지에서는 현재 페이지에서 상태만 업데이트
         }
 
-        // 로그아웃 시 처리는 signOut 함수에서 처리하므로 여기서는 제거
+        // 로그아웃 시 상태 초기화 처리
+        if (event === "SIGNED_OUT") {
+          authLogger.info("SIGNED_OUT 이벤트 처리");
+          setUser(null);
+          setProfile(null);
+        }
       }
     );
 
@@ -242,11 +254,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
 
       if (!error) {
-        toast({
-          title: "로그인 성공",
-          description: "환영합니다!",
-        });
-        router.push("/");
+        // 토스트는 onAuthStateChange에서 처리되므로 여기서는 제거
+        // 리다이렉트도 onAuthStateChange에서 처리됨
       }
 
       return { error };
@@ -318,6 +327,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       authLogger.debug("로그아웃 시작");
       
+      // 1. 먼저 현재 세션 정보 확인
+      const { data: { session: currentSession } } = await supabase.auth.getSession();
+      authLogger.debug("현재 세션 정보", currentSession);
+      
+      // 2. 로그아웃 시도 (기본 로그아웃)
       const { error } = await supabase.auth.signOut();
       
       if (error) {
@@ -325,18 +339,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         throw error;
       }
       
-      authLogger.debug("로그아웃 성공");
+      authLogger.info("로그아웃 성공");
       
-      // 상태 즉시 초기화
+      // 3. 상태 강제 초기화 (onAuthStateChange가 호출되지 않을 수 있으므로)
       setUser(null);
       setProfile(null);
+      setLoading(false);
       
       toast({
         title: "로그아웃 완료",
         description: "안전하게 로그아웃되었습니다.",
       });
       
-      // 현재 페이지가 보호된 페이지가 아니라면 리다이렉트하지 않음
+      // 4. 페이지 리다이렉트 처리
       const currentPath = window.location.pathname;
       const protectedPaths = ['/admin', '/profile', '/favorites'];
       const isProtectedPage = protectedPaths.some(path => currentPath.startsWith(path));
@@ -344,11 +359,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (isProtectedPage) {
         router.push("/");
       }
-      // 그렇지 않으면 현재 페이지에서 상태만 업데이트
       
     } catch (error) {
       authLogger.error("로그아웃 오류:", error);
-      console.error("로그아웃 오류:", error);
+      
+      // 완전 실패시 강제 초기화
+      setUser(null);
+      setProfile(null);
+      setLoading(false);
+      
       toast({
         title: "오류",
         description: "로그아웃 중 오류가 발생했습니다.",

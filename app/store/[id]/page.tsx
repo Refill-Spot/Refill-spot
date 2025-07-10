@@ -11,6 +11,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/components/ui/use-toast";
+import { SearchInput } from "@/components/header/search-input";
 import { getUserLocation, isLocationValid } from "@/lib/location-storage";
 import { Store } from "@/types/store";
 import { MenuItem } from "@/types/menu";
@@ -189,6 +190,56 @@ export default function StorePage() {
     }
   };
 
+  // 검색 핸들러
+  const handlePlaceSelect = (place: any) => {
+    if (!place?.geometry?.location) return;
+    
+    const lat = place.geometry.location.lat();
+    const lng = place.geometry.location.lng();
+    
+    // 지도 페이지로 이동하면서 위치 정보 전달
+    router.push(`/?lat=${lat}&lng=${lng}&distance=5`);
+  };
+
+  const handleManualSearch = async (searchText: string) => {
+    if (!window.google || !window.google.maps) {
+      toast({
+        title: "오류",
+        description: "Google Maps API가 로드되지 않았습니다.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      // Geocoding을 사용하여 검색어를 위치로 변환
+      const geocoder = new window.google.maps.Geocoder();
+      
+      geocoder.geocode(
+        { 
+          address: searchText, 
+          componentRestrictions: { country: 'kr' } 
+        },
+        (results: any, status: any) => {
+          if (status === window.google.maps.GeocoderStatus.OK && results?.[0]) {
+            const lat = results[0].geometry.location.lat();
+            const lng = results[0].geometry.location.lng();
+            
+            // 검색한 위치로 지도 페이지 이동
+            router.push(`/?lat=${lat}&lng=${lng}&distance=5&searchLocation=${encodeURIComponent(searchText)}`);
+          } else {
+            // Geocoding이 실패한 경우 기존 방식으로 fallback
+            router.push(`/?search=${encodeURIComponent(searchText)}`);
+          }
+        }
+      );
+    } catch (error) {
+      console.error('Geocoding error:', error);
+      // 오류 발생 시 기존 방식으로 fallback
+      router.push(`/?search=${encodeURIComponent(searchText)}`);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-[#F5F5F5] flex items-center justify-center">
@@ -219,22 +270,16 @@ export default function StorePage() {
       <div className="bg-white border-b border-gray-200 sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-2 py-3">
           <div className="flex items-center">
-            {/* 왼쪽: 뒤로가기 + 가게정보 */}
-            <div className="flex items-center gap-3 w-60">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleGoBack}
-                className="p-2 hover:bg-gray-100"
-              >
-                <ArrowLeft className="w-5 h-5" />
-              </Button>
-              <h1 className="text-lg font-semibold text-gray-900">가게 정보</h1>
+            {/* 왼쪽: 빈 공간 */}
+            <div className="w-60">
             </div>
             
             {/* 중간: 로고 + 프로젝트명 + 검색창 */}
             <div className="flex items-center gap-12 flex-1 justify-center">
-              <div className="flex items-center space-x-2">
+              <button 
+                onClick={() => router.push('/')}
+                className="flex items-center space-x-2 hover:opacity-80 transition-opacity"
+              >
                 <div className="bg-gradient-to-br from-orange-500 to-red-500 rounded-lg p-2">
                   <svg
                     className="w-6 h-6 text-white"
@@ -254,29 +299,13 @@ export default function StorePage() {
                   <h1 className="text-xl font-bold text-gray-900">Refill-spot</h1>
                   <p className="text-xs text-gray-500">무한리필 가게 찾기</p>
                 </div>
-              </div>
-              <div className="relative flex-1 max-w-lg">
-                <input
-                  type="text"
-                  placeholder="지역, 주소를 입력하세요"
-                  className="w-full pr-10 pl-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 p-0"
-                >
-                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                    />
-                  </svg>
-                </Button>
-              </div>
+              </button>
+              <SearchInput
+                className="flex-1 max-w-lg"
+                onPlaceSelect={handlePlaceSelect}
+                onManualSearch={handleManualSearch}
+                placeholder="지역, 주소를 입력하세요"
+              />
             </div>
             
             {/* 오른쪽: 로그인/사용자 정보 */}

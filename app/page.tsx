@@ -240,6 +240,14 @@ function HomeContent() {
     }
 
     const loadInitialData = async () => {
+      // URL 파라미터에서 검색어 확인
+      const searchQuery = searchParams.get("search");
+      let hasSearchQuery = false;
+      
+      if (searchQuery) {
+        hasSearchQuery = true;
+      }
+
       // URL 파라미터에서 위치 정보 확인
       const urlLat = searchParams.get("lat");
       const urlLng = searchParams.get("lng");
@@ -248,6 +256,7 @@ function HomeContent() {
         | "manual"
         | "default"
         | null;
+      const searchLocation = searchParams.get("searchLocation");
 
       if (urlLat && urlLng) {
         // URL 파라미터에 위치 정보가 있으면 사용
@@ -267,15 +276,16 @@ function HomeContent() {
             source: urlSource || "manual",
           });
 
-          const sourceText =
-            urlSource === "gps"
+          const sourceText = searchLocation 
+            ? `${searchLocation}` 
+            : urlSource === "gps"
               ? "현재 위치"
               : urlSource === "manual"
                 ? "설정한 위치"
                 : "이전 위치";
 
           toast({
-            title: "위치 복원 완료",
+            title: "위치 설정 완료",
             description: `${sourceText} 주변의 가게를 표시합니다.`,
           });
           return;
@@ -326,10 +336,38 @@ function HomeContent() {
             "서울 강남역 주변의 가게를 표시합니다. 위치 버튼을 눌러 현재 위치로 변경할 수 있습니다.",
         });
       }
+
     };
 
     loadInitialData();
   }, [searchParams, toast, isCheckingOnboarding]);
+
+  // 검색어 파라미터 처리 (별도 useEffect)
+  useEffect(() => {
+    const searchQuery = searchParams.get("search");
+    
+    if (searchQuery && !loading && allStores.length > 0) {
+      const filteredStores = allStores.filter(
+        (store) =>
+          store.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          store.address.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+      
+      setStores(filteredStores);
+      
+      if (filteredStores.length === 0) {
+        toast({
+          title: "검색 결과 없음",
+          description: "검색 조건에 맞는 가게가 없습니다.",
+        });
+      } else {
+        toast({
+          title: "검색 완료",
+          description: `"${searchQuery}" 검색 결과 ${filteredStores.length}개를 표시합니다.`,
+        });
+      }
+    }
+  }, [searchParams, loading, allStores, toast]);
 
   // 현재 위치 가져오기 요청
   const handleGetCurrentLocation = useCallback(async () => {

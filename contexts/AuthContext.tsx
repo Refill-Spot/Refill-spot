@@ -51,10 +51,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // 사용자 정보 및 프로필 로드
   const loadUserData = useCallback(
     async (user: User | null) => {
-      if (user) {
-        try {
-          authLogger.debug("프로필 데이터 로딩 시작", { userId: user.id });
-          
+      if (!user) {
+        authLogger.debug("사용자 없음, 프로필 초기화");
+        setProfile(null);
+        return;
+      }
+
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error("Profile loading timeout")), 10000);
+      });
+
+      try {
+        authLogger.debug("프로필 데이터 로딩 시작", { userId: user.id });
+        
+        const loadProfile = async () => {
           const { data, error } = await supabase
             .from("profiles")
             .select("username, role, is_admin")
@@ -63,13 +73,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
           if (!error && data) {
             authLogger.debug("프로필 데이터 로딩 성공", data);
-            setProfile(data);
+            return data;
           } else {
-            authLogger.debug("프로필 없음, 기본 프로필 생성");
+            authLogger.debug("프로필 없음, 기본 프로필 생성 시작");
             // 프로필이 없는 경우 기본 프로필 생성
             const username =
               user.email?.split("@")[0] ||
               `user_${Math.random().toString(36).substring(2, 10)}`;
+              
             const { error: createError } = await supabase
               .from("profiles")
               .insert({
@@ -77,28 +88,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 username,
               });
 
+            const newProfile = { username, role: 'user' as const, is_admin: false };
+            
             if (!createError) {
-              const newProfile = { username, role: 'user', is_admin: false };
               authLogger.debug("기본 프로필 생성 성공", newProfile);
-              setProfile(newProfile);
             } else {
-              authLogger.error("기본 프로필 생성 실패", createError);
-              // 프로필 생성 실패 시에도 기본 프로필 설정
-              const fallbackProfile = { username, role: 'user', is_admin: false };
-              setProfile(fallbackProfile);
+              authLogger.error("기본 프로필 생성 실패, fallback 사용", createError);
             }
+            
+            return newProfile;
           }
-        } catch (error) {
-          authLogger.error("Profile data loading failed", error);
-          // 에러가 발생해도 기본 프로필은 설정
-          const username =
-            user.email?.split("@")[0] ||
-            `user_${Math.random().toString(36).substring(2, 10)}`;
-          setProfile({ username, role: 'user', is_admin: false });
-        }
-      } else {
-        authLogger.debug("사용자 없음, 프로필 초기화");
-        setProfile(null);
+        };
+
+        // 타임아웃과 경쟁하여 프로필 로딩
+        const profileData = await Promise.race([loadProfile(), timeoutPromise]);
+        setProfile(profileData as any);
+        
+      } catch (error) {
+        authLogger.error("Profile data loading failed", error);
+        // 에러가 발생해도 기본 프로필은 설정 (사용자 경험 우선)
+        const fallbackUsername =
+          user.email?.split("@")[0] ||
+          `user_${Math.random().toString(36).substring(2, 10)}`;
+        setProfile({ username: fallbackUsername, role: 'user', is_admin: false });
       }
     },
     [supabase]
@@ -126,7 +138,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (user && !authError) {
           authLogger.debug("초기 사용자 확인됨", { userId: user.id, email: user.email });
           setUser(user);
-          await loadUserData(user);
+          try {
+            await loadUserData(user);
+          } catch (error) {
+            authLogger.error("초기 프로필 로딩 실패:", error);
+          }
         } else {
           authLogger.debug("초기 사용자 없음");
           setUser(null);
@@ -169,12 +185,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(user);
 
         if (user && mounted) {
-          await loadUserData(user);
+          try {
+            await loadUserData(user);
+          } catch (error) {
+            authLogger.error("loadUserData 오류:", error);
+          } finally {
+            if (mounted) {
+              setLoading(false);
+            }
+          }
         } else if (mounted) {
           setProfile(null);
-        }
-
-        if (mounted) {
           setLoading(false);
         }
 

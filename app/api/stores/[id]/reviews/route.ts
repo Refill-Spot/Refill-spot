@@ -162,64 +162,108 @@ export async function POST(
   }
 }
 
-export async function DELETE(
+export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
   const storeId = parseInt(id);
-  const reviewId = parseInt(request.nextUrl.searchParams.get("reviewId") || "");
 
-  if (isNaN(storeId) || isNaN(reviewId)) {
+  if (isNaN(storeId)) {
     return NextResponse.json(
-      { error: "올바르지 않은 요청입니다." },
+      { error: "올바르지 않은 가게 ID입니다." },
       { status: 400 },
     );
   }
 
   try {
     const supabase = createRouteHandlerSupabaseClient(request);
+
+    // 리뷰 조회 - profiles 테이블 조인으로 실제 사용자명 가져오기
+    const { data: reviews, error } = await supabase
+      .from("reviews")
+      .select(
+        `
+        *,
+        profiles:profiles!inner(username)
+      `,
+      )
+      .eq("store_id", storeId)
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      throw error;
+    }
+
+    const formattedReviews = reviews.map((review) => ({
+      id: review.id,
+      rating: review.rating,
+      content: review.content,
+      createdAt: review.created_at,
+      updatedAt: review.updated_at,
+      userId: review.user_id,
+      user: {
+        id: review.user_id,
+        username: review.profiles.username,
+      },
+    }));
+
+    return NextResponse.json({
+      reviews: formattedReviews,
+      totalReviews: reviews.length,
+    });
+  } catch (error) {
+    console.error("리뷰 조회 오류:", error);
+    return NextResponse.json(
+      { error: "리뷰 조회 중 오류가 발생했습니다." },
+      { status: 500 },
+    );
+  }
+}
+
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  const { id } = await params;
+  const storeId = parseInt(id);
+
+  if (isNaN(storeId)) {
+    return NextResponse.json(
+      { error: "올바르지 않은 가게 ID입니다." },
+      { status: 400 },
+    );
+  }
+
+  try {
+    const supabase = createRouteHandlerSupabaseClient(request);
+    
+    // 현재 로그인한 사용자 확인
     const {
-      data: { session },
-    } = await supabase.auth.getSession();
-    if (!session) {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
+    if (authError || !user) {
       return NextResponse.json(
         { error: "로그인이 필요합니다." },
         { status: 401 },
       );
     }
-    const userId = session.user.id;
 
-    // 본인 리뷰인지 확인
-    const { data: review, error } = await supabase
-      .from("reviews")
-      .select("user_id")
-      .eq("id", reviewId)
-      .eq("store_id", storeId)
-      .single();
-    if (error || !review) {
-      return NextResponse.json(
-        { error: "리뷰를 찾을 수 없습니다." },
-        { status: 404 },
-      );
-    }
-    if (review.user_id !== userId) {
-      return NextResponse.json(
-        { error: "본인 리뷰만 삭제할 수 있습니다." },
-        { status: 403 },
-      );
-    }
+    const userId = user.id;
 
-    // 삭제
+    // 사용자의 리뷰 삭제 (더 간단하게)
     const { error: deleteError } = await supabase
       .from("reviews")
       .delete()
-      .eq("id", reviewId)
       .eq("user_id", userId)
       .eq("store_id", storeId);
+
     if (deleteError) {
       throw deleteError;
     }
+
     return NextResponse.json({ message: "리뷰가 삭제되었습니다." });
   } catch (error) {
     console.error("리뷰 삭제 오류:", error);

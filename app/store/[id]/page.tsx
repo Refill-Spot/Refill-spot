@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/components/ui/use-toast";
 import { SearchInput } from "@/components/header/search-input";
+import { StoreReviews } from "@/components/store-reviews";
 import { getUserLocation, isLocationValid } from "@/lib/location-storage";
 import { Store } from "@/types/store";
 import { MenuItem } from "@/types/menu";
@@ -848,6 +849,11 @@ return [];
               </Card>
             </div>
           )}
+
+          {/* 리뷰 섹션 */}
+          <div className="max-w-4xl mx-auto px-4">
+            <StoreReviews storeId={store.id} />
+          </div>
         </div>
       </div>
 

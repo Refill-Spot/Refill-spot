@@ -220,6 +220,99 @@ export const useReviews = ({ storeId }: UseReviewsProps) => {
     return distribution;
   }, [reviews]);
 
+  // 리뷰 좋아요 토글
+  const toggleLike = useCallback(async (reviewId: number) => {
+    if (!user) {
+      toast({
+        title: '로그인이 필요합니다',
+        description: '좋아요를 누르려면 로그인하세요.',
+        variant: 'destructive',
+      });
+      return false;
+    }
+
+    try {
+      const response = await fetch(`/api/reviews/${reviewId}/like`, {
+        method: 'POST',
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        toast({
+          title: data.liked ? '좋아요!' : '좋아요 취소',
+          description: data.message,
+        });
+        
+        // 리뷰 목록 새로고침
+        await fetchReviews();
+        return true;
+      } else {
+        const errorData = await response.json();
+        toast({
+          title: '오류 발생',
+          description: errorData.error || '좋아요 처리 중 오류가 발생했습니다.',
+          variant: 'destructive',
+        });
+        return false;
+      }
+    } catch (error) {
+      logger.error('좋아요 처리 오류:', error);
+      toast({
+        title: '네트워크 오류',
+        description: '네트워크 오류가 발생했습니다.',
+        variant: 'destructive',
+      });
+      return false;
+    }
+  }, [user, toast, fetchReviews]);
+
+  // 리뷰 신고
+  const reportReview = useCallback(async (reviewId: number, reason: string, description?: string) => {
+    if (!user) {
+      toast({
+        title: '로그인이 필요합니다',
+        description: '신고하려면 로그인하세요.',
+        variant: 'destructive',
+      });
+      return false;
+    }
+
+    try {
+      const response = await fetch(`/api/reviews/${reviewId}/report`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ reason, description }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        toast({
+          title: '신고 완료',
+          description: data.message,
+        });
+        return true;
+      } else {
+        const errorData = await response.json();
+        toast({
+          title: '신고 실패',
+          description: errorData.error || '신고 처리 중 오류가 발생했습니다.',
+          variant: 'destructive',
+        });
+        return false;
+      }
+    } catch (error) {
+      logger.error('신고 처리 오류:', error);
+      toast({
+        title: '네트워크 오류',
+        description: '네트워크 오류가 발생했습니다.',
+        variant: 'destructive',
+      });
+      return false;
+    }
+  }, [user, toast]);
+
   // 컴포넌트 마운트 시 리뷰 조회
   useEffect(() => {
     fetchReviews();
@@ -238,6 +331,8 @@ export const useReviews = ({ storeId }: UseReviewsProps) => {
       submitReview,
       updateReview,
       deleteReview,
+      toggleLike,
+      reportReview,
     },
   };
 };

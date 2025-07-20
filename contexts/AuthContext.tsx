@@ -12,6 +12,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useRef,
   useState,
 } from "react";
 
@@ -43,6 +44,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<{ username: string; role?: string; is_admin?: boolean } | null>(null);
   const [loading, setLoading] = useState(true);
   const [initialized, setInitialized] = useState(false);
+  const loadingUserRef = useRef<string | null>(null);
   const router = useRouter();
   const { toast } = useToast();
   const { t } = useTranslation();
@@ -57,30 +59,77 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
 
+      // 이미 같은 사용자에 대해 로딩 중이면 스킵
+      if (loadingUserRef.current === user.id) {
+        authLogger.debug("프로필 이미 로딩 중, 스킵", { userId: user.id });
+        return;
+      }
+
+      loadingUserRef.current = user.id;
+
       const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error("Profile loading timeout")), 5000);
+        setTimeout(() => {
+          authLogger.warn("프로필 로딩 타임아웃, fallback 사용", { userId: user.id });
+          reject(new Error("Profile loading timeout"));
+        }, 5000); // 5초로 단축
       });
 
       try {
         authLogger.debug("프로필 데이터 로딩 시작", { userId: user.id });
         
         const loadProfile = async () => {
-          const { data, error } = await supabase
-            .from("profiles")
-            .select("username, role, is_admin")
-            .eq("id", user.id)
-            .single();
+          authLogger.debug("프로필 쿼리 시작", { 
+            userId: user.id, 
+            supabaseUrl: !!supabase.supabaseUrl,
+            supabaseKey: !!supabase.supabaseKey 
+          });
+          
+          // 먼저 간단한 연결 테스트
+          try {
+            await supabase.from("profiles").select("count").limit(1);
+            authLogger.debug("Supabase 연결 테스트 성공");
+          } catch (connectionError) {
+            authLogger.error("Supabase 연결 실패", connectionError);
+            return createFallbackProfile();
+          }
+          
+          try {
+            const { data, error } = await supabase
+              .from("profiles")
+              .select("username, role, is_admin")
+              .eq("id", user.id)
+              .single();
 
-          if (!error && data) {
-            authLogger.debug("프로필 데이터 로딩 성공", data);
-            return data;
-          } else {
-            authLogger.debug("프로필 없음, 기본 프로필 생성 시작");
-            // 프로필이 없는 경우 기본 프로필 생성
-            const username =
-              user.email?.split("@")[0] ||
-              `user_${Math.random().toString(36).substring(2, 10)}`;
-              
+            authLogger.debug("프로필 쿼리 결과", { 
+              hasData: !!data, 
+              error: error?.message,
+              errorCode: error?.code 
+            });
+
+            if (!error && data) {
+              authLogger.debug("프로필 데이터 로딩 성공", data);
+              return { ...data, id: user.id };
+            } else if (error?.code === 'PGRST116') {
+              // 프로필이 없는 경우 (not found)
+              authLogger.debug("프로필 없음, 기본 프로필 생성 시작");
+              return await createDefaultProfile();
+            } else {
+              // 다른 에러인 경우 기본 프로필 반환
+              authLogger.warn("프로필 쿼리 에러, 기본 프로필 사용", error);
+              return createFallbackProfile();
+            }
+          } catch (queryError) {
+            authLogger.error("프로필 쿼리 예외 발생", queryError);
+            return createFallbackProfile();
+          }
+        };
+
+        const createDefaultProfile = async () => {
+          const username = user.email?.split("@")[0] || `user_${Math.random().toString(36).substring(2, 10)}`;
+          
+          authLogger.debug("프로필 생성 시도", { username, userId: user.id });
+          
+          try {
             const { error: createError } = await supabase
               .from("profiles")
               .insert({
@@ -88,7 +137,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 username,
               });
 
-            const newProfile = { username, role: 'user' as const, is_admin: false };
+            const newProfile = { id: user.id, username, role: 'user' as const, is_admin: false };
             
             if (!createError) {
               authLogger.debug("기본 프로필 생성 성공", newProfile);
@@ -97,12 +146,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             }
             
             return newProfile;
+          } catch (insertError) {
+            authLogger.error("프로필 생성 예외 발생", insertError);
+            return createFallbackProfile();
           }
         };
 
+        const createFallbackProfile = () => {
+          const username = user.email?.split("@")[0] || `user_${Math.random().toString(36).substring(2, 10)}`;
+          return { id: user.id, username, role: 'user' as const, is_admin: false };
+        };
+
         // 타임아웃과 경쟁하여 프로필 로딩
-        const profileData = await Promise.race([loadProfile(), timeoutPromise]);
-        setProfile(profileData as any);
+        try {
+          const profileData = await Promise.race([loadProfile(), timeoutPromise]);
+          setProfile(profileData as any);
+          authLogger.debug("프로필 설정 완료", { userId: user.id });
+        } catch (timeoutError) {
+          authLogger.warn("타임아웃으로 인한 fallback 프로필 사용", { userId: user.id });
+          const fallbackUsername = user.email?.split("@")[0] || `user_${Math.random().toString(36).substring(2, 10)}`;
+          setProfile({ id: user.id, username: fallbackUsername, role: 'user', is_admin: false });
+        }
         
         // 프로필 로딩 완료 시 완료 토스트 (소셜 로그인의 경우)
         if (user.app_metadata?.provider && user.app_metadata.provider !== "email") {
@@ -121,6 +185,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           user.email?.split("@")[0] ||
           `user_${Math.random().toString(36).substring(2, 10)}`;
         setProfile({ username: fallbackUsername, role: 'user', is_admin: false });
+      } finally {
+        loadingUserRef.current = null;
       }
     },
     [supabase, toast]

@@ -64,16 +64,49 @@ export async function POST(
       );
     }
 
-    // 이미 리뷰를 작성했는지 확인
+    // 이미 리뷰를 작성했는지 확인 + 최근 작성 시간 체크
     const { data: existingReview, error: checkError } = await supabase
       .from("reviews")
-      .select("id")
+      .select("id, created_at, updated_at")
       .eq("store_id", storeId)
       .eq("user_id", userId)
       .maybeSingle();
 
     if (checkError) {
       throw checkError;
+    }
+
+    // 시간 기반 제한: 새 리뷰 작성만 제한 (수정은 자유)
+    if (!existingReview) {
+      // 새 리뷰 작성 시에만 시간 제한 확인
+      // 이 사용자가 다른 가게에서 최근에 리뷰를 작성했는지 확인
+      const { data: recentReviews, error: recentCheckError } = await supabase
+        .from("reviews")
+        .select("created_at")
+        .eq("user_id", userId)
+        .order("created_at", { ascending: false })
+        .limit(1);
+
+      if (recentCheckError) {
+        throw recentCheckError;
+      }
+
+      if (recentReviews && recentReviews.length > 0) {
+        const lastReviewTime = new Date(recentReviews[0].created_at);
+        const timeDiff = Date.now() - lastReviewTime.getTime();
+        const cooldownTime = 10 * 60 * 1000; // 10분
+
+        if (timeDiff < cooldownTime) {
+          const remainingMinutes = Math.ceil((cooldownTime - timeDiff) / (60 * 1000));
+          return NextResponse.json(
+            { 
+              error: `새 리뷰 작성은 ${remainingMinutes}분 후에 가능합니다.`,
+              remainingTime: remainingMinutes 
+            },
+            { status: 429 }
+          );
+        }
+      }
     }
 
     let reviewResponse;
@@ -179,6 +212,12 @@ export async function GET(
   try {
     const supabase = createRouteHandlerSupabaseClient(request);
 
+    // 현재 로그인한 사용자 확인 (좋아요 상태 조회용)
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
     // 리뷰 조회 - profiles 테이블 조인으로 실제 사용자명 가져오기
     const { data: reviews, error } = await supabase
       .from("reviews")
@@ -195,6 +234,33 @@ export async function GET(
       throw error;
     }
 
+    // 각 리뷰의 좋아요 수를 별도로 조회
+    const reviewIds = reviews.map(r => r.id);
+    const { data: likeCounts, error: likeError } = await supabase
+      .from("review_likes")
+      .select("review_id, user_id")
+      .in("review_id", reviewIds);
+
+    if (likeError) {
+      console.warn("좋아요 수 조회 오류:", likeError);
+    }
+
+    // 리뷰별 좋아요 수 계산 및 현재 사용자 좋아요 상태 확인
+    const likeCountMap = new Map<number, number>();
+    const userLikedSet = new Set<number>();
+    
+    if (likeCounts) {
+      likeCounts.forEach(like => {
+        const count = likeCountMap.get(like.review_id) || 0;
+        likeCountMap.set(like.review_id, count + 1);
+        
+        // 현재 사용자가 좋아요한 리뷰 체크
+        if (user && like.user_id === user.id) {
+          userLikedSet.add(like.review_id);
+        }
+      });
+    }
+
     const formattedReviews = reviews.map((review) => ({
       id: review.id,
       rating: review.rating,
@@ -202,6 +268,8 @@ export async function GET(
       createdAt: review.created_at,
       updatedAt: review.updated_at,
       userId: review.user_id,
+      likeCount: likeCountMap.get(review.id) || 0,
+      isLikedByUser: userLikedSet.has(review.id),
       user: {
         id: review.user_id,
         username: review.profiles.username,

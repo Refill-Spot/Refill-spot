@@ -339,6 +339,15 @@ return;
                   <DropdownMenuContent align="end" className="w-48">
                     <DropdownMenuItem asChild>
                       <button
+                        onClick={() => router.push("/my-reviews")}
+                        className="w-full flex items-center"
+                      >
+                        <Star className="h-4 w-4 mr-2 text-yellow-500" />
+                        내가 작성한 리뷰
+                      </button>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <button
                         onClick={() => router.push("/favorites")}
                         className="w-full flex items-center"
                       >

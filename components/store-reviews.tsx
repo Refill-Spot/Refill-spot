@@ -9,6 +9,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTranslation } from "@/hooks/use-translation";
 import { useReviews } from "@/hooks/use-reviews";
+import { ReviewReportDialog } from "@/components/review-report-dialog";
 import { FormattedReview } from "@/types/store";
 import { formatDistanceToNow } from "date-fns";
 import { enUS, ko } from "date-fns/locale";
@@ -29,6 +30,8 @@ export function StoreReviews({ storeId }: StoreReviewsProps) {
     content: "",
   });
   const [activeTab, setActiveTab] = useState("all");
+  const [reportDialogOpen, setReportDialogOpen] = useState(false);
+  const [reportingReviewId, setReportingReviewId] = useState<number | null>(null);
   
   // 새로운 커스텀 훅 사용
   const {
@@ -38,7 +41,7 @@ export function StoreReviews({ storeId }: StoreReviewsProps) {
     myReview,
     averageRating,
     totalReviews,
-    actions: { submitReview, updateReview, deleteReview }
+    actions: { submitReview, updateReview, deleteReview, toggleLike, reportReview }
   } = useReviews({ storeId });
 
   // 현재 사용자의 리뷰가 있는지 확인
@@ -83,8 +86,10 @@ export function StoreReviews({ storeId }: StoreReviewsProps) {
       // 성공 시 폼 초기화 (새 리뷰인 경우만)
       if (!myReview) {
         setUserReview({ rating: 0, content: "" });
+        // 새 리뷰 작성 후 리뷰 보기 탭으로 이동
+        setActiveTab("all");
       }
-      setActiveTab("all");
+      // 기존 리뷰 수정의 경우는 작성 탭에 유지
     }
   };
 
@@ -97,6 +102,22 @@ export function StoreReviews({ storeId }: StoreReviewsProps) {
       setUserReview({ rating: 0, content: "" });
       setActiveTab("all");
     }
+  };
+
+  // 신고 핸들러
+  const handleReportClick = (reviewId: number) => {
+    setReportingReviewId(reviewId);
+    setReportDialogOpen(true);
+  };
+
+  const handleReportSubmit = async (reason: string, description?: string) => {
+    if (!reportingReviewId) return false;
+    
+    const success = await reportReview(reportingReviewId, reason, description);
+    if (success) {
+      setReportingReviewId(null);
+    }
+    return success;
   };
 
   // 리뷰 날짜 포맷팅
@@ -134,7 +155,12 @@ export function StoreReviews({ storeId }: StoreReviewsProps) {
     <div className="mt-8">
       <h3 className="text-xl font-bold mb-4">{t("reviews")}</h3>
 
-      <Tabs defaultValue="all" value={activeTab} onValueChange={setActiveTab}>
+      <Tabs 
+        defaultValue="all" 
+        value={activeTab} 
+        onValueChange={setActiveTab}
+        onClick={(e) => e.stopPropagation()}
+      >
         <TabsList className="w-full grid grid-cols-2 mb-4">
           <TabsTrigger value="all">
             {t("all_reviews")} ({totalReviews})
@@ -164,7 +190,7 @@ export function StoreReviews({ storeId }: StoreReviewsProps) {
               {/* 리뷰 목록 */}
               {reviews.map((review) => (
                 <Card key={review.id}>
-                  <CardContent className="p-4">
+                  <CardContent className="p-4" onClick={(e) => e.stopPropagation()}>
                     <div className="flex justify-between items-start mb-2">
                       <div className="flex items-center gap-2">
                         <Avatar className="h-8 w-8">
@@ -193,18 +219,40 @@ export function StoreReviews({ storeId }: StoreReviewsProps) {
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="text-gray-500 text-xs gap-1"
+                        className={`text-xs gap-1 ${
+                          review.isLikedByUser 
+                            ? "text-blue-600 hover:text-blue-700" 
+                            : "text-gray-500 hover:text-blue-600"
+                        }`}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          toggleLike(review.id);
+                        }}
+                        disabled={submitting}
+                        type="button"
                       >
-                        <ThumbsUp className="h-3 w-3" />
-                        {t("helpful")}
+                        <ThumbsUp 
+                          className={`h-3 w-3 ${
+                            review.isLikedByUser ? "fill-current" : ""
+                          }`} 
+                        />
+                        좋아요 {review.likeCount || 0}
                       </Button>
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="text-gray-500 text-xs gap-1"
+                        className="text-gray-500 hover:text-red-600 text-xs gap-1"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          handleReportClick(review.id);
+                        }}
+                        disabled={submitting}
+                        type="button"
                       >
                         <Flag className="h-3 w-3" />
-                        {t("report")}
+                        신고
                       </Button>
                     </div>
                   </CardContent>
@@ -305,6 +353,14 @@ export function StoreReviews({ storeId }: StoreReviewsProps) {
           )}
         </TabsContent>
       </Tabs>
+
+      {/* 신고 다이얼로그 */}
+      <ReviewReportDialog
+        open={reportDialogOpen}
+        onOpenChange={setReportDialogOpen}
+        onSubmit={handleReportSubmit}
+        submitting={submitting}
+      />
     </div>
   );
 }

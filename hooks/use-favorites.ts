@@ -44,15 +44,11 @@ export function useFavorites() {
       }
     } catch (error) {
       console.error('즐겨찾기 조회 오류:', error);
-      toast({
-        title: '오류',
-        description: '즐겨찾기 목록을 불러오는데 실패했습니다.',
-        variant: 'destructive',
-      });
+      // 토스트를 여기서 직접 호출하지 않고 에러만 로깅
     } finally {
       setLoading(false);
     }
-  }, [user, toast]);
+  }, [user]); // toast 의존성 제거
 
   // 즐겨찾기 추가
   const addToFavorites = useCallback(async (storeId: number) => {
@@ -83,8 +79,8 @@ export function useFavorites() {
           description: '즐겨찾기에 추가되었습니다.',
         });
         
-        // 즐겨찾기 목록 새로고침
-        await fetchFavorites();
+        // 즐겨찾기 목록 새로고침 (직접 호출)
+        fetchFavorites();
         return true;
       } else {
         const error = await response.json();
@@ -107,7 +103,7 @@ export function useFavorites() {
       });
       return false;
     }
-  }, [user, toast, fetchFavorites]);
+  }, [user, toast]); // fetchFavorites 의존성 제거
 
   // 즐겨찾기 제거
   const removeFromFavorites = useCallback(async (storeId: number) => {
@@ -131,8 +127,8 @@ export function useFavorites() {
           description: '즐겨찾기에서 제거되었습니다.',
         });
         
-        // 즐겨찾기 목록 새로고침
-        await fetchFavorites();
+        // 즐겨찾기 목록 새로고침 (직접 호출)
+        fetchFavorites();
         return true;
       } else {
         const error = await response.json();
@@ -151,7 +147,7 @@ export function useFavorites() {
       });
       return false;
     }
-  }, [user, toast, fetchFavorites]);
+  }, [user, toast]); // fetchFavorites 의존성 제거
 
   // 즐겨찾기 토글
   const toggleFavorite = useCallback(async (storeId: number) => {
@@ -178,7 +174,7 @@ export function useFavorites() {
       setFavorites([]);
       setFavoriteStoreIds(new Set());
     }
-  }, [user, fetchFavorites]);
+  }, [user]); // fetchFavorites 의존성 제거
 
   return {
     favorites,

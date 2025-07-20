@@ -14,6 +14,8 @@
   "favorites": "즐겨찾기",
   "login": "로그인",
   "logout": "로그아웃",
+  "update_review": "리뷰 수정",
+  "delete_review": "리뷰 삭제",
   "search_placeholder": "무엇을 찾고 계신가요?",
   "clear": "지우기",
   "search_keyword": "검색어",

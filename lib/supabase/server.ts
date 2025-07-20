@@ -5,11 +5,18 @@ import { Database } from "@/types/supabase";
 
 // 서버 컴포넌트에서 사용할 Supabase 클라이언트
 export const createServerSupabaseClient = async () => {
+  const supabaseUrl = process.env.SUPABASE_URL;
+  const supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
+  
+  if (!supabaseUrl || !supabaseAnonKey) {
+    throw new Error("Supabase server environment variables not configured");
+  }
+
   const cookieStore = cookies();
 
   return createServerClient<Database>(
-    process.env.SUPABASE_URL!,
-    process.env.SUPABASE_ANON_KEY!,
+    supabaseUrl,
+    supabaseAnonKey,
     {
       cookies: {
         async get(name: string) {
@@ -28,6 +35,13 @@ export const createServerSupabaseClient = async () => {
 
 // 라우트 핸들러에서 사용할 Supabase 클라이언트
 export const createRouteHandlerSupabaseClient = (request: NextRequest) => {
+  const supabaseUrl = process.env.SUPABASE_URL;
+  const supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
+  
+  if (!supabaseUrl || !supabaseAnonKey) {
+    throw new Error("Supabase server environment variables not configured");
+  }
+
   const requestHeaders = new Headers(request.headers);
   const response = NextResponse.next({
     request: {
@@ -36,8 +50,8 @@ export const createRouteHandlerSupabaseClient = (request: NextRequest) => {
   });
 
   return createServerClient<Database>(
-    process.env.SUPABASE_URL!,
-    process.env.SUPABASE_ANON_KEY!,
+    supabaseUrl,
+    supabaseAnonKey,
     {
       cookies: {
         get(name: string) {

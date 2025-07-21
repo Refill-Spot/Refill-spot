@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTranslation } from '@/hooks/use-translation';
 import { FormattedReview } from '@/types/store';
 import { logger } from '@/lib/logger';
 
@@ -19,6 +20,7 @@ export const useReviews = ({ storeId }: UseReviewsProps) => {
   const [submitting, setSubmitting] = useState(false);
   const { user } = useAuth();
   const { toast } = useToast();
+  const { t } = useTranslation();
 
   // 리뷰 목록 조회
   const fetchReviews = useCallback(async () => {
@@ -224,8 +226,8 @@ export const useReviews = ({ storeId }: UseReviewsProps) => {
   const toggleLike = useCallback(async (reviewId: number) => {
     if (!user) {
       toast({
-        title: '로그인이 필요합니다',
-        description: '좋아요를 누르려면 로그인하세요.',
+        title: t('login_required'),
+        description: t('login_required_like'),
         variant: 'destructive',
       });
       return false;
@@ -239,12 +241,12 @@ export const useReviews = ({ storeId }: UseReviewsProps) => {
       if (response.ok) {
         const data = await response.json();
         toast({
-          title: data.liked ? '좋아요!' : '좋아요 취소',
+          title: data.liked ? t('review_liked') : t('review_unliked'),
           description: data.message,
         });
         
         // 리뷰 목록 새로고침
-        await fetchReviews();
+        fetchReviews();
         return true;
       } else {
         const errorData = await response.json();
@@ -258,20 +260,20 @@ export const useReviews = ({ storeId }: UseReviewsProps) => {
     } catch (error) {
       logger.error('좋아요 처리 오류:', error);
       toast({
-        title: '네트워크 오류',
-        description: '네트워크 오류가 발생했습니다.',
+        title: t('network_error'),
+        description: t('network_error'),
         variant: 'destructive',
       });
       return false;
     }
-  }, [user, toast, fetchReviews]);
+  }, [user, toast, fetchReviews, t]);
 
   // 리뷰 신고
   const reportReview = useCallback(async (reviewId: number, reason: string, description?: string) => {
     if (!user) {
       toast({
-        title: '로그인이 필요합니다',
-        description: '신고하려면 로그인하세요.',
+        title: t('login_required'),
+        description: t('login_required_report'),
         variant: 'destructive',
       });
       return false;
@@ -289,7 +291,7 @@ export const useReviews = ({ storeId }: UseReviewsProps) => {
       if (response.ok) {
         const data = await response.json();
         toast({
-          title: '신고 완료',
+          title: t('review_reported'),
           description: data.message,
         });
         return true;
@@ -305,13 +307,13 @@ export const useReviews = ({ storeId }: UseReviewsProps) => {
     } catch (error) {
       logger.error('신고 처리 오류:', error);
       toast({
-        title: '네트워크 오류',
-        description: '네트워크 오류가 발생했습니다.',
+        title: t('network_error'),
+        description: t('network_error'),
         variant: 'destructive',
       });
       return false;
     }
-  }, [user, toast]);
+  }, [user, toast, t]);
 
   // 컴포넌트 마운트 시 리뷰 조회
   useEffect(() => {

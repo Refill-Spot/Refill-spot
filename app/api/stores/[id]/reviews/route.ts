@@ -47,7 +47,7 @@ export async function POST(
       );
     }
 
-    const { rating, content } = await request.json();
+    const { rating, content, imageUrls } = await request.json();
 
     // 유효성 검사
     if (!rating || rating < 1 || rating > 5) {
@@ -60,6 +60,14 @@ export async function POST(
     if (!content || content.trim().length === 0) {
       return NextResponse.json(
         { error: "리뷰 내용을 입력해주세요." },
+        { status: 400 },
+      );
+    }
+
+    // 이미지 URL 유효성 검사
+    if (imageUrls && (!Array.isArray(imageUrls) || imageUrls.length > 5)) {
+      return NextResponse.json(
+        { error: "이미지는 최대 5개까지 첨부할 수 있습니다." },
         { status: 400 },
       );
     }
@@ -118,6 +126,7 @@ export async function POST(
         .update({
           rating,
           content,
+          image_urls: imageUrls || [],
           updated_at: new Date().toISOString(),
         })
         .eq("id", existingReview.id)
@@ -156,6 +165,7 @@ export async function POST(
           store_id: storeId,
           rating,
           content,
+          image_urls: imageUrls || [],
         })
         .select(
           `
@@ -268,6 +278,7 @@ export async function GET(
       createdAt: review.created_at,
       updatedAt: review.updated_at,
       userId: review.user_id,
+      imageUrls: review.image_urls || [],
       likeCount: likeCountMap.get(review.id) || 0,
       isLikedByUser: userLikedSet.has(review.id),
       user: {

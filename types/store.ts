@@ -63,6 +63,7 @@ export interface FormattedReview {
   rating: number;
   content: string;
   createdAt: string; // ISO 8601 날짜 문자열
+  imageUrls?: string[]; // 리뷰 이미지 URL 배열
   likeCount?: number; // 좋아요 수
   isLikedByUser?: boolean; // 현재 사용자가 좋아요했는지 여부
   user: {

@@ -111,5 +111,17 @@
   "search_empty_query": "검색어를 입력해주세요.",
   "search_error_description": "검색 처리 중 오류가 발생했습니다.",
   "filter_error": "필터 오류",
-  "filter_error_description": "필터 적용 중 오류가 발생했습니다."
+  "filter_error_description": "필터 적용 중 오류가 발생했습니다.",
+  "like_review": "좋아요",
+  "unlike_review": "좋아요 취소",
+  "report_review": "신고",
+  "review_liked": "좋아요!",
+  "review_unliked": "좋아요 취소",
+  "review_reported": "신고 완료",
+  "review_report_success": "신고가 접수되었습니다. 검토 후 조치하겠습니다.",
+  "login_required_like": "좋아요를 누르려면 로그인하세요.",
+  "login_required_report": "신고하려면 로그인하세요.",
+  "like_error": "좋아요 처리 중 오류가 발생했습니다.",
+  "report_error": "신고 처리 중 오류가 발생했습니다.",
+  "network_error": "네트워크 오류가 발생했습니다."
 }

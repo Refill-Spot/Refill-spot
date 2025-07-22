@@ -4,6 +4,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { useTranslation } from "@/hooks/use-translation";
 import { authLogger } from "@/lib/logger";
 import { supabaseBrowser } from "@/lib/supabase/client";
+import { getSafeReturnUrl } from "@/lib/utils";
 import { AuthError, User } from "@supabase/supabase-js";
 import { useRouter } from "next/navigation";
 import {
@@ -284,25 +285,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             user.app_metadata?.provider &&
             user.app_metadata.provider !== "email";
 
-          // 소셜 로그인의 경우 프로필 처리 중임을 알림
-          if (isOAuthLogin) {
+          // 리다이렉트 처리 - OAuth 로그인만 여기서 처리
+          const currentPath = window.location.pathname;
+          
+          if (isOAuthLogin && (currentPath === "/login" || currentPath === "/onboarding")) {
+            // OAuth 로그인의 경우 프로필 처리 중임을 알림
             toast({
               title: "로그인 성공",
               description: "프로필을 설정하고 있습니다...",
             });
-          } else {
-            toast({
-              title: "로그인 성공",
-              description: "환영합니다!",
-            });
+            
+            // OAuth 콜백에서 온 경우 returnUrl 확인
+            const urlParams = new URLSearchParams(window.location.search);
+            const returnUrl = urlParams.get('returnUrl');
+            const safeReturnUrl = getSafeReturnUrl(returnUrl, '/');
+            
+            authLogger.debug("OAuth 로그인 후 리다이렉트", { returnUrl, safeReturnUrl });
+            
+            // 약간의 지연 후 리다이렉트 (프로필 설정 완료 기다림)
+            setTimeout(() => {
+              router.push(safeReturnUrl);
+            }, 1000);
+          } else if (!isOAuthLogin) {
+            // 일반 로그인의 경우 토스트만 표시, 리다이렉트는 로그인 페이지에서 처리
+            console.log('🔄 일반 로그인 - AuthContext에서 리다이렉트 건너뛰기');
           }
-
-          // 로그인 페이지나 온보딩 페이지에서 로그인한 경우 메인으로 리다이렉트
-          const currentPath = window.location.pathname;
-          if (currentPath === "/login" || currentPath === "/onboarding") {
-            router.push("/");
-          }
-          // 다른 페이지에서는 현재 페이지에서 상태만 업데이트
         }
 
         // 로그아웃 시 상태 초기화 처리
@@ -375,10 +382,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // 구글 로그인
   const signInWithGoogle = async () => {
     try {
+      // 현재 페이지의 returnUrl 파라미터를 콜백에 전달
+      const urlParams = new URLSearchParams(window.location.search);
+      const returnUrl = urlParams.get('returnUrl');
+      
+      let redirectTo = `${window.location.origin}/auth/callback`;
+      if (returnUrl) {
+        redirectTo += `?returnUrl=${encodeURIComponent(returnUrl)}`;
+      }
+
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
+          redirectTo,
         },
       });
 
@@ -403,10 +419,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // 카카오 로그인
   const signInWithKakao = async () => {
     try {
+      // 현재 페이지의 returnUrl 파라미터를 콜백에 전달
+      const urlParams = new URLSearchParams(window.location.search);
+      const returnUrl = urlParams.get('returnUrl');
+      
+      let redirectTo = `${window.location.origin}/auth/callback`;
+      if (returnUrl) {
+        redirectTo += `?returnUrl=${encodeURIComponent(returnUrl)}`;
+      }
+
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "kakao",
         options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
+          redirectTo,
         },
       });
 

@@ -13,7 +13,7 @@ import { ReviewReportDialog } from "@/components/review-report-dialog";
 import { FormattedReview } from "@/types/store";
 import { formatDistanceToNow } from "date-fns";
 import { enUS, ko } from "date-fns/locale";
-import { Flag, Star, ThumbsUp, Upload, X, Image as ImageIcon, Filter, ChevronDown, Heart, MessageCircle, Share2, Sparkles, TrendingUp, Calendar, Award, Users } from "lucide-react";
+import { Flag, Star, ThumbsUp, Upload, X, Image as ImageIcon, Filter, ChevronDown, Heart, MessageCircle, Share2, Sparkles, TrendingUp, Calendar, Award, Users, Trash2, Shield } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState, useRef } from "react";
 import { Input } from "@/components/ui/input";
@@ -56,7 +56,7 @@ export function StoreReviews({ storeId }: StoreReviewsProps) {
     myReview,
     averageRating,
     totalReviews,
-    actions: { submitReview, updateReview, deleteReview, toggleLike, reportReview }
+    actions: { submitReview, updateReview, deleteReview, toggleLike, reportReview, fetchReviews }
   } = useReviews({ storeId });
 
   // 필터링된 리뷰 계산
@@ -237,6 +237,45 @@ export function StoreReviews({ storeId }: StoreReviewsProps) {
       setSelectedImages([]);
       setImagePreviewUrls([]);
       setActiveTab("all");
+    }
+  };
+
+  // 관리자용 리뷰 삭제 핸들러
+  const handleAdminDeleteReview = async (reviewId: number) => {
+    if (!user || !profile?.is_admin) {
+      toast({
+        title: "권한 없음",
+        description: "관리자 권한이 필요합니다.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/admin/reviews/${reviewId}`, {
+        method: 'DELETE'
+      });
+
+      const data = await response.json();
+
+      if (!data.success) {
+        throw new Error(data.error || '리뷰 삭제에 실패했습니다.');
+      }
+
+      toast({
+        title: "리뷰 삭제 완료",
+        description: "리뷰가 성공적으로 삭제되었습니다.",
+      });
+
+      // 리뷰 목록 새로고침
+      await fetchReviews();
+    } catch (error) {
+      console.error('관리자 리뷰 삭제 오류:', error);
+      toast({
+        title: "삭제 실패",
+        description: error instanceof Error ? error.message : '리뷰 삭제 중 오류가 발생했습니다.',
+        variant: "destructive",
+      });
     }
   };
 
@@ -902,6 +941,29 @@ export function StoreReviews({ storeId }: StoreReviewsProps) {
                               <Flag className="h-4 w-4" />
                               <span>신고</span>
                             </button>
+
+                            {/* 관리자 삭제 버튼 */}
+                            {profile?.is_admin && (
+                              <button
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  
+                                  const confirmed = window.confirm(
+                                    `관리자 권한으로 이 리뷰를 삭제하시겠습니까?\n\n작성자: ${review.user.username}\n평점: ${review.rating}점\n내용: ${review.content?.substring(0, 100)}${review.content && review.content.length > 100 ? '...' : ''}\n\n이 작업은 되돌릴 수 없습니다.`
+                                  );
+                                  
+                                  if (confirmed) {
+                                    handleAdminDeleteReview(review.id);
+                                  }
+                                }}
+                                className="flex items-center gap-2 px-4 py-2 bg-red-100 text-red-600 rounded-xl font-medium hover:bg-red-200 hover:text-red-700 transition-all duration-200 border border-red-200"
+                              >
+                                <Shield className="h-4 w-4" />
+                                <Trash2 className="h-4 w-4" />
+                                <span>관리자 삭제</span>
+                              </button>
+                            )}
                           </div>
                           
                         </div>

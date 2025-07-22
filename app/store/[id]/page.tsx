@@ -400,7 +400,10 @@ return;
                 </DropdownMenu>
               ) : (
                 <Button
-                  onClick={() => router.push("/login")}
+                  onClick={() => {
+                    const currentUrl = window.location.pathname + window.location.search;
+                    router.push(`/login?returnUrl=${encodeURIComponent(currentUrl)}`);
+                  }}
                   variant="outline"
                   size="sm"
                 >
@@ -960,7 +963,10 @@ return [];
                 ) : (
                   <li>
                     <button
-                      onClick={() => router.push("/login")}
+                      onClick={() => {
+                        const currentUrl = window.location.pathname + window.location.search;
+                        router.push(`/login?returnUrl=${encodeURIComponent(currentUrl)}`);
+                      }}
                       className="hover:text-[#FF5722] transition-colors"
                     >
                       로그인 / 회원가입

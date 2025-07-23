@@ -3,7 +3,6 @@
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
@@ -23,9 +22,11 @@ import Image from "next/image";
 
 interface StoreReviewsProps {
   storeId: number;
+  showWriteForm?: boolean;
+  onShowWriteFormChange?: (show: boolean) => void;
 }
 
-export function StoreReviews({ storeId }: StoreReviewsProps) {
+export function StoreReviews({ storeId, showWriteForm: externalShowWriteForm, onShowWriteFormChange }: StoreReviewsProps) {
   const { user, profile } = useAuth();
   const { toast } = useToast();
   const { t, locale } = useTranslation();
@@ -38,7 +39,17 @@ export function StoreReviews({ storeId }: StoreReviewsProps) {
   const [imagePreviewUrls, setImagePreviewUrls] = useState<string[]>([]);
   const [uploadingImages, setUploadingImages] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [activeTab, setActiveTab] = useState("all");
+  const [internalShowWriteForm, setInternalShowWriteForm] = useState(false);
+  
+  // 외부에서 제어하는 경우와 내부에서 제어하는 경우를 모두 지원
+  const showWriteForm = externalShowWriteForm !== undefined ? externalShowWriteForm : internalShowWriteForm;
+  const setShowWriteForm = (show: boolean) => {
+    if (onShowWriteFormChange) {
+      onShowWriteFormChange(show);
+    } else {
+      setInternalShowWriteForm(show);
+    }
+  };
   const [reportDialogOpen, setReportDialogOpen] = useState(false);
   const [reportingReviewId, setReportingReviewId] = useState<number | null>(null);
   
@@ -216,8 +227,8 @@ export function StoreReviews({ storeId }: StoreReviewsProps) {
         setUserReview({ rating: 0, content: "", imageUrls: [] });
         setSelectedImages([]);
         setImagePreviewUrls([]);
-        // 새 리뷰 작성 후 리뷰 보기 탭으로 이동
-        setActiveTab("all");
+        // 새 리뷰 작성 후 폼 닫기
+        setShowWriteForm(false);
       } else {
         // 기존 리뷰 수정의 경우 선택된 이미지만 초기화
         setSelectedImages([]);
@@ -236,7 +247,7 @@ export function StoreReviews({ storeId }: StoreReviewsProps) {
       setUserReview({ rating: 0, content: "", imageUrls: [] });
       setSelectedImages([]);
       setImagePreviewUrls([]);
-      setActiveTab("all");
+      setShowWriteForm(false);
     }
   };
 
@@ -424,22 +435,182 @@ export function StoreReviews({ storeId }: StoreReviewsProps) {
 
   return (
     <div className="mt-8">
-      <h3 className="text-xl font-bold mb-4">{t("reviews")}</h3>
+      <div className="flex items-center justify-between mb-6">
+        <h3 className="text-xl font-bold">{t("reviews")} ({totalReviews})</h3>
+        {/* 외부에서 제어하지 않는 경우에만 버튼 표시 */}
+        {externalShowWriteForm === undefined && (
+          <Button
+            onClick={() => setShowWriteForm(!showWriteForm)}
+            className={`bg-[#FF5722] hover:bg-[#E64A19] transition-all duration-200 ${showWriteForm ? 'bg-gray-500 hover:bg-gray-600' : ''}`}
+          >
+            {showWriteForm ? '작성 취소' : t("write_review")}
+          </Button>
+        )}
+      </div>
 
-      <Tabs 
-        defaultValue="all" 
-        value={activeTab} 
-        onValueChange={setActiveTab}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <TabsList className="w-full grid grid-cols-2 mb-4">
-          <TabsTrigger value="all">
-            {t("all_reviews")} ({totalReviews})
-          </TabsTrigger>
-          <TabsTrigger value="write">{t("write_review")}</TabsTrigger>
-        </TabsList>
+      {/* 리뷰 작성 폼 */}
+      {showWriteForm && (
+        <div className="mb-8 bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
+          {user ? (
+            <form onSubmit={handleSubmitReview} className="space-y-4">
+              <div className="bg-gray-50 rounded-xl p-4">
+                <label className="block mb-3 font-semibold text-gray-900">{t("rating")}</label>
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="flex gap-1">
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <button
+                        key={star}
+                        type="button"
+                        onClick={() =>
+                          setUserReview({ ...userReview, rating: star })
+                        }
+                        className="focus:outline-none hover:scale-110 transition-transform duration-200"
+                        aria-label={`${star} ${t("stars")}`}
+                      >
+                        <Star
+                          className={`h-8 w-8 ${
+                            star <= userReview.rating
+                              ? "fill-yellow-400 text-yellow-400"
+                              : "fill-gray-200 text-gray-200 hover:fill-yellow-200 hover:text-yellow-200"
+                          } transition-colors duration-200`}
+                        />
+                      </button>
+                    ))}
+                  </div>
+                  {userReview.rating > 0 && (
+                    <div className="flex items-center gap-2">
+                      <span className={`text-lg font-bold ${getRatingColor(userReview.rating)}`}>
+                        {userReview.rating}.0
+                      </span>
+                      <span className="text-sm text-gray-600">
+                        ({userReview.rating >= 4.5 ? "우수" : 
+                          userReview.rating >= 3.5 ? "만족" :
+                          userReview.rating >= 2.5 ? "보통" : "아쉬움"})
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
 
-        <TabsContent value="all">
+              <div>
+                <label className="block mb-2 font-medium">
+                  {t("review_content")}
+                </label>
+                <Textarea
+                  className="w-full p-3 border rounded-md focus:ring-2 focus:ring-[#FF5722] focus:border-transparent min-h-[150px]"
+                  placeholder={t("review_placeholder")}
+                  value={userReview.content}
+                  onChange={(e) =>
+                    setUserReview({
+                      ...userReview,
+                      content: e.target.value,
+                    })
+                  }
+                  required
+                ></Textarea>
+              </div>
+
+              {/* 이미지 업로드 섹션 */}
+              <div>
+                <label className="block mb-2 font-medium flex items-center gap-2">
+                  <ImageIcon className="h-4 w-4" />
+                  이미지 첨부 (선택사항)
+                </label>
+                
+                {/* 이미지 미리보기 */}
+                {imagePreviewUrls.length > 0 && (
+                  <div className="mb-4">
+                    <div className="flex flex-wrap gap-2">
+                      {imagePreviewUrls.map((url, index) => (
+                        <div key={index} className="relative group">
+                          <Image
+                            src={url}
+                            alt={`미리보기 ${index + 1}`}
+                            width={80}
+                            height={80}
+                            className="object-cover rounded-lg border border-gray-200"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handleImageRemove(index)}
+                            className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                            aria-label="이미지 제거"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                
+                {/* 이미지 선택 버튼 */}
+                {(userReview.imageUrls.length + selectedImages.length) < 5 && (
+                  <div className="mb-4">
+                    <Input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/jpeg,image/jpg,image/png,image/webp"
+                      multiple
+                      onChange={handleImageSelect}
+                      className="hidden"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={uploadingImages}
+                      className="w-full border-dashed border-2 hover:border-[#FF5722] hover:bg-orange-50"
+                    >
+                      <Upload className="h-4 w-4 mr-2" />
+                      {uploadingImages ? '업로드 중...' : '이미지 선택 (최대 5개)'}
+                    </Button>
+                    <p className="text-xs text-gray-500 mt-1">
+                      JPG, PNG, WebP 형식, 각 5MB 이하
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex gap-2">
+                <Button
+                  type="submit"
+                  className="flex-1 bg-[#FF5722] hover:bg-[#E64A19]"
+                  disabled={submitting || uploadingImages}
+                >
+                  {submitting || uploadingImages ? 
+                    (uploadingImages ? '이미지 업로드 중...' : t("processing")) : 
+                    (myReview ? t("update_review") : t("submit_review"))
+                  }
+                </Button>
+                {myReview && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleDeleteReview}
+                    disabled={submitting || uploadingImages}
+                    className="text-red-600 hover:text-red-700"
+                  >
+                    {t("delete_review")}
+                  </Button>
+                )}
+              </div>
+            </form>
+          ) : (
+            <div className="text-center py-8 bg-gray-50 rounded-lg">
+              <p className="text-gray-500 mb-4">
+                {t("login_required_for_review")}
+              </p>
+              <Link href="/login">
+                <Button variant="outline">{t("go_to_login")}</Button>
+              </Link>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 리뷰 목록 */}
+      <div>
           {/* 필터 컨트롤 - 애플 스타일 */}
           <div className="mb-8">
             {/* 필터 헤더 */}
@@ -1005,7 +1176,7 @@ export function StoreReviews({ storeId }: StoreReviewsProps) {
                   <Button
                     variant="outline"
                     className="mt-4"
-                    onClick={() => setActiveTab("write")}
+                    onClick={() => setShowWriteForm(true)}
                   >
                     {t("write_first_review")}
                   </Button>
@@ -1013,166 +1184,7 @@ export function StoreReviews({ storeId }: StoreReviewsProps) {
               )}
             </div>
           )}
-        </TabsContent>
-
-        <TabsContent value="write">
-          {user ? (
-            <form onSubmit={handleSubmitReview} className="space-y-4">
-              <div className="bg-gray-50 rounded-xl p-4">
-                <label className="block mb-3 font-semibold text-gray-900">{t("rating")}</label>
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="flex gap-1">
-                    {[1, 2, 3, 4, 5].map((star) => (
-                      <button
-                        key={star}
-                        type="button"
-                        onClick={() =>
-                          setUserReview({ ...userReview, rating: star })
-                        }
-                        className="focus:outline-none hover:scale-110 transition-transform duration-200"
-                        aria-label={`${star} ${t("stars")}`}
-                      >
-                        <Star
-                          className={`h-8 w-8 ${
-                            star <= userReview.rating
-                              ? "fill-yellow-400 text-yellow-400"
-                              : "fill-gray-200 text-gray-200 hover:fill-yellow-200 hover:text-yellow-200"
-                          } transition-colors duration-200`}
-                        />
-                      </button>
-                    ))}
-                  </div>
-                  {userReview.rating > 0 && (
-                    <div className="flex items-center gap-2">
-                      <span className={`text-lg font-bold ${getRatingColor(userReview.rating)}`}>
-                        {userReview.rating}.0
-                      </span>
-                      <span className="text-sm text-gray-600">
-                        ({userReview.rating >= 4.5 ? "우수" : 
-                          userReview.rating >= 3.5 ? "만족" :
-                          userReview.rating >= 2.5 ? "보통" : "아쉬움"})
-                      </span>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div>
-                <label className="block mb-2 font-medium">
-                  {t("review_content")}
-                </label>
-                <Textarea
-                  className="w-full p-3 border rounded-md focus:ring-2 focus:ring-[#FF5722] focus:border-transparent min-h-[150px]"
-                  placeholder={t("review_placeholder")}
-                  value={userReview.content}
-                  onChange={(e) =>
-                    setUserReview({
-                      ...userReview,
-                      content: e.target.value,
-                    })
-                  }
-                  required
-                ></Textarea>
-              </div>
-
-              {/* 이미지 업로드 섹션 */}
-              <div>
-                <label className="block mb-2 font-medium flex items-center gap-2">
-                  <ImageIcon className="h-4 w-4" />
-                  이미지 첨부 (선택사항)
-                </label>
-                
-                {/* 이미지 미리보기 */}
-                {imagePreviewUrls.length > 0 && (
-                  <div className="mb-4">
-                    <div className="flex flex-wrap gap-2">
-                      {imagePreviewUrls.map((url, index) => (
-                        <div key={index} className="relative group">
-                          <Image
-                            src={url}
-                            alt={`미리보기 ${index + 1}`}
-                            width={80}
-                            height={80}
-                            className="object-cover rounded-lg border border-gray-200"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => handleImageRemove(index)}
-                            className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                            aria-label="이미지 제거"
-                          >
-                            <X className="h-3 w-3" />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                
-                {/* 이미지 선택 버튼 */}
-                {(userReview.imageUrls.length + selectedImages.length) < 5 && (
-                  <div className="mb-4">
-                    <Input
-                      ref={fileInputRef}
-                      type="file"
-                      accept="image/jpeg,image/jpg,image/png,image/webp"
-                      multiple
-                      onChange={handleImageSelect}
-                      className="hidden"
-                    />
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => fileInputRef.current?.click()}
-                      disabled={uploadingImages}
-                      className="w-full border-dashed border-2 hover:border-[#FF5722] hover:bg-orange-50"
-                    >
-                      <Upload className="h-4 w-4 mr-2" />
-                      {uploadingImages ? '업로드 중...' : '이미지 선택 (최대 5개)'}
-                    </Button>
-                    <p className="text-xs text-gray-500 mt-1">
-                      JPG, PNG, WebP 형식, 각 5MB 이하
-                    </p>
-                  </div>
-                )}
-              </div>
-
-              <div className="flex gap-2">
-                <Button
-                  type="submit"
-                  className="flex-1 bg-[#FF5722] hover:bg-[#E64A19]"
-                  disabled={submitting || uploadingImages}
-                >
-                  {submitting || uploadingImages ? 
-                    (uploadingImages ? '이미지 업로드 중...' : t("processing")) : 
-                    (myReview ? t("update_review") : t("submit_review"))
-                  }
-                </Button>
-                {myReview && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={handleDeleteReview}
-                    disabled={submitting || uploadingImages}
-                    className="text-red-600 hover:text-red-700"
-                  >
-                    {t("delete_review")}
-                  </Button>
-                )}
-              </div>
-            </form>
-          ) : (
-            <div className="text-center py-8 bg-gray-50 rounded-lg">
-              <p className="text-gray-500 mb-4">
-                {t("login_required_for_review")}
-              </p>
-              <Link href="/login">
-                <Button variant="outline">{t("go_to_login")}</Button>
-              </Link>
-            </div>
-          )}
-        </TabsContent>
-      </Tabs>
+      </div>
 
       {/* 신고 다이얼로그 */}
       <ReviewReportDialog

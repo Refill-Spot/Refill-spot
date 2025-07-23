@@ -13,6 +13,7 @@ import {
 import { useToast } from "@/components/ui/use-toast";
 import { SearchInput } from "@/components/header/search-input";
 import { StoreReviews } from "@/components/store-reviews";
+import { ReviewWriteDialog } from "@/components/review-write-dialog";
 import { getUserLocation, isLocationValid } from "@/lib/location-storage";
 import { Store } from "@/types/store";
 import { MenuItem } from "@/types/menu";
@@ -48,6 +49,8 @@ export default function StorePage() {
   const [store, setStore] = useState<Store | null>(null);
   const [loading, setLoading] = useState(true);
   const [showAllHours, setShowAllHours] = useState(false);
+  const [showReviewDialog, setShowReviewDialog] = useState(false);
+  const [refreshReviews, setRefreshReviews] = useState(0);
   const [showAllMenus, setShowAllMenus] = useState(false);
 
   useEffect(() => {
@@ -484,6 +487,15 @@ return;
                 <Share className="w-4 h-4 mr-1" />
                 공유
               </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                className="bg-white/90 text-gray-700 hover:bg-white"
+                onClick={() => setShowReviewDialog(true)}
+              >
+                <Star className="w-4 h-4 mr-1" />
+                리뷰 작성
+              </Button>
             </div>
             
             {/* 하단 가게 정보 오버레이 */}
@@ -864,7 +876,12 @@ return [];
 
           {/* 리뷰 섹션 */}
           <div className="max-w-4xl mx-auto px-4">
-            <StoreReviews storeId={store.id} />
+            <div id="reviews-section">
+              <StoreReviews 
+                storeId={store.id} 
+                key={refreshReviews}
+              />
+            </div>
           </div>
         </div>
       </div>
@@ -1013,6 +1030,19 @@ return [];
           </div>
         </div>
       </footer>
+
+      {/* 리뷰 작성 다이얼로그 */}
+      {store && (
+        <ReviewWriteDialog
+          open={showReviewDialog}
+          onOpenChange={setShowReviewDialog}
+          storeId={store.id}
+          storeName={store.name}
+          onReviewSubmitted={() => {
+            setRefreshReviews(prev => prev + 1);
+          }}
+        />
+      )}
     </div>
   );
 }

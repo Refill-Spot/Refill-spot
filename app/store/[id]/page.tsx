@@ -878,7 +878,8 @@ return [];
           <div className="max-w-4xl mx-auto px-4">
             <div id="reviews-section">
               <StoreReviews 
-                storeId={store.id} 
+                storeId={store.id}
+                storeName={store.name}
                 key={refreshReviews}
               />
             </div>

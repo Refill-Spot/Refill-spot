@@ -221,46 +221,12 @@ export function ReviewWriteDialog({
     }
   };
 
-  // 슬라이더 값 변경 함수
-  const handleSliderChange = (type: 'taste' | 'price' | 'service', value: number[]) => {
+  // 세부 평점 변경 함수 (3가지 선택)
+  const handleDetailedRatingChange = (type: 'taste' | 'price' | 'service', value: number) => {
     setDetailedRatings(prev => ({
       ...prev,
-      [type]: value[0]
+      [type]: value
     }));
-  };
-
-  // 슬라이더 라벨 함수
-  const getSliderLabel = (value: number) => {
-    switch (value) {
-      case 1: return "맛없음";
-      case 2: return "보통";
-      case 3: return "보통";
-      case 4: return "맛있음";
-      case 5: return "맛있음";
-      default: return "보통";
-    }
-  };
-
-  const getPriceLabel = (value: number) => {
-    switch (value) {
-      case 1: return "가격불만";
-      case 2: return "보통";
-      case 3: return "보통";
-      case 4: return "가격만족";
-      case 5: return "가격만족";
-      default: return "보통";
-    }
-  };
-
-  const getServiceLabel = (value: number) => {
-    switch (value) {
-      case 1: return "불친절";
-      case 2: return "보통";
-      case 3: return "보통";
-      case 4: return "친절함";
-      case 5: return "친절함";
-      default: return "보통";
-    }
   };
 
   // 메뉴 토글 함수
@@ -671,79 +637,76 @@ export function ReviewWriteDialog({
             <div className="space-y-6">
               {/* 맛 */}
               <div>
-                <div className="flex justify-between items-center mb-2">
-                  <label className="font-medium">맛</label>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-gray-600">{getSliderLabel(detailedRatings.taste)}</span>
-                    <Button variant="ghost" size="sm" className="text-gray-400 hover:text-gray-600">
-                      평가없음
-                    </Button>
-                  </div>
-                </div>
-                <Slider
-                  value={[detailedRatings.taste]}
-                  onValueChange={(value) => handleSliderChange('taste', value)}
-                  max={5}
-                  min={1}
-                  step={1}
-                  className="w-full"
-                />
-                <div className="flex justify-between text-xs text-gray-500 mt-1">
-                  <span>맛없음</span>
-                  <span>보통</span>
-                  <span>맛있음</span>
+                <label className="font-medium mb-3 block">맛</label>
+                <div className="flex gap-2">
+                  {[
+                    { value: 2, label: '부족' },
+                    { value: 3, label: '보통' },
+                    { value: 4, label: '좋음' }
+                  ].map((option) => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => handleDetailedRatingChange('taste', option.value)}
+                      className={`flex-1 py-2 px-3 rounded-lg border text-sm font-medium transition-colors ${
+                        detailedRatings.taste === option.value
+                          ? 'bg-orange-50 border-[#FF5722] text-[#FF5722]'
+                          : 'bg-white border-gray-300 text-gray-700 hover:border-gray-400'
+                      }`}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
                 </div>
               </div>
 
               {/* 가격 */}
               <div>
-                <div className="flex justify-between items-center mb-2">
-                  <label className="font-medium">가격</label>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-gray-600">{getPriceLabel(detailedRatings.price)}</span>
-                    <Button variant="ghost" size="sm" className="text-gray-400 hover:text-gray-600">
-                      평가없음
-                    </Button>
-                  </div>
-                </div>
-                <Slider
-                  value={[detailedRatings.price]}
-                  onValueChange={(value) => handleSliderChange('price', value)}
-                  max={5}
-                  min={1}
-                  step={1}
-                  className="w-full"
-                />
-                <div className="flex justify-between text-xs text-gray-500 mt-1">
-                  <span>가격불만</span>
-                  <span>보통</span>
-                  <span>가격만족</span>
+                <label className="font-medium mb-3 block">가격</label>
+                <div className="flex gap-2">
+                  {[
+                    { value: 2, label: '불만' },
+                    { value: 3, label: '보통' },
+                    { value: 4, label: '만족' }
+                  ].map((option) => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => handleDetailedRatingChange('price', option.value)}
+                      className={`flex-1 py-2 px-3 rounded-lg border text-sm font-medium transition-colors ${
+                        detailedRatings.price === option.value
+                          ? 'bg-orange-50 border-[#FF5722] text-[#FF5722]'
+                          : 'bg-white border-gray-300 text-gray-700 hover:border-gray-400'
+                      }`}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
                 </div>
               </div>
 
               {/* 응대 */}
               <div>
-                <div className="flex justify-between items-center mb-2">
-                  <label className="font-medium">응대</label>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-gray-600">{getServiceLabel(detailedRatings.service)}</span>
-                    <Button variant="ghost" size="sm" className="text-gray-400 hover:text-gray-600">
-                      평가없음
-                    </Button>
-                  </div>
-                </div>
-                <Slider
-                  value={[detailedRatings.service]}
-                  onValueChange={(value) => handleSliderChange('service', value)}
-                  max={5}
-                  min={1}
-                  step={1}
-                  className="w-full"
-                />
-                <div className="flex justify-between text-xs text-gray-500 mt-1">
-                  <span>불친절</span>
-                  <span>보통</span>
-                  <span>친절함</span>
+                <label className="font-medium mb-3 block">응대</label>
+                <div className="flex gap-2">
+                  {[
+                    { value: 2, label: '불친절' },
+                    { value: 3, label: '보통' },
+                    { value: 4, label: '친절함' }
+                  ].map((option) => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => handleDetailedRatingChange('service', option.value)}
+                      className={`flex-1 py-2 px-3 rounded-lg border text-sm font-medium transition-colors ${
+                        detailedRatings.service === option.value
+                          ? 'bg-orange-50 border-[#FF5722] text-[#FF5722]'
+                          : 'bg-white border-gray-300 text-gray-700 hover:border-gray-400'
+                      }`}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
                 </div>
               </div>
             </div>

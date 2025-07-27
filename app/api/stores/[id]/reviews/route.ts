@@ -289,6 +289,10 @@ export async function GET(
       updatedAt: review.updated_at,
       userId: review.user_id,
       imageUrls: review.image_urls || [],
+      keywords: review.keywords || [],
+      atmosphere: review.atmosphere || [],
+      detailedRatings: review.detailed_ratings || {},
+      menus: review.menus || [],
       likeCount: likeCountMap.get(review.id) || 0,
       isLikedByUser: userLikedSet.has(review.id),
       user: {

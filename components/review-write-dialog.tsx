@@ -13,10 +13,15 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTranslation } from "@/hooks/use-translation";
-import { Star, Upload, X, ImageIcon } from "lucide-react";
+import { Star, Upload, X, ImageIcon, Plus, Minus } from "lucide-react";
 import Image from "next/image";
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
+import { Badge } from "@/components/ui/badge";
+import { Slider } from "@/components/ui/slider";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 
 interface ReviewWriteDialogProps {
   open: boolean;
@@ -52,8 +57,48 @@ export function ReviewWriteDialog({
   });
   const [selectedImages, setSelectedImages] = useState<File[]>([]);
   const [imagePreviewUrls, setImagePreviewUrls] = useState<string[]>([]);
+  const [selectedMenuImages, setSelectedMenuImages] = useState<File[]>([]);
+  const [menuImagePreviewUrls, setMenuImagePreviewUrls] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [uploadingImages, setUploadingImages] = useState(false);
+  
+  // 새로운 상태 추가
+  const [selectedKeywords, setSelectedKeywords] = useState<string[]>([]);
+  const [selectedAtmosphere, setSelectedAtmosphere] = useState<string[]>([]);
+  const [detailedRatings, setDetailedRatings] = useState({
+    taste: 3,
+    price: 3,
+    service: 3,
+  });
+  const [selectedMenus, setSelectedMenus] = useState<string[]>([]);
+  const [customMenu, setCustomMenu] = useState<string>("");
+  const [storeMenus, setStoreMenus] = useState<string[]>([]);
+  const [customMenuList, setCustomMenuList] = useState<string[]>([]);
+
+  // 키워드 및 메뉴 옵션
+  const restaurantKeywords = [
+    "무료주차", "발렛주차", "주차불가", "개별룸", "대형룸", "24시간영업",
+    "야외좌석(테라스)", "놀이방", "애완동물동반", "콜키지무료", "해당없음"
+  ];
+
+  const atmosphereKeywords = [
+    "배달", "아이동반", "다이어트식단", "실버푸드", "아침식사", "점심식사",
+    "저녁식사", "식사모임", "술모임", "차모임", "혼카페", "혼밥", "혼술",
+    "점대", "회식", "데이트", "기념일", "가족외식", "간식"
+  ];
+
+  const atmosphereDescriptions = [
+    "숨은맛집", "서민적인", "캐주얼한", "고급스러운", "격식있는", "가성비좋은",
+    "푸짐한", "조용한", "시끌벅적한", "예쁜", "깔끔한", "이국적/이색적",
+    "경관/야경이좋은", "지역주민이찾는", "핫플레이스"
+  ];
+
+  const menuOptions = [
+    "바지락칼국수",
+    "양푼보리밥",
+    "영양밥",
+    "해물파전"
+  ];
 
   // 기존 리뷰가 있으면 초기값 설정
   useEffect(() => {
@@ -80,8 +125,179 @@ export function ReviewWriteDialog({
       setReview({ rating: 0, content: "", imageUrls: [] });
       setSelectedImages([]);
       setImagePreviewUrls([]);
+      setSelectedMenuImages([]);
+      setMenuImagePreviewUrls([]);
+      setSelectedKeywords([]);
+      setSelectedAtmosphere([]);
+      setDetailedRatings({ taste: 3, price: 3, service: 3 });
+      setSelectedMenus([]);
+      setCustomMenu("");
+      setCustomMenuList([]);
     }
   }, [open]);
+
+  // 가게 메뉴 정보 불러오기
+  useEffect(() => {
+    const fetchStoreMenus = async () => {
+      if (storeId) {
+        try {
+          const response = await fetch(`/api/stores/${storeId}`);
+          if (response.ok) {
+            const data = await response.json();
+            console.log('=== Store API Response Debug ===');
+            console.log('API Success:', data.success);
+            console.log('Store data exists:', !!data.data);
+            console.log('refillItems:', data.data?.refillItems);
+            console.log('refillItems count:', data.data?.refillItems?.length || 0);
+            
+            if (data.success && data.data) {
+              // refillItems를 메뉴로 사용
+              let menus = [];
+              const refillItems = data.data.refillItems;
+              
+              if (refillItems && Array.isArray(refillItems)) {
+                console.log('Processing', refillItems.length, 'refill items');
+                
+                // order 속성으로 정렬 후 name 속성 추출
+                const sortedItems = refillItems
+                  .filter(item => item && typeof item === 'object' && item.name)
+                  .sort((a, b) => {
+                    const orderA = a.order || 999; // order가 없으면 맨 뒤로
+                    const orderB = b.order || 999;
+                    return orderA - orderB;
+                  });
+                
+                menus = sortedItems.map((item: any) => {
+                  console.log('Extracted menu (order:', item.order + '):', item.name);
+                  return item.name;
+                });
+                
+                console.log('Sorted menu names:', menus);
+              } else {
+                console.log('No valid refillItems found, using default menus');
+              }
+              
+              console.log('Final parsed menus:', menus);
+              
+              if (menus.length > 0) {
+                setStoreMenus(menus);
+              } else {
+                // 리필 아이템이 없으면 기본 메뉴 사용
+                setStoreMenus(menuOptions);
+              }
+            } else {
+              console.log('No data or not successful');
+              setStoreMenus(menuOptions);
+            }
+          } else {
+            console.log('Response not OK:', response.status);
+            setStoreMenus(menuOptions);
+          }
+        } catch (error) {
+          console.error('메뉴 정보 로딩 실패:', error);
+          // 기본 메뉴 옵션 사용
+          setStoreMenus(menuOptions);
+        }
+      }
+    };
+
+    fetchStoreMenus();
+  }, [storeId]);
+
+  // 키워드 토글 함수
+  const toggleKeyword = (keyword: string, type: 'restaurant' | 'atmosphere') => {
+    if (type === 'restaurant') {
+      setSelectedKeywords(prev => 
+        prev.includes(keyword) 
+          ? prev.filter(k => k !== keyword)
+          : [...prev, keyword]
+      );
+    } else {
+      setSelectedAtmosphere(prev => 
+        prev.includes(keyword) 
+          ? prev.filter(k => k !== keyword)
+          : [...prev, keyword]
+      );
+    }
+  };
+
+  // 슬라이더 값 변경 함수
+  const handleSliderChange = (type: 'taste' | 'price' | 'service', value: number[]) => {
+    setDetailedRatings(prev => ({
+      ...prev,
+      [type]: value[0]
+    }));
+  };
+
+  // 슬라이더 라벨 함수
+  const getSliderLabel = (value: number) => {
+    switch (value) {
+      case 1: return "맛없음";
+      case 2: return "보통";
+      case 3: return "보통";
+      case 4: return "맛있음";
+      case 5: return "맛있음";
+      default: return "보통";
+    }
+  };
+
+  const getPriceLabel = (value: number) => {
+    switch (value) {
+      case 1: return "가격불만";
+      case 2: return "보통";
+      case 3: return "보통";
+      case 4: return "가격만족";
+      case 5: return "가격만족";
+      default: return "보통";
+    }
+  };
+
+  const getServiceLabel = (value: number) => {
+    switch (value) {
+      case 1: return "불친절";
+      case 2: return "보통";
+      case 3: return "보통";
+      case 4: return "친절함";
+      case 5: return "친절함";
+      default: return "보통";
+    }
+  };
+
+  // 메뉴 토글 함수
+  const toggleMenu = (menu: string) => {
+    setSelectedMenus(prev => 
+      prev.includes(menu) 
+        ? prev.filter(m => m !== menu)
+        : [...prev, menu]
+    );
+  };
+
+  // 커스텀 메뉴 추가
+  const handleAddCustomMenu = () => {
+    if (customMenu.trim() && !customMenuList.includes(customMenu.trim())) {
+      const newMenu = customMenu.trim();
+      setCustomMenuList(prev => [...prev, newMenu]);
+      setSelectedMenus(prev => [...prev, newMenu]); // 추가한 메뉴를 자동으로 선택
+      setCustomMenu(""); // 입력 필드 초기화
+      
+      toast({
+        title: "메뉴 추가 완료",
+        description: `"${newMenu}" 메뉴가 추가되었습니다.`,
+      });
+    } else if (!customMenu.trim()) {
+      toast({
+        title: "입력 오류",
+        description: "메뉴명을 입력해주세요.",
+        variant: "destructive",
+      });
+    } else {
+      toast({
+        title: "중복 메뉴",
+        description: "이미 추가된 메뉴입니다.",
+        variant: "destructive",
+      });
+    }
+  };
 
   // 이미지 업로드
   const uploadImages = async (files: File[]): Promise<string[]> => {
@@ -125,17 +341,17 @@ export function ReviewWriteDialog({
 
     if (review.rating < 1 || review.rating > 5) {
       toast({
-        title: t("rating_error"),
-        description: t("rating_error_description"),
+        title: "평점을 선택해주세요",
+        description: "1점에서 5점 사이의 평점을 선택해주세요.",
         variant: "destructive",
       });
       return;
     }
 
-    if (!review.content.trim()) {
+    if (selectedMenus.length === 0) {
       toast({
-        title: t("content_error"),
-        description: t("content_error_description"),
+        title: "메뉴를 선택해주세요",
+        description: "드신 음식을 하나 이상 선택해주세요.",
         variant: "destructive",
       });
       return;
@@ -162,6 +378,10 @@ export function ReviewWriteDialog({
         body: JSON.stringify({
           ...review,
           imageUrls: finalImageUrls,
+          keywords: selectedKeywords,
+          atmosphere: selectedAtmosphere,
+          detailedRatings,
+          menus: selectedMenus,
         }),
       });
 
@@ -180,6 +400,14 @@ export function ReviewWriteDialog({
       setReview({ rating: 0, content: "", imageUrls: [] });
       setSelectedImages([]);
       setImagePreviewUrls([]);
+      setSelectedMenuImages([]);
+      setMenuImagePreviewUrls([]);
+      setSelectedKeywords([]);
+      setSelectedAtmosphere([]);
+      setDetailedRatings({ taste: 3, price: 3, service: 3 });
+      setSelectedMenus([]);
+      setCustomMenu("");
+      setCustomMenuList([]);
       
       // 모달 닫기
       onOpenChange(false);
@@ -256,6 +484,55 @@ export function ReviewWriteDialog({
     }
   };
 
+  // 메뉴 이미지 선택
+  const handleMenuImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    const maxImages = 5;
+    
+    if (selectedMenuImages.length + files.length > maxImages) {
+      toast({
+        title: '이미지 개수 초과',
+        description: `이미지는 최대 ${maxImages}개까지 첨부할 수 있습니다.`,
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    // 파일 검증
+    const validFiles = files.filter(file => {
+      const maxSize = 5 * 1024 * 1024; // 5MB
+      const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+      
+      if (!allowedTypes.includes(file.type)) {
+        toast({
+          title: '지원하지 않는 파일 형식',
+          description: 'JPG, PNG, WebP 형식의 이미지만 업로드할 수 있습니다.',
+          variant: 'destructive',
+        });
+        return false;
+      }
+      
+      if (file.size > maxSize) {
+        toast({
+          title: '파일 크기 초과',
+          description: '각 이미지는 5MB 이하여야 합니다.',
+          variant: 'destructive',
+        });
+        return false;
+      }
+      
+      return true;
+    });
+
+    if (validFiles.length > 0) {
+      setSelectedMenuImages(prev => [...prev, ...validFiles]);
+      
+      // 미리보기 URL 생성
+      const newPreviewUrls = validFiles.map(file => URL.createObjectURL(file));
+      setMenuImagePreviewUrls(prev => [...prev, ...newPreviewUrls]);
+    }
+  };
+
   // 이미지 제거
   const handleImageRemove = (index: number) => {
     const totalExistingImages = review.imageUrls.length;
@@ -280,6 +557,19 @@ export function ReviewWriteDialog({
     const newPreviewUrls = [...imagePreviewUrls];
     newPreviewUrls.splice(index, 1);
     setImagePreviewUrls(newPreviewUrls);
+  };
+
+  // 메뉴 이미지 제거
+  const handleMenuImageRemove = (index: number) => {
+    const newSelectedImages = [...selectedMenuImages];
+    newSelectedImages.splice(index, 1);
+    setSelectedMenuImages(newSelectedImages);
+    
+    // 미리보기 URL 정리
+    URL.revokeObjectURL(menuImagePreviewUrls[index]);
+    const newPreviewUrls = [...menuImagePreviewUrls];
+    newPreviewUrls.splice(index, 1);
+    setMenuImagePreviewUrls(newPreviewUrls);
   };
 
   // 평점에 따른 색상
@@ -327,93 +617,337 @@ export function ReviewWriteDialog({
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* 평점 선택 */}
-          <div className="bg-gray-50 rounded-xl p-4">
-            <label className="block mb-3 font-semibold text-gray-900">평점</label>
-            <div className="flex items-center gap-3 mb-4">
-              <div className="flex gap-1">
+          {/* 전체적으로 어떠셨나요? */}
+          <div>
+            <h3 className="text-xl font-bold text-center mb-2">전체적으로 어떠셨나요?</h3>
+            <p className="text-center text-gray-600 mb-6">별점을 선택해주세요</p>
+            
+            <div className="flex justify-center items-center gap-2 mb-6">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setReview({ ...review, rating: Math.max(1, review.rating - 1) })}
+                disabled={review.rating <= 1}
+              >
+                <Minus className="h-4 w-4" />
+              </Button>
+              
+              <div className="flex gap-1 mx-4">
                 {[1, 2, 3, 4, 5].map((star) => (
                   <button
                     key={star}
                     type="button"
                     onClick={() => setReview({ ...review, rating: star })}
                     className="focus:outline-none hover:scale-110 transition-transform duration-200"
-                    aria-label={`${star}점`}
                   >
                     <Star
-                      className={`h-8 w-8 ${
+                      className={`h-10 w-10 ${
                         star <= review.rating
                           ? "fill-yellow-400 text-yellow-400"
-                          : "fill-gray-200 text-gray-200 hover:fill-yellow-200 hover:text-yellow-200"
+                          : "fill-gray-200 text-gray-200"
                       } transition-colors duration-200`}
                     />
                   </button>
                 ))}
               </div>
-              {review.rating > 0 && (
-                <div className="flex items-center gap-2">
-                  <span className={`text-lg font-bold ${getRatingColor(review.rating)}`}>
-                    {review.rating}.0
-                  </span>
-                  <span className="text-sm text-gray-600">
-                    ({review.rating >= 4.5 ? "우수" : 
-                      review.rating >= 3.5 ? "만족" :
-                      review.rating >= 2.5 ? "보통" : "아쉬움"})
-                  </span>
-                </div>
-              )}
+              
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setReview({ ...review, rating: Math.min(5, review.rating + 1) })}
+                disabled={review.rating >= 5}
+              >
+                <Plus className="h-4 w-4" />
+              </Button>
             </div>
           </div>
 
-          {/* 리뷰 내용 */}
-          <div>
-            <label className="block mb-2 font-medium">리뷰 내용</label>
-            <Textarea
-              className="w-full p-3 border rounded-md focus:ring-2 focus:ring-[#FF5722] focus:border-transparent min-h-[120px]"
-              placeholder="가게에 대한 솔직한 리뷰를 작성해주세요..."
-              value={review.content}
-              onChange={(e) => setReview({ ...review, content: e.target.value })}
-              required
-            />
+          {/* 항목별 평점 */}
+          <div className="bg-gray-50 rounded-xl p-6">
+            <h3 className="text-lg font-semibold mb-4 text-gray-900">항목별 평점 <span className="text-gray-500 text-sm">(필수)</span></h3>
+            
+            <div className="space-y-6">
+              {/* 맛 */}
+              <div>
+                <div className="flex justify-between items-center mb-2">
+                  <label className="font-medium">맛</label>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-gray-600">{getSliderLabel(detailedRatings.taste)}</span>
+                    <Button variant="ghost" size="sm" className="text-gray-400 hover:text-gray-600">
+                      평가없음
+                    </Button>
+                  </div>
+                </div>
+                <Slider
+                  value={[detailedRatings.taste]}
+                  onValueChange={(value) => handleSliderChange('taste', value)}
+                  max={5}
+                  min={1}
+                  step={1}
+                  className="w-full"
+                />
+                <div className="flex justify-between text-xs text-gray-500 mt-1">
+                  <span>맛없음</span>
+                  <span>보통</span>
+                  <span>맛있음</span>
+                </div>
+              </div>
+
+              {/* 가격 */}
+              <div>
+                <div className="flex justify-between items-center mb-2">
+                  <label className="font-medium">가격</label>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-gray-600">{getPriceLabel(detailedRatings.price)}</span>
+                    <Button variant="ghost" size="sm" className="text-gray-400 hover:text-gray-600">
+                      평가없음
+                    </Button>
+                  </div>
+                </div>
+                <Slider
+                  value={[detailedRatings.price]}
+                  onValueChange={(value) => handleSliderChange('price', value)}
+                  max={5}
+                  min={1}
+                  step={1}
+                  className="w-full"
+                />
+                <div className="flex justify-between text-xs text-gray-500 mt-1">
+                  <span>가격불만</span>
+                  <span>보통</span>
+                  <span>가격만족</span>
+                </div>
+              </div>
+
+              {/* 응대 */}
+              <div>
+                <div className="flex justify-between items-center mb-2">
+                  <label className="font-medium">응대</label>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-gray-600">{getServiceLabel(detailedRatings.service)}</span>
+                    <Button variant="ghost" size="sm" className="text-gray-400 hover:text-gray-600">
+                      평가없음
+                    </Button>
+                  </div>
+                </div>
+                <Slider
+                  value={[detailedRatings.service]}
+                  onValueChange={(value) => handleSliderChange('service', value)}
+                  max={5}
+                  min={1}
+                  step={1}
+                  className="w-full"
+                />
+                <div className="flex justify-between text-xs text-gray-500 mt-1">
+                  <span>불친절</span>
+                  <span>보통</span>
+                  <span>친절함</span>
+                </div>
+              </div>
+            </div>
           </div>
 
-          {/* 이미지 업로드 */}
-          <div>
-            <label className="block mb-2 font-medium flex items-center gap-2">
-              <ImageIcon className="h-4 w-4" />
-              이미지 첨부 (선택사항)
-            </label>
+          {/* 어떤 음식을 드셨나요? */}
+          <div className="border-t pt-6">
+            <h3 className="text-lg font-semibold mb-4 text-gray-900">
+              어떤 음식을 드셨나요? <span className="text-gray-500 text-sm">(복수 선택 가능)</span>
+            </h3>
             
-            {/* 이미지 미리보기 */}
-            {imagePreviewUrls.length > 0 && (
-              <div className="mb-4">
+            <div className="space-y-3">
+              {/* 가게 메뉴 */}
+              {(storeMenus.length > 0 ? storeMenus : menuOptions).map((menu) => (
+                <div key={menu} className="flex items-center space-x-3 p-3 border rounded-lg hover:bg-gray-50">
+                  <Checkbox 
+                    id={menu}
+                    checked={selectedMenus.includes(menu)}
+                    onCheckedChange={() => toggleMenu(menu)}
+                  />
+                  <Label htmlFor={menu} className="flex-1 cursor-pointer">{menu}</Label>
+                </div>
+              ))}
+              
+              {/* 커스텀 추가된 메뉴들 */}
+              {customMenuList.map((menu) => (
+                <div key={`custom-${menu}`} className="flex items-center space-x-3 p-3 border rounded-lg hover:bg-gray-50 bg-blue-50">
+                  <Checkbox 
+                    id={`custom-${menu}`}
+                    checked={selectedMenus.includes(menu)}
+                    onCheckedChange={() => toggleMenu(menu)}
+                  />
+                  <Label htmlFor={`custom-${menu}`} className="flex-1 cursor-pointer">
+                    {menu} <span className="text-xs text-blue-600">(추가됨)</span>
+                  </Label>
+                </div>
+              ))}
+            </div>
+
+            {/* 선택된 메뉴 표시 */}
+            {selectedMenus.length > 0 && (
+              <div className="mt-4 p-3 bg-blue-50 rounded-lg">
+                <p className="text-sm font-medium text-blue-800 mb-2">선택한 메뉴 ({selectedMenus.length}개):</p>
                 <div className="flex flex-wrap gap-2">
-                  {imagePreviewUrls.map((url, index) => (
-                    <div key={index} className="relative group">
-                      <Image
-                        src={url}
-                        alt={`미리보기 ${index + 1}`}
-                        width={80}
-                        height={80}
-                        className="object-cover rounded-lg border border-gray-200"
-                      />
+                  {selectedMenus.map((menu) => (
+                    <span 
+                      key={menu} 
+                      className="inline-flex items-center px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full"
+                    >
+                      {menu}
                       <button
                         type="button"
-                        onClick={() => handleImageRemove(index)}
-                        className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                        aria-label="이미지 제거"
+                        onClick={() => toggleMenu(menu)}
+                        className="ml-1 hover:bg-blue-200 rounded-full p-0.5"
                       >
                         <X className="h-3 w-3" />
                       </button>
-                    </div>
+                    </span>
                   ))}
                 </div>
               </div>
             )}
             
-            {/* 이미지 선택 버튼 */}
-            {(review.imageUrls.length + selectedImages.length) < 5 && (
-              <div className="mb-4">
+            <div className="mt-4">
+              <p className="mb-2 font-medium">주문했던 메뉴가 없다면 직접 추가해보세요!</p>
+              <div className="flex gap-2">
+                <Input
+                  placeholder="메뉴명 직접 입력"
+                  value={customMenu}
+                  onChange={(e) => setCustomMenu(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleAddCustomMenu();
+                    }
+                  }}
+                  className="flex-1"
+                />
+                <Button 
+                  type="button" 
+                  className="bg-black text-white hover:bg-gray-800"
+                  onClick={handleAddCustomMenu}
+                >
+                  추가
+                </Button>
+              </div>
+            </div>
+          </div>
+
+          {/* 방문 후기 */}
+          <div className="border-t pt-6">
+            <div className="mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">
+                방문 후기 <span className="text-gray-500 text-sm">(선택)</span>
+              </h3>
+            </div>
+            
+            <div className="bg-gray-50 rounded-lg p-4 mb-4">
+              <p className="text-sm text-gray-600 mb-4">
+                음식, 서비스, 분위기, 위생상태 등의 방문 경험을 적어주세요.
+              </p>
+              <Textarea
+                className="w-full p-3 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent min-h-[120px] bg-white"
+                placeholder="가게에 대한 솔직한 리뷰를 작성해주세요..."
+                value={review.content}
+                onChange={(e) => setReview({ ...review, content: e.target.value })}
+              />
+              <div className="flex justify-between items-center mt-2">
+                <div className="flex items-center text-xs text-gray-500">
+                  <span className="w-4 h-4 rounded-full bg-blue-500 text-white text-xs flex items-center justify-center mr-1">i</span>
+                  {review.content.length}/1000자
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* 편의시설 키워드 */}
+          <div className="bg-gray-50 rounded-xl p-4">
+            <h3 className="text-lg font-semibold mb-3 text-gray-900">
+              이 식당은 어떤 <span className="text-blue-600">편의시설</span>이 있었나요? (복수 선택 가능)
+            </h3>
+            <div className="flex flex-wrap gap-2">
+              {restaurantKeywords.map((keyword) => (
+                <button
+                  key={keyword}
+                  type="button"
+                  className={`px-4 py-2 rounded-full text-sm border transition-colors ${
+                    selectedKeywords.includes(keyword)
+                      ? "bg-blue-100 text-blue-800 border-blue-300"
+                      : "bg-white text-gray-600 border-gray-300 hover:bg-gray-50"
+                  }`}
+                  onClick={() => toggleKeyword(keyword, 'restaurant')}
+                >
+                  {keyword}
+                </button>
+              ))}
+            </div>
+            <div className="mt-4">
+              <Input
+                placeholder="위 항목에 없는 키워드 직접 입력"
+                className="w-full"
+              />
+              <Button type="button" className="mt-2 bg-black text-white hover:bg-gray-800">
+                추가
+              </Button>
+            </div>
+          </div>
+
+          {/* 음식점 키워드 */}
+          <div>
+            <h3 className="text-lg font-semibold mb-3 text-gray-900">
+              이 식당은 어떤 <span className="text-blue-600">방문목적</span>에 적합한가요? (복수 선택 가능)
+            </h3>
+            <div className="flex flex-wrap gap-2 mb-4">
+              {atmosphereKeywords.map((keyword) => (
+                <button
+                  key={keyword}
+                  type="button"
+                  className={`px-4 py-2 rounded-full text-sm border transition-colors ${
+                    selectedAtmosphere.includes(keyword)
+                      ? "bg-blue-100 text-blue-800 border-blue-300"
+                      : "bg-white text-gray-600 border-gray-300 hover:bg-gray-50"
+                  }`}
+                  onClick={() => toggleKeyword(keyword, 'atmosphere')}
+                >
+                  {keyword}
+                </button>
+              ))}
+            </div>
+            
+            <h4 className="text-base font-semibold mb-3 text-gray-900">
+              이 식당의 <span className="text-blue-600">분위기</span>를 선택해주세요. (복수 선택 가능)
+            </h4>
+            <div className="flex flex-wrap gap-2">
+              {atmosphereDescriptions.map((desc) => (
+                <button
+                  key={desc}
+                  type="button"
+                  className={`px-4 py-2 rounded-full text-sm border transition-colors ${
+                    selectedAtmosphere.includes(desc)
+                      ? "bg-pink-100 text-pink-800 border-pink-300"
+                      : "bg-white text-gray-600 border-gray-300 hover:bg-gray-50"
+                  }`}
+                  onClick={() => toggleKeyword(desc, 'atmosphere')}
+                >
+                  {desc}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* 음식·인테리어·외관 사진 섹션 */}
+          <div className="border-t pt-6">
+            <div className="mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">
+                음식·인테리어·외관 사진 <span className="text-gray-500 text-sm">(선택)</span>
+              </h3>
+            </div>
+            
+            <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center mb-4">
+              <div className="flex flex-col items-center">
+                <ImageIcon className="h-12 w-12 text-gray-400 mb-2" />
+                <p className="text-gray-600 mb-1">본인이 직접 촬영하지 않은 사진</p>
+                <p className="text-sm text-gray-500 mb-4">1000*1000 미만 해상도의 사진은 등록없이 삭제될 수 있습니다.</p>
                 <Input
                   ref={fileInputRef}
                   type="file"
@@ -427,36 +961,115 @@ export function ReviewWriteDialog({
                   variant="outline"
                   onClick={() => fileInputRef.current?.click()}
                   disabled={uploadingImages}
-                  className="w-full border-dashed border-2 hover:border-[#FF5722] hover:bg-orange-50"
                 >
                   <Upload className="h-4 w-4 mr-2" />
-                  {uploadingImages ? '업로드 중...' : '이미지 선택 (최대 5개)'}
+                  이미지 선택
                 </Button>
-                <p className="text-xs text-gray-500 mt-1">
-                  JPG, PNG, WebP 형식, 각 5MB 이하
-                </p>
+              </div>
+            </div>
+            
+            {imagePreviewUrls.length > 0 && (
+              <div className="flex flex-wrap gap-2 mb-4">
+                {imagePreviewUrls.map((url, index) => (
+                  <div key={index} className="relative group">
+                    <Image
+                      src={url}
+                      alt={`미리보기 ${index + 1}`}
+                      width={100}
+                      height={100}
+                      className="object-cover rounded-lg border border-gray-200"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleImageRemove(index)}
+                      className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                ))}
               </div>
             )}
           </div>
 
+          {/* 메뉴판·영업시간·주차 사진 섹션 */}
+          <div className="border-t pt-6">
+            <div className="mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">
+                메뉴판·영업시간·주차 사진 <span className="text-gray-500 text-sm">(선택)</span>
+              </h3>
+            </div>
+            
+            <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center mb-4">
+              <div className="flex flex-col items-center">
+                <ImageIcon className="h-12 w-12 text-gray-400 mb-2" />
+                <p className="text-gray-600 mb-1">본인이 직접 촬영하지 않은 사진</p>
+                <p className="text-sm text-gray-500 mb-4">1000*1000 미만의 사진은 등록없이 삭제될 수 있습니다.</p>
+                <Input
+                  type="file"
+                  accept="image/jpeg,image/jpg,image/png,image/webp"
+                  multiple
+                  onChange={handleMenuImageSelect}
+                  className="hidden"
+                  id="menu-images"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => document.getElementById('menu-images')?.click()}
+                  disabled={uploadingImages}
+                >
+                  <Upload className="h-4 w-4 mr-2" />
+                  이미지 선택
+                </Button>
+              </div>
+            </div>
+            
+            {menuImagePreviewUrls.length > 0 && (
+              <div className="flex flex-wrap gap-2 mb-4">
+                {menuImagePreviewUrls.map((url, index) => (
+                  <div key={index} className="relative group">
+                    <Image
+                      src={url}
+                      alt={`메뉴 미리보기 ${index + 1}`}
+                      width={100}
+                      height={100}
+                      className="object-cover rounded-lg border border-gray-200"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleMenuImageRemove(index)}
+                      className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+
+
           {/* 액션 버튼 */}
-          <div className="flex justify-end gap-2 pt-4 border-t">
+          <div className="flex gap-3 pt-4">
             <Button
               type="button"
               variant="outline"
               onClick={() => onOpenChange(false)}
               disabled={submitting || uploadingImages}
+              className="flex-1"
             >
               취소
             </Button>
             <Button
               type="submit"
-              className="bg-[#FF5722] hover:bg-[#E64A19]"
-              disabled={submitting || uploadingImages}
+              className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
+              disabled={submitting || uploadingImages || selectedMenus.length === 0 || review.rating === 0}
             >
               {submitting || uploadingImages ? 
-                (uploadingImages ? '이미지 업로드 중...' : '저장 중...') : 
-                (existingReview ? '수정하기' : '작성하기')
+                (uploadingImages ? '업로드 중...' : '저장 중...') : 
+                (existingReview ? '수정 완료' : '평가 완료')
               }
             </Button>
           </div>

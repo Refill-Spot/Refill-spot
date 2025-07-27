@@ -1,4 +1,4 @@
-import { createRouteHandlerSupabaseClient } from "@/lib/supabase/server";
+import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { NextRequest, NextResponse } from "next/server";
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
@@ -8,7 +8,7 @@ const REVIEW_IMAGES_BUCKET = process.env.SUPABASE_STORAGE_BUCKET_REVIEW_IMAGES |
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createRouteHandlerSupabaseClient(request);
+    const supabase = await createServerSupabaseClient();
 
     // 현재 로그인한 사용자 확인
     const {
@@ -76,6 +76,10 @@ export async function POST(request: NextRequest) {
 
       if (uploadError) {
         console.error("이미지 업로드 오류:", uploadError);
+        console.error("업로드 시도한 파일:", fileName);
+        console.error("사용자 ID:", user.id);
+        console.error("버킷:", REVIEW_IMAGES_BUCKET);
+        
         // 이미 업로드된 이미지들 정리
         for (const url of uploadedUrls) {
           const path = url.split('/').pop();
@@ -85,7 +89,10 @@ export async function POST(request: NextRequest) {
         }
         
         return NextResponse.json(
-          { error: "이미지 업로드 중 오류가 발생했습니다." },
+          { 
+            error: "이미지 업로드 중 오류가 발생했습니다.",
+            details: uploadError 
+          },
           { status: 500 },
         );
       }

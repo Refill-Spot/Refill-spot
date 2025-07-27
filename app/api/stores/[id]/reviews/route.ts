@@ -47,7 +47,7 @@ export async function POST(
       );
     }
 
-    const { rating, content, imageUrls } = await request.json();
+    const { rating, content, imageUrls, keywords, atmosphere, detailedRatings, menus } = await request.json();
 
     // 유효성 검사
     if (!rating || rating < 1 || rating > 5) {
@@ -127,6 +127,10 @@ export async function POST(
           rating,
           content,
           image_urls: imageUrls || [],
+          keywords: keywords || [],
+          atmosphere: atmosphere || [],
+          detailed_ratings: detailedRatings || {},
+          menus: menus || [],
           updated_at: new Date().toISOString(),
         })
         .eq("id", existingReview.id)
@@ -143,6 +147,7 @@ export async function POST(
       }
 
       reviewResponse = {
+        success: true,
         message: "리뷰가 업데이트되었습니다.",
         review: {
           id: data.id,
@@ -166,6 +171,10 @@ export async function POST(
           rating,
           content,
           image_urls: imageUrls || [],
+          keywords: keywords || [],
+          atmosphere: atmosphere || [],
+          detailed_ratings: detailedRatings || {},
+          menus: menus || [],
         })
         .select(
           `
@@ -180,6 +189,7 @@ export async function POST(
       }
 
       reviewResponse = {
+        success: true,
         message: "리뷰가 등록되었습니다.",
         review: {
           id: data.id,
@@ -343,7 +353,7 @@ export async function DELETE(
       throw deleteError;
     }
 
-    return NextResponse.json({ message: "리뷰가 삭제되었습니다." });
+    return NextResponse.json({ success: true, message: "리뷰가 삭제되었습니다." });
   } catch (error) {
     console.error("리뷰 삭제 오류:", error);
     return NextResponse.json(

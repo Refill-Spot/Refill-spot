@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url);
   const code = requestUrl.searchParams.get("code");
+  const returnUrl = requestUrl.searchParams.get("returnUrl");
   const redirectTo = requestUrl.searchParams.get("next") || "/";
 
   if (code) {
@@ -21,8 +22,19 @@ export async function GET(request: NextRequest) {
       }
 
       // 일반 OAuth 로그인의 경우 기존 로직 수행
+      // returnUrl이 있으면 사용, 없으면 기본 redirectTo 사용
+      const finalRedirectUrl = returnUrl || redirectTo;
+      
+      // returnUrl을 로그인 페이지에 전달하여 클라이언트에서 안전성 검사 수행
+      let redirectUrl: string;
+      if (returnUrl) {
+        redirectUrl = `/login?returnUrl=${encodeURIComponent(returnUrl)}`;
+      } else {
+        redirectUrl = finalRedirectUrl;
+      }
+      
       // 응답 객체를 먼저 생성
-      const response = NextResponse.redirect(new URL(redirectTo, request.url));
+      const response = NextResponse.redirect(new URL(redirectUrl, request.url));
 
       // 쿠키를 올바르게 설정할 수 있는 Supabase 클라이언트 생성
       const supabase = createServerClient(

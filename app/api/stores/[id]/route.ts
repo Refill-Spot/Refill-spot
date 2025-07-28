@@ -64,10 +64,15 @@ export async function GET(
       throw storeError;
     }
 
-    // 리뷰 조회 (profiles 관계 제거하고 user_id만 사용)
+    // 리뷰 조회 (profiles 테이블 조인으로 실제 사용자명 가져오기)
     const { data: reviews, error: reviewsError } = await supabase
       .from("reviews")
-      .select("*")
+      .select(
+        `
+        *,
+        profiles:profiles!inner(username)
+      `,
+      )
       .eq("store_id", storeId)
       .order("created_at", { ascending: false });
 
@@ -82,14 +87,14 @@ export async function GET(
     // 리뷰 정보 추가하여 FormattedStore 생성
     const formattedStore: FormattedStore = {
       ...baseStore,
-      reviews: (reviews || []).map((review: ReviewFromDb) => ({
+      reviews: (reviews || []).map((review: any) => ({
         id: review.id,
         rating: review.rating,
         content: review.content,
         createdAt: review.created_at,
         user: {
           id: review.user_id,
-          username: "사용자", // 임시로 고정값 사용
+          username: review.profiles?.username || "사용자", // 실제 사용자명 사용
         },
       })),
     };

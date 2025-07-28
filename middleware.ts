@@ -55,7 +55,7 @@ export async function middleware(request: NextRequest) {
   if (adminRequiredPaths.some((path) => pathname.startsWith(path))) {
     if (authError || !user) {
       const redirectUrl = new URL("/login", request.url);
-      redirectUrl.searchParams.set("next", pathname);
+      redirectUrl.searchParams.set("returnUrl", pathname + request.nextUrl.search);
       return NextResponse.redirect(redirectUrl);
     }
 
@@ -81,7 +81,7 @@ export async function middleware(request: NextRequest) {
   // 인증이 필요한 경로이나 로그인하지 않은 경우
   if (authRequiredPaths.some((path) => pathname.startsWith(path)) && (authError || !user)) {
     const redirectUrl = new URL("/login", request.url);
-    redirectUrl.searchParams.set("next", pathname);
+    redirectUrl.searchParams.set("returnUrl", pathname + request.nextUrl.search);
     return NextResponse.redirect(redirectUrl);
   }
 

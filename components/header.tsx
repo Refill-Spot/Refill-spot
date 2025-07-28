@@ -21,7 +21,7 @@ import { useGeolocation } from "@/hooks/use-geolocation";
 import { useGooglePlaces } from "@/hooks/use-google-places";
 import { useLocationSearch } from "@/hooks/use-location-search";
 import { resetOnboardingStatus } from "@/lib/onboarding-storage";
-import { Heart, LogOut, Map, Settings, User } from "lucide-react";
+import { Heart, LogOut, Map, Settings, User, MessageSquare } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { DesktopHeader } from "./header/desktop-header";
@@ -243,6 +243,15 @@ export default function Header({
                 <DropdownMenuContent align="end" className="w-48">
                   <DropdownMenuItem asChild>
                     <button
+                      onClick={() => router.push("/profile")}
+                      className="w-full flex items-center"
+                    >
+                      <Settings className="h-4 w-4 mr-2 text-[#9C27B0]" />
+                      프로필 설정
+                    </button>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <button
                       onClick={() => router.push("/favorites")}
                       className="w-full flex items-center"
                     >
@@ -279,6 +288,15 @@ export default function Header({
                           문의 관리
                         </button>
                       </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <button
+                          onClick={() => router.push("/admin/reviews")}
+                          className="w-full flex items-center text-blue-600"
+                        >
+                          <MessageSquare className="h-4 w-4 mr-2" />
+                          리뷰 관리
+                        </button>
+                      </DropdownMenuItem>
                     </>
                   )}
                   <DropdownMenuSeparator />
@@ -295,7 +313,10 @@ export default function Header({
               </DropdownMenu>
             ) : (
               <Button
-                onClick={() => router.push("/login")}
+                onClick={() => {
+                  const currentUrl = window.location.pathname + window.location.search;
+                  router.push(`/login?returnUrl=${encodeURIComponent(currentUrl)}`);
+                }}
                 variant="outline"
                 size="sm"
               >

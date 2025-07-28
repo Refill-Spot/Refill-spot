@@ -16,6 +16,7 @@ import {
   saveUserLocation,
 } from "@/lib/location-storage";
 import { isOnboardingCompleted } from "@/lib/onboarding-storage";
+import { apiLogger, geolocationLogger } from "@/lib/logger";
 import { Store } from "@/types/store";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
@@ -64,15 +65,12 @@ function HomeContent() {
       page: number = 1,
       append: boolean = false,
     ) => {
-      console.log("🔍 fetchStores 호출됨:", { 
+      apiLogger.debug("fetchStores 호출됨", { 
         lat: lat?.toFixed(8), 
         lng: lng?.toFixed(8), 
-        rawLat: lat,
-        rawLng: lng,
         radius, 
         page, 
         append,
-        timestamp: new Date().toISOString(),
       });
 
       if (!append) {
@@ -104,8 +102,8 @@ function HomeContent() {
           url += `?${params.toString()}`;
         }
 
-        console.log("📡 API 요청 URL:", url);
-        console.log("📡 API 요청 파라미터 상세:", {
+        apiLogger.debug("API 요청 URL", { url });
+        apiLogger.debug("API 요청 파라미터", {
           lat: lat,
           lng: lng,
           radius: radius || 5,
@@ -128,7 +126,7 @@ function HomeContent() {
 
         clearTimeout(timeoutId);
 
-        console.log("📥 API 응답 상태:", response.status);
+        apiLogger.debug("API 응답 상태", { status: response.status });
 
         if (!response.ok) {
           const errorText = await response.text();
@@ -138,7 +136,7 @@ function HomeContent() {
         }
 
         const data = await response.json();
-        console.log("📦 API 응답 데이터:", data);
+        apiLogger.debug("API 응답 데이터", data);
 
         if (!data.success || data.error) {
           throw new Error(
@@ -150,7 +148,7 @@ function HomeContent() {
         const storeData = data.data || [];
         const pagination = data.pagination || {};
 
-        console.log("🏪 가게 데이터 개수:", storeData.length);
+        apiLogger.debug("가게 데이터 개수", { count: storeData.length });
 
         if (append) {
           setStores((prevStores) => [...prevStores, ...storeData]);
@@ -170,7 +168,7 @@ function HomeContent() {
           });
         }
       } catch (err) {
-        console.error("❌ fetchStores 오류:", err);
+        apiLogger.error("fetchStores 오류:", err);
         if (err instanceof Error && err.name === "AbortError") {
           setError("요청 시간이 초과되었습니다. 다시 시도해주세요.");
           toast({
@@ -217,20 +215,23 @@ return;
     );
   }, [userLocation, loadingMore, hasMore, currentPage]);
 
-  // 온보딩 체크
+  // 온보딩 체크 (첫 방문자용으로만 동작)
   useEffect(() => {
-    // 온보딩 완료 여부 확인
+    // 온보딩 체크를 비활성화하고 바로 메인 페이지 진행
     const checkOnboarding = () => {
-      if (!isOnboardingCompleted()) {
-        router.push("/onboarding");
-        return;
+      try {
+        // 로그인한 사용자는 온보딩을 건너뛰고 바로 메인 페이지로
+        setIsCheckingOnboarding(false);
+      } catch (error) {
+        console.error("온보딩 체크 중 오류:", error);
+        setIsCheckingOnboarding(false);
       }
-      setIsCheckingOnboarding(false);
     };
 
     // 클라이언트 사이드에서만 실행
     if (typeof window !== "undefined") {
-      checkOnboarding();
+      // 약간의 지연을 두어 렌더링 완료 후 실행
+      setTimeout(checkOnboarding, 100);
     }
   }, [router]);
 
@@ -320,9 +321,8 @@ return;
           lng: 127.0277083,
         };
 
-        console.log("🎯 기본 위치 설정 (서울 강남구 중심):", defaultLocation);
+        geolocationLogger.info("기본 위치 설정 (서울 강남구 중심)", defaultLocation);
         setUserLocation(defaultLocation);
-        console.log("📡 fetchStores 호출 - 위치 기반 검색:", defaultLocation.lat, defaultLocation.lng, "반경: 10km");
         await fetchStores(defaultLocation.lat, defaultLocation.lng, 10);
 
         // 기본 위치 저장
@@ -394,13 +394,10 @@ return;
   // 사용자 지정 위치 설정
   const setCustomLocation = useCallback(
     (lat: number, lng: number, radius: number = 5) => {
-      console.log("📍 수동 검색으로 위치 설정 시작:", {
+      geolocationLogger.debug("수동 검색으로 위치 설정", {
         lat: lat.toFixed(8),
         lng: lng.toFixed(8),
-        rawLat: lat,
-        rawLng: lng,
         radius,
-        timestamp: new Date().toISOString(),
       });
 
       // 위치 설정과 동시에 가게 데이터 fetch
@@ -408,7 +405,6 @@ return;
       setCurrentPage(1);
       setHasMore(false);
 
-      console.log("🔄 수동 검색 - fetchStores 호출 예정...");
       fetchStores(lat, lng, radius, undefined, undefined, 1, false);
 
       // 수동 설정 위치 정보 저장
@@ -465,7 +461,7 @@ return;
       latitude?: number;
       longitude?: number;
     }) => {
-      console.log("필터 적용:", filters);
+      apiLogger.debug("필터 적용", filters);
 
       // 위치 정보 결정 (필터에서 제공된 위치 또는 현재 사용자 위치)
       const lat = filters.latitude || userLocation?.lat;

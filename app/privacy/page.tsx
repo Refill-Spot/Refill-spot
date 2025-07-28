@@ -165,7 +165,6 @@ export default function PrivacyPage() {
                   <h3 className="font-semibold mb-2">1. 홈페이지 회원 가입 및 관리</h3>
                   <ul className="pl-4 space-y-1">
                     <li>필수항목 : 이메일, 비밀번호, 닉네임</li>
-                    <li>선택항목 : 연락처, 주소</li>
                   </ul>
                 </div>
                 <div>

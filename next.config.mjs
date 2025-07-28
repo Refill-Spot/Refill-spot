@@ -9,6 +9,28 @@ const nextConfig = {
     // 빌드 시 TypeScript 오류 체크
     ignoreBuildErrors: false,
   },
+  webpack: (config, { isServer }) => {
+    // WASM hash 오류 해결을 위한 설정
+    config.experiments = {
+      ...config.experiments,
+      asyncWebAssembly: true,
+    };
+    
+    // 메모리 사용량 최적화
+    config.optimization = {
+      ...config.optimization,
+      splitChunks: {
+        ...config.optimization.splitChunks,
+        cacheGroups: {
+          ...config.optimization.splitChunks?.cacheGroups,
+          default: false,
+          vendors: false,
+        },
+      },
+    };
+    
+    return config;
+  },
   images: {
     remotePatterns: [
       {

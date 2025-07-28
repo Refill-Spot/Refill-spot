@@ -21,7 +21,7 @@ import { useGeolocation } from "@/hooks/use-geolocation";
 import { useGooglePlaces } from "@/hooks/use-google-places";
 import { useLocationSearch } from "@/hooks/use-location-search";
 import { resetOnboardingStatus } from "@/lib/onboarding-storage";
-import { Heart, LogOut, Map, Settings, User } from "lucide-react";
+import { Heart, LogOut, Map, Settings, User, MessageSquare } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { DesktopHeader } from "./header/desktop-header";
@@ -97,8 +97,10 @@ export default function Header({
 
   const handleLogout = async () => {
     try {
-      resetOnboardingStatus();
+      // 온보딩 상태 초기화는 로그아웃 성공 후에만 실행
       await signOut();
+      // 로그아웃 성공 후 온보딩 상태 초기화
+      resetOnboardingStatus();
     } catch (error) {
       console.error("헤더 로그아웃 오류:", error);
     }
@@ -210,23 +212,44 @@ export default function Header({
           {/* 사용자 메뉴 (공통) - 오른쪽 끝 */}
           <div className="flex items-center space-x-4 ml-auto">
             {loading ? (
-              <div className="animate-pulse flex items-center space-x-2">
-                <div className="h-8 w-8 bg-gray-300 rounded-full"></div>
-                <div className="h-4 w-16 bg-gray-300 rounded hidden md:block"></div>
+              <div className="flex items-center space-x-2">
+                <div className="relative">
+                  <div className="h-8 w-8 bg-gray-300 rounded-full animate-pulse"></div>
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="h-4 w-4 border-2 border-orange-500 border-t-transparent rounded-full animate-spin"></div>
+                  </div>
+                </div>
+                <div className="hidden md:flex flex-col">
+                  <div className="h-3 w-16 bg-gray-300 rounded animate-pulse mb-1"></div>
+                  <div className="h-2 w-12 bg-gray-200 rounded animate-pulse"></div>
+                </div>
               </div>
             ) : user ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="sm" className="relative">
                     <User className="h-5 w-5" />
-                    {profile?.username && (
+                    {profile?.username ? (
                       <span className="ml-2 hidden md:inline">
                         {profile.username}
+                      </span>
+                    ) : (
+                      <span className="ml-2 hidden md:inline">
+                        사용자
                       </span>
                     )}
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-48">
+                  <DropdownMenuItem asChild>
+                    <button
+                      onClick={() => router.push("/profile")}
+                      className="w-full flex items-center"
+                    >
+                      <Settings className="h-4 w-4 mr-2 text-[#9C27B0]" />
+                      프로필 설정
+                    </button>
+                  </DropdownMenuItem>
                   <DropdownMenuItem asChild>
                     <button
                       onClick={() => router.push("/favorites")}
@@ -265,6 +288,15 @@ export default function Header({
                           문의 관리
                         </button>
                       </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <button
+                          onClick={() => router.push("/admin/reviews")}
+                          className="w-full flex items-center text-blue-600"
+                        >
+                          <MessageSquare className="h-4 w-4 mr-2" />
+                          리뷰 관리
+                        </button>
+                      </DropdownMenuItem>
                     </>
                   )}
                   <DropdownMenuSeparator />
@@ -281,7 +313,10 @@ export default function Header({
               </DropdownMenu>
             ) : (
               <Button
-                onClick={() => router.push("/login")}
+                onClick={() => {
+                  const currentUrl = window.location.pathname + window.location.search;
+                  router.push(`/login?returnUrl=${encodeURIComponent(currentUrl)}`);
+                }}
                 variant="outline"
                 size="sm"
               >

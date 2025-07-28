@@ -12,6 +12,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/components/ui/use-toast";
 import { SearchInput } from "@/components/header/search-input";
+import { StoreReviews } from "@/components/store-reviews";
+import { ReviewWriteDialog } from "@/components/review-write-dialog";
 import { getUserLocation, isLocationValid } from "@/lib/location-storage";
 import { Store } from "@/types/store";
 import { MenuItem } from "@/types/menu";
@@ -47,6 +49,8 @@ export default function StorePage() {
   const [store, setStore] = useState<Store | null>(null);
   const [loading, setLoading] = useState(true);
   const [showAllHours, setShowAllHours] = useState(false);
+  const [showReviewDialog, setShowReviewDialog] = useState(false);
+  const [refreshReviews, setRefreshReviews] = useState(0);
   const [showAllMenus, setShowAllMenus] = useState(false);
 
   useEffect(() => {
@@ -338,6 +342,15 @@ return;
                   <DropdownMenuContent align="end" className="w-48">
                     <DropdownMenuItem asChild>
                       <button
+                        onClick={() => router.push("/my-reviews")}
+                        className="w-full flex items-center"
+                      >
+                        <Star className="h-4 w-4 mr-2 text-yellow-500" />
+                        내가 작성한 리뷰
+                      </button>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <button
                         onClick={() => router.push("/favorites")}
                         className="w-full flex items-center"
                       >
@@ -390,7 +403,10 @@ return;
                 </DropdownMenu>
               ) : (
                 <Button
-                  onClick={() => router.push("/login")}
+                  onClick={() => {
+                    const currentUrl = window.location.pathname + window.location.search;
+                    router.push(`/login?returnUrl=${encodeURIComponent(currentUrl)}`);
+                  }}
                   variant="outline"
                   size="sm"
                 >
@@ -470,6 +486,15 @@ return;
               >
                 <Share className="w-4 h-4 mr-1" />
                 공유
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                className="bg-white/90 text-gray-700 hover:bg-white"
+                onClick={() => setShowReviewDialog(true)}
+              >
+                <Star className="w-4 h-4 mr-1" />
+                리뷰 작성
               </Button>
             </div>
             
@@ -848,6 +873,17 @@ return [];
               </Card>
             </div>
           )}
+
+          {/* 리뷰 섹션 */}
+          <div className="max-w-4xl mx-auto px-4">
+            <div id="reviews-section">
+              <StoreReviews 
+                storeId={store.id}
+                storeName={store.name}
+                key={refreshReviews}
+              />
+            </div>
+          </div>
         </div>
       </div>
 
@@ -945,7 +981,10 @@ return [];
                 ) : (
                   <li>
                     <button
-                      onClick={() => router.push("/login")}
+                      onClick={() => {
+                        const currentUrl = window.location.pathname + window.location.search;
+                        router.push(`/login?returnUrl=${encodeURIComponent(currentUrl)}`);
+                      }}
                       className="hover:text-[#FF5722] transition-colors"
                     >
                       로그인 / 회원가입
@@ -992,6 +1031,19 @@ return [];
           </div>
         </div>
       </footer>
+
+      {/* 리뷰 작성 다이얼로그 */}
+      {store && (
+        <ReviewWriteDialog
+          open={showReviewDialog}
+          onOpenChange={setShowReviewDialog}
+          storeId={store.id}
+          storeName={store.name}
+          onReviewSubmitted={() => {
+            setRefreshReviews(prev => prev + 1);
+          }}
+        />
+      )}
     </div>
   );
 }

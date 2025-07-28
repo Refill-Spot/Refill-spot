@@ -187,7 +187,8 @@ return;
         title: "로그인 필요",
         description: "즐겨찾기 기능을 사용하려면 로그인해주세요.",
       });
-      router.push("/login");
+      const currentUrl = window.location.pathname + window.location.search;
+      router.push(`/login?returnUrl=${encodeURIComponent(currentUrl)}`);
       return;
     }
 
@@ -228,7 +229,8 @@ return;
         title: "로그인 필요",
         description: "리뷰를 작성하려면 로그인해주세요.",
       });
-      router.push("/login");
+      const currentUrl = window.location.pathname + window.location.search;
+      router.push(`/login?returnUrl=${encodeURIComponent(currentUrl)}`);
       return;
     }
 

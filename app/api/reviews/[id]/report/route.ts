@@ -41,7 +41,7 @@ export async function POST(
       "harassment", 
       "fake", 
       "offensive", 
-      "other"
+      "other",
     ];
 
     if (!reason || !validReasons.includes(reason)) {
@@ -99,7 +99,7 @@ export async function POST(
     }
 
     return NextResponse.json({ 
-      message: "신고가 접수되었습니다. 검토 후 조치하겠습니다." 
+      message: "신고가 접수되었습니다. 검토 후 조치하겠습니다.", 
     });
   } catch (error) {
     console.error("리뷰 신고 오류:", error);

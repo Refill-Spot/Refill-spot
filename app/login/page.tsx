@@ -31,19 +31,19 @@ function AuthPageContent() {
 
   // 디버깅을 위한 returnUrl 확인
   useEffect(() => {
-    const returnUrl = searchParams.get('returnUrl');
-    console.log('🔍 로그인 페이지 - returnUrl:', returnUrl);
-    console.log('🔍 로그인 페이지 - 전체 URL:', window.location.href);
-    console.log('🔍 로그인 페이지 - searchParams:', Array.from(searchParams.entries()));
+    const returnUrl = searchParams.get("returnUrl");
+    console.log("🔍 로그인 페이지 - returnUrl:", returnUrl);
+    console.log("🔍 로그인 페이지 - 전체 URL:", window.location.href);
+    console.log("🔍 로그인 페이지 - searchParams:", Array.from(searchParams.entries()));
     
     // 보안 검사 결과도 로그로 출력
     if (returnUrl) {
-      const safeReturnUrl = getSafeReturnUrl(returnUrl, '/');
-      console.log('🔒 보안 검사 결과 - safeReturnUrl:', safeReturnUrl);
-      console.log('🔒 보안 검사 - 원본과 동일:', returnUrl === safeReturnUrl);
+      const safeReturnUrl = getSafeReturnUrl(returnUrl, "/");
+      console.log("🔒 보안 검사 결과 - safeReturnUrl:", safeReturnUrl);
+      console.log("🔒 보안 검사 - 원본과 동일:", returnUrl === safeReturnUrl);
       
       if (returnUrl !== safeReturnUrl) {
-        console.warn('⚠️ 위험한 returnUrl이 차단되었습니다:', returnUrl);
+        console.warn("⚠️ 위험한 returnUrl이 차단되었습니다:", returnUrl);
       }
     }
   }, [searchParams]);
@@ -124,11 +124,11 @@ function AuthPageContent() {
       setError(error.message);
     } else {
       // returnUrl 파라미터 확인하여 안전한 URL로 리다이렉트
-      const returnUrl = searchParams.get('returnUrl');
-      console.log('🚀 로그인 성공 - returnUrl:', returnUrl);
+      const returnUrl = searchParams.get("returnUrl");
+      console.log("🚀 로그인 성공 - returnUrl:", returnUrl);
       
-      const safeReturnUrl = getSafeReturnUrl(returnUrl, '/');
-      console.log('🚀 로그인 성공 - safeReturnUrl:', safeReturnUrl);
+      const safeReturnUrl = getSafeReturnUrl(returnUrl, "/");
+      console.log("🚀 로그인 성공 - safeReturnUrl:", safeReturnUrl);
       
       toast({
         title: "로그인 성공",

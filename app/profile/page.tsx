@@ -115,16 +115,9 @@ export default function ProfilePage() {
         <div className="md:col-span-1">
           <Card>
             <CardContent className="p-6 flex flex-col items-center">
-              <Avatar className="h-24 w-24 mb-4">
-                <AvatarImage src="" alt={profile?.username} />
-                <AvatarFallback className="bg-[#FF5722] text-white text-xl">
-                  {profile?.username ? (
-                    profile.username.substring(0, 2).toUpperCase()
-                  ) : (
-                    <User className="h-12 w-12" />
-                  )}
-                </AvatarFallback>
-              </Avatar>
+              <div className="w-24 h-24 rounded-full bg-gray-200 flex items-center justify-center mb-4">
+                <User className="w-12 h-12 text-gray-500" />
+              </div>
               <div className="text-center">
                 <h2 className="text-xl font-semibold">{profile?.username}</h2>
                 <p className="text-sm text-gray-500 mt-1 mb-4">{user?.email}</p>
@@ -226,7 +219,7 @@ export default function ProfilePage() {
                     <Button
                       type="button"
                       onClick={() => setIsEditing(true)}
-                      className="bg-[#2196F3] hover:bg-[#1976D2]"
+                      variant="outline"
                     >
                       프로필 편집
                     </Button>
@@ -258,7 +251,7 @@ export default function ProfilePage() {
               <Separator />
 
               <div>
-                <h3 className="text-lg font-medium text-red-500">위험 영역</h3>
+                <h3 className="text-lg font-medium text-red-500">계정 삭제</h3>
                 <p className="text-sm text-gray-500 mt-1">
                   계정을 삭제하면 모든 데이터가 영구적으로 삭제됩니다.
                 </p>

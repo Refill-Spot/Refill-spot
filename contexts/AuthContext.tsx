@@ -80,9 +80,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         
         const loadProfile = async () => {
           authLogger.debug("프로필 쿼리 시작", { 
-            userId: user.id, 
-            supabaseUrl: !!supabase.supabaseUrl,
-            supabaseKey: !!supabase.supabaseKey 
+            userId: user.id,
+            hasSupabaseClient: !!supabase
           });
           
           // 먼저 간단한 연결 테스트
@@ -166,7 +165,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         } catch (timeoutError) {
           authLogger.warn("타임아웃으로 인한 fallback 프로필 사용", { userId: user.id });
           const fallbackUsername = user.email?.split("@")[0] || `user_${Math.random().toString(36).substring(2, 10)}`;
-          setProfile({ id: user.id, username: fallbackUsername, role: 'user', is_admin: false });
+          setProfile({ username: fallbackUsername, role: 'user', is_admin: false });
         }
         
         // 프로필 로딩 완료 시 완료 토스트 (소셜 로그인의 경우)

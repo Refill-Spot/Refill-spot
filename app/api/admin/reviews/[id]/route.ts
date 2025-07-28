@@ -7,7 +7,7 @@ import { createClient } from "@supabase/supabase-js";
 // 관리자용 리뷰 삭제
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const { id } = await params;
@@ -37,9 +37,9 @@ export async function DELETE(
     }
 
     // 관리자 권한으로 리뷰 삭제 (RLS 바이패스)
-    const { error: deleteError } = await supabase.rpc('delete_review_as_admin', {
+    const { error: deleteError } = await supabase.rpc("delete_review_as_admin", {
       review_id: parseInt(id),
-      admin_user_id: user.id
+      admin_user_id: user.id,
     });
 
     if (deleteError) {
@@ -51,8 +51,10 @@ export async function DELETE(
       deletedReview: {
         id: existingReview.id,
         userId: existingReview.user_id,
-        username: existingReview.profiles?.username
-      }
+        username: Array.isArray(existingReview.profiles) 
+          ? (existingReview.profiles[0] as any)?.username 
+          : (existingReview.profiles as any)?.username,
+      },
     });
 
   } catch (error) {
@@ -64,7 +66,7 @@ export async function DELETE(
 // 관리자용 리뷰 신고 상태 업데이트
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const adminCheck = await checkAdminAccessForAPI(request);
@@ -88,9 +90,9 @@ export async function PATCH(
       {
         auth: {
           autoRefreshToken: false,
-          persistSession: false
-        }
-      }
+          persistSession: false,
+        },
+      },
     );
 
     // 리뷰 존재 확인
@@ -110,12 +112,12 @@ export async function PATCH(
       // 신고 승인 - 리뷰를 정상으로 되돌림
       updateData = {
         is_reported: false,
-        report_count: 0
+        report_count: 0,
       };
     } else if (action === "reject") {
       // 신고 거부 - 신고된 상태 유지하지만 추가 조치 가능
       updateData = {
-        is_reported: true
+        is_reported: true,
       };
     }
 
@@ -134,7 +136,7 @@ export async function PATCH(
 
     return apiResponse.success({
       message: action === "approve" ? "신고가 승인되어 리뷰가 정상화되었습니다." : "신고가 거부되었습니다.",
-      review: updatedReview
+      review: updatedReview,
     });
 
   } catch (error) {

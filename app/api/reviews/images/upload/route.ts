@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 const ALLOWED_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
 const MAX_IMAGES = 5;
-const REVIEW_IMAGES_BUCKET = process.env.SUPABASE_STORAGE_BUCKET_REVIEW_IMAGES || 'review-images';
+const REVIEW_IMAGES_BUCKET = process.env.SUPABASE_STORAGE_BUCKET_REVIEW_IMAGES || "review-images";
 
 export async function POST(request: NextRequest) {
   try {
@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
 
     // 각 파일을 Supabase Storage에 업로드
     for (const file of files) {
-      const fileExt = file.name.split('.').pop();
+      const fileExt = file.name.split(".").pop();
       const fileName = `${user.id}/${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
       
       const fileBuffer = await file.arrayBuffer();
@@ -70,8 +70,8 @@ export async function POST(request: NextRequest) {
         .from(REVIEW_IMAGES_BUCKET)
         .upload(fileName, fileBuffer, {
           contentType: file.type,
-          cacheControl: '3600',
-          upsert: false
+          cacheControl: "3600",
+          upsert: false,
         });
 
       if (uploadError) {
@@ -82,7 +82,7 @@ export async function POST(request: NextRequest) {
         
         // 이미 업로드된 이미지들 정리
         for (const url of uploadedUrls) {
-          const path = url.split('/').pop();
+          const path = url.split("/").pop();
           if (path) {
             await supabase.storage.from(REVIEW_IMAGES_BUCKET).remove([path]);
           }
@@ -91,7 +91,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json(
           { 
             error: "이미지 업로드 중 오류가 발생했습니다.",
-            details: uploadError 
+            details: uploadError, 
           },
           { status: 500 },
         );

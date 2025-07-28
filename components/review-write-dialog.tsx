@@ -43,7 +43,7 @@ export function ReviewWriteDialog({
   storeId, 
   storeName,
   existingReview = null,
-  onReviewSubmitted 
+  onReviewSubmitted, 
 }: ReviewWriteDialogProps) {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -78,26 +78,26 @@ export function ReviewWriteDialog({
   // 키워드 및 메뉴 옵션
   const restaurantKeywords = [
     "무료주차", "발렛주차", "주차불가", "개별룸", "대형룸", "24시간영업",
-    "야외좌석(테라스)", "놀이방", "애완동물동반", "콜키지무료", "해당없음"
+    "야외좌석(테라스)", "놀이방", "애완동물동반", "콜키지무료", "해당없음",
   ];
 
   const atmosphereKeywords = [
     "배달", "아이동반", "다이어트식단", "실버푸드", "아침식사", "점심식사",
     "저녁식사", "식사모임", "술모임", "차모임", "혼카페", "혼밥", "혼술",
-    "점대", "회식", "데이트", "기념일", "가족외식", "간식"
+    "점대", "회식", "데이트", "기념일", "가족외식", "간식",
   ];
 
   const atmosphereDescriptions = [
     "숨은맛집", "서민적인", "캐주얼한", "고급스러운", "격식있는", "가성비좋은",
     "푸짐한", "조용한", "시끌벅적한", "예쁜", "깔끔한", "이국적/이색적",
-    "경관/야경이좋은", "지역주민이찾는", "핫플레이스"
+    "경관/야경이좋은", "지역주민이찾는", "핫플레이스",
   ];
 
   const menuOptions = [
     "바지락칼국수",
     "양푼보리밥",
     "영양밥",
-    "해물파전"
+    "해물파전",
   ];
 
   // 기존 리뷰가 있으면 초기값 설정
@@ -144,11 +144,11 @@ export function ReviewWriteDialog({
           const response = await fetch(`/api/stores/${storeId}`);
           if (response.ok) {
             const data = await response.json();
-            console.log('=== Store API Response Debug ===');
-            console.log('API Success:', data.success);
-            console.log('Store data exists:', !!data.data);
-            console.log('refillItems:', data.data?.refillItems);
-            console.log('refillItems count:', data.data?.refillItems?.length || 0);
+            console.log("=== Store API Response Debug ===");
+            console.log("API Success:", data.success);
+            console.log("Store data exists:", !!data.data);
+            console.log("refillItems:", data.data?.refillItems);
+            console.log("refillItems count:", data.data?.refillItems?.length || 0);
             
             if (data.success && data.data) {
               // refillItems를 메뉴로 사용
@@ -156,11 +156,11 @@ export function ReviewWriteDialog({
               const refillItems = data.data.refillItems;
               
               if (refillItems && Array.isArray(refillItems)) {
-                console.log('Processing', refillItems.length, 'refill items');
+                console.log("Processing", refillItems.length, "refill items");
                 
                 // order 속성으로 정렬 후 name 속성 추출
                 const sortedItems = refillItems
-                  .filter(item => item && typeof item === 'object' && item.name)
+                  .filter(item => item && typeof item === "object" && item.name)
                   .sort((a, b) => {
                     const orderA = a.order || 999; // order가 없으면 맨 뒤로
                     const orderB = b.order || 999;
@@ -168,16 +168,16 @@ export function ReviewWriteDialog({
                   });
                 
                 menus = sortedItems.map((item: any) => {
-                  console.log('Extracted menu (order:', item.order + '):', item.name);
+                  console.log("Extracted menu (order:", item.order + "):", item.name);
                   return item.name;
                 });
                 
-                console.log('Sorted menu names:', menus);
+                console.log("Sorted menu names:", menus);
               } else {
-                console.log('No valid refillItems found, using default menus');
+                console.log("No valid refillItems found, using default menus");
               }
               
-              console.log('Final parsed menus:', menus);
+              console.log("Final parsed menus:", menus);
               
               if (menus.length > 0) {
                 setStoreMenus(menus);
@@ -186,15 +186,15 @@ export function ReviewWriteDialog({
                 setStoreMenus(menuOptions);
               }
             } else {
-              console.log('No data or not successful');
+              console.log("No data or not successful");
               setStoreMenus(menuOptions);
             }
           } else {
-            console.log('Response not OK:', response.status);
+            console.log("Response not OK:", response.status);
             setStoreMenus(menuOptions);
           }
         } catch (error) {
-          console.error('메뉴 정보 로딩 실패:', error);
+          console.error("메뉴 정보 로딩 실패:", error);
           // 기본 메뉴 옵션 사용
           setStoreMenus(menuOptions);
         }
@@ -205,27 +205,27 @@ export function ReviewWriteDialog({
   }, [storeId]);
 
   // 키워드 토글 함수
-  const toggleKeyword = (keyword: string, type: 'restaurant' | 'atmosphere') => {
-    if (type === 'restaurant') {
+  const toggleKeyword = (keyword: string, type: "restaurant" | "atmosphere") => {
+    if (type === "restaurant") {
       setSelectedKeywords(prev => 
         prev.includes(keyword) 
           ? prev.filter(k => k !== keyword)
-          : [...prev, keyword]
+          : [...prev, keyword],
       );
     } else {
       setSelectedAtmosphere(prev => 
         prev.includes(keyword) 
           ? prev.filter(k => k !== keyword)
-          : [...prev, keyword]
+          : [...prev, keyword],
       );
     }
   };
 
   // 세부 평점 변경 함수 (3가지 선택)
-  const handleDetailedRatingChange = (type: 'taste' | 'price' | 'service', value: number) => {
+  const handleDetailedRatingChange = (type: "taste" | "price" | "service", value: number) => {
     setDetailedRatings(prev => ({
       ...prev,
-      [type]: value
+      [type]: value,
     }));
   };
 
@@ -234,7 +234,7 @@ export function ReviewWriteDialog({
     setSelectedMenus(prev => 
       prev.includes(menu) 
         ? prev.filter(m => m !== menu)
-        : [...prev, menu]
+        : [...prev, menu],
     );
   };
 
@@ -267,33 +267,35 @@ export function ReviewWriteDialog({
 
   // 이미지 업로드
   const uploadImages = async (files: File[]): Promise<string[]> => {
-    if (files.length === 0) return [];
+    if (files.length === 0) {
+return [];
+}
 
     setUploadingImages(true);
     try {
       const formData = new FormData();
       files.forEach(file => {
-        formData.append('images', file);
+        formData.append("images", file);
       });
 
-      const response = await fetch('/api/reviews/images/upload', {
-        method: 'POST',
+      const response = await fetch("/api/reviews/images/upload", {
+        method: "POST",
         body: formData,
       });
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || '이미지 업로드에 실패했습니다.');
+        throw new Error(errorData.error || "이미지 업로드에 실패했습니다.");
       }
 
       const data = await response.json();
       return data.imageUrls || [];
     } catch (error) {
-      console.error('이미지 업로드 오류:', error);
+      console.error("이미지 업로드 오류:", error);
       toast({
-        title: '이미지 업로드 실패',
-        description: error instanceof Error ? error.message : '이미지 업로드 중 오류가 발생했습니다.',
-        variant: 'destructive',
+        title: "이미지 업로드 실패",
+        description: error instanceof Error ? error.message : "이미지 업로드 중 오류가 발생했습니다.",
+        variant: "destructive",
       });
       return [];
     } finally {
@@ -335,11 +337,11 @@ export function ReviewWriteDialog({
         }
       }
 
-      const method = existingReview ? 'PUT' : 'POST';
+      const method = existingReview ? "PUT" : "POST";
       const response = await fetch(`/api/stores/${storeId}/reviews`, {
         method,
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
           ...review,
@@ -354,7 +356,7 @@ export function ReviewWriteDialog({
       const data = await response.json();
 
       if (!data.success) {
-        throw new Error(data.error || '리뷰 저장에 실패했습니다.');
+        throw new Error(data.error || "리뷰 저장에 실패했습니다.");
       }
 
       toast({
@@ -384,10 +386,10 @@ export function ReviewWriteDialog({
       }
 
     } catch (error) {
-      console.error('리뷰 저장 오류:', error);
+      console.error("리뷰 저장 오류:", error);
       toast({
         title: "저장 실패",
-        description: error instanceof Error ? error.message : '리뷰 저장 중 오류가 발생했습니다.',
+        description: error instanceof Error ? error.message : "리뷰 저장 중 오류가 발생했습니다.",
         variant: "destructive",
       });
     } finally {
@@ -403,9 +405,9 @@ export function ReviewWriteDialog({
     
     if (currentImageCount + files.length > maxImages) {
       toast({
-        title: '이미지 개수 초과',
+        title: "이미지 개수 초과",
         description: `이미지는 최대 ${maxImages}개까지 첨부할 수 있습니다.`,
-        variant: 'destructive',
+        variant: "destructive",
       });
       return;
     }
@@ -413,22 +415,22 @@ export function ReviewWriteDialog({
     // 파일 검증
     const validFiles = files.filter(file => {
       const maxSize = 5 * 1024 * 1024; // 5MB
-      const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+      const allowedTypes = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
       
       if (!allowedTypes.includes(file.type)) {
         toast({
-          title: '지원하지 않는 파일 형식',
-          description: 'JPG, PNG, WebP 형식의 이미지만 업로드할 수 있습니다.',
-          variant: 'destructive',
+          title: "지원하지 않는 파일 형식",
+          description: "JPG, PNG, WebP 형식의 이미지만 업로드할 수 있습니다.",
+          variant: "destructive",
         });
         return false;
       }
       
       if (file.size > maxSize) {
         toast({
-          title: '파일 크기 초과',
-          description: '각 이미지는 5MB 이하여야 합니다.',
-          variant: 'destructive',
+          title: "파일 크기 초과",
+          description: "각 이미지는 5MB 이하여야 합니다.",
+          variant: "destructive",
         });
         return false;
       }
@@ -446,7 +448,7 @@ export function ReviewWriteDialog({
 
     // 파일 입력 초기화
     if (fileInputRef.current) {
-      fileInputRef.current.value = '';
+      fileInputRef.current.value = "";
     }
   };
 
@@ -457,9 +459,9 @@ export function ReviewWriteDialog({
     
     if (selectedMenuImages.length + files.length > maxImages) {
       toast({
-        title: '이미지 개수 초과',
+        title: "이미지 개수 초과",
         description: `이미지는 최대 ${maxImages}개까지 첨부할 수 있습니다.`,
-        variant: 'destructive',
+        variant: "destructive",
       });
       return;
     }
@@ -467,22 +469,22 @@ export function ReviewWriteDialog({
     // 파일 검증
     const validFiles = files.filter(file => {
       const maxSize = 5 * 1024 * 1024; // 5MB
-      const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+      const allowedTypes = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
       
       if (!allowedTypes.includes(file.type)) {
         toast({
-          title: '지원하지 않는 파일 형식',
-          description: 'JPG, PNG, WebP 형식의 이미지만 업로드할 수 있습니다.',
-          variant: 'destructive',
+          title: "지원하지 않는 파일 형식",
+          description: "JPG, PNG, WebP 형식의 이미지만 업로드할 수 있습니다.",
+          variant: "destructive",
         });
         return false;
       }
       
       if (file.size > maxSize) {
         toast({
-          title: '파일 크기 초과',
-          description: '각 이미지는 5MB 이하여야 합니다.',
-          variant: 'destructive',
+          title: "파일 크기 초과",
+          description: "각 이미지는 5MB 이하여야 합니다.",
+          variant: "destructive",
         });
         return false;
       }
@@ -540,9 +542,15 @@ export function ReviewWriteDialog({
 
   // 평점에 따른 색상
   const getRatingColor = (rating: number) => {
-    if (rating >= 4.5) return "text-green-600";
-    if (rating >= 3.5) return "text-yellow-600";
-    if (rating >= 2.5) return "text-orange-600";
+    if (rating >= 4.5) {
+return "text-green-600";
+}
+    if (rating >= 3.5) {
+return "text-yellow-600";
+}
+    if (rating >= 2.5) {
+return "text-orange-600";
+}
     return "text-red-600";
   };
 
@@ -640,18 +648,18 @@ export function ReviewWriteDialog({
                 <label className="font-medium mb-3 block">맛</label>
                 <div className="flex gap-2">
                   {[
-                    { value: 2, label: '부족' },
-                    { value: 3, label: '보통' },
-                    { value: 4, label: '좋음' }
+                    { value: 2, label: "부족" },
+                    { value: 3, label: "보통" },
+                    { value: 4, label: "좋음" },
                   ].map((option) => (
                     <button
                       key={option.value}
                       type="button"
-                      onClick={() => handleDetailedRatingChange('taste', option.value)}
+                      onClick={() => handleDetailedRatingChange("taste", option.value)}
                       className={`flex-1 py-2 px-3 rounded-lg border text-sm font-medium transition-colors ${
                         detailedRatings.taste === option.value
-                          ? 'bg-orange-50 border-[#FF5722] text-[#FF5722]'
-                          : 'bg-white border-gray-300 text-gray-700 hover:border-gray-400'
+                          ? "bg-orange-50 border-[#FF5722] text-[#FF5722]"
+                          : "bg-white border-gray-300 text-gray-700 hover:border-gray-400"
                       }`}
                     >
                       {option.label}
@@ -665,18 +673,18 @@ export function ReviewWriteDialog({
                 <label className="font-medium mb-3 block">가격</label>
                 <div className="flex gap-2">
                   {[
-                    { value: 2, label: '불만' },
-                    { value: 3, label: '보통' },
-                    { value: 4, label: '만족' }
+                    { value: 2, label: "불만" },
+                    { value: 3, label: "보통" },
+                    { value: 4, label: "만족" },
                   ].map((option) => (
                     <button
                       key={option.value}
                       type="button"
-                      onClick={() => handleDetailedRatingChange('price', option.value)}
+                      onClick={() => handleDetailedRatingChange("price", option.value)}
                       className={`flex-1 py-2 px-3 rounded-lg border text-sm font-medium transition-colors ${
                         detailedRatings.price === option.value
-                          ? 'bg-orange-50 border-[#FF5722] text-[#FF5722]'
-                          : 'bg-white border-gray-300 text-gray-700 hover:border-gray-400'
+                          ? "bg-orange-50 border-[#FF5722] text-[#FF5722]"
+                          : "bg-white border-gray-300 text-gray-700 hover:border-gray-400"
                       }`}
                     >
                       {option.label}
@@ -690,18 +698,18 @@ export function ReviewWriteDialog({
                 <label className="font-medium mb-3 block">응대</label>
                 <div className="flex gap-2">
                   {[
-                    { value: 2, label: '불친절' },
-                    { value: 3, label: '보통' },
-                    { value: 4, label: '친절함' }
+                    { value: 2, label: "불친절" },
+                    { value: 3, label: "보통" },
+                    { value: 4, label: "친절함" },
                   ].map((option) => (
                     <button
                       key={option.value}
                       type="button"
-                      onClick={() => handleDetailedRatingChange('service', option.value)}
+                      onClick={() => handleDetailedRatingChange("service", option.value)}
                       className={`flex-1 py-2 px-3 rounded-lg border text-sm font-medium transition-colors ${
                         detailedRatings.service === option.value
-                          ? 'bg-orange-50 border-[#FF5722] text-[#FF5722]'
-                          : 'bg-white border-gray-300 text-gray-700 hover:border-gray-400'
+                          ? "bg-orange-50 border-[#FF5722] text-[#FF5722]"
+                          : "bg-white border-gray-300 text-gray-700 hover:border-gray-400"
                       }`}
                     >
                       {option.label}
@@ -778,7 +786,7 @@ export function ReviewWriteDialog({
                   value={customMenu}
                   onChange={(e) => setCustomMenu(e.target.value)}
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
+                    if (e.key === "Enter") {
                       e.preventDefault();
                       handleAddCustomMenu();
                     }
@@ -838,7 +846,7 @@ export function ReviewWriteDialog({
                       ? "bg-blue-100 text-blue-800 border-blue-300"
                       : "bg-white text-gray-600 border-gray-300 hover:bg-gray-50"
                   }`}
-                  onClick={() => toggleKeyword(keyword, 'restaurant')}
+                  onClick={() => toggleKeyword(keyword, "restaurant")}
                 >
                   {keyword}
                 </button>
@@ -870,7 +878,7 @@ export function ReviewWriteDialog({
                       ? "bg-blue-100 text-blue-800 border-blue-300"
                       : "bg-white text-gray-600 border-gray-300 hover:bg-gray-50"
                   }`}
-                  onClick={() => toggleKeyword(keyword, 'atmosphere')}
+                  onClick={() => toggleKeyword(keyword, "atmosphere")}
                 >
                   {keyword}
                 </button>
@@ -890,7 +898,7 @@ export function ReviewWriteDialog({
                       ? "bg-pink-100 text-pink-800 border-pink-300"
                       : "bg-white text-gray-600 border-gray-300 hover:bg-gray-50"
                   }`}
-                  onClick={() => toggleKeyword(desc, 'atmosphere')}
+                  onClick={() => toggleKeyword(desc, "atmosphere")}
                 >
                   {desc}
                 </button>
@@ -979,7 +987,7 @@ export function ReviewWriteDialog({
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={() => document.getElementById('menu-images')?.click()}
+                  onClick={() => document.getElementById("menu-images")?.click()}
                   disabled={uploadingImages}
                 >
                   <Upload className="h-4 w-4 mr-2" />
@@ -1031,8 +1039,8 @@ export function ReviewWriteDialog({
               disabled={submitting || uploadingImages || selectedMenus.length === 0 || review.rating === 0}
             >
               {submitting || uploadingImages ? 
-                (uploadingImages ? '업로드 중...' : '저장 중...') : 
-                (existingReview ? '수정 완료' : '평가 완료')
+                (uploadingImages ? "업로드 중..." : "저장 중...") : 
+                (existingReview ? "수정 완료" : "평가 완료")
               }
             </Button>
           </div>

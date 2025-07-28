@@ -53,7 +53,9 @@ export default function MyReviewsPage() {
 
   // 리뷰 데이터 조회
   const fetchMyReviews = useCallback(async () => {
-    if (!user) return;
+    if (!user) {
+return;
+}
 
     setLoading(true);
     try {

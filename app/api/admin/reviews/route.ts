@@ -90,8 +90,8 @@ export async function GET(request: NextRequest) {
         page,
         limit,
         total: count || 0,
-        hasMore: (count || 0) > page * limit
-      }
+        hasMore: (count || 0) > page * limit,
+      },
     });
 
   } catch (error) {

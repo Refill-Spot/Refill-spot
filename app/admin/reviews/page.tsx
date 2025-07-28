@@ -1,12 +1,12 @@
-'use client';
+"use client";
 
-import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import React, { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   AlertTriangle,
   Trash2,
@@ -17,9 +17,9 @@ import {
   User,
   MapPin,
   Eye,
-  EyeOff
-} from 'lucide-react';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+  EyeOff,
+} from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 
 interface Review {
   id: string;
@@ -58,34 +58,34 @@ export default function AdminReviewsPage() {
   const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState('all');
+  const [activeTab, setActiveTab] = useState("all");
   const [pagination, setPagination] = useState({
     page: 1,
     limit: 20,
     total: 0,
-    hasMore: false
+    hasMore: false,
   });
   const [adminCheck, setAdminCheck] = useState<{isAdmin: boolean, loading: boolean}>({
     isAdmin: false,
-    loading: true
+    loading: true,
   });
 
   // 관리자 권한 확인
   useEffect(() => {
     const checkAdmin = async () => {
       try {
-        const response = await fetch('/api/auth/check-admin');
+        const response = await fetch("/api/auth/check-admin");
         const data = await response.json();
         
         if (!data.success || !data.data.isAdmin) {
-          router.push('/unauthorized');
+          router.push("/unauthorized");
           return;
         }
         
         setAdminCheck({ isAdmin: true, loading: false });
       } catch (error) {
-        console.error('관리자 권한 확인 오류:', error);
-        router.push('/unauthorized');
+        console.error("관리자 권한 확인 오류:", error);
+        router.push("/unauthorized");
       }
     };
 
@@ -99,14 +99,14 @@ export default function AdminReviewsPage() {
       const params = new URLSearchParams({
         page: page.toString(),
         limit: pagination.limit.toString(),
-        reported_only: reportedOnly.toString()
+        reported_only: reportedOnly.toString(),
       });
 
       const response = await fetch(`/api/admin/reviews?${params}`);
       const data = await response.json();
 
       if (!data.success) {
-        throw new Error(data.error || '리뷰를 불러오는데 실패했습니다.');
+        throw new Error(data.error || "리뷰를 불러오는데 실패했습니다.");
       }
 
       const reviewsData: ReviewsResponse = data.data;
@@ -114,8 +114,8 @@ export default function AdminReviewsPage() {
       setPagination(reviewsData.pagination);
       setError(null);
     } catch (error) {
-      console.error('리뷰 로드 오류:', error);
-      setError(error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.');
+      console.error("리뷰 로드 오류:", error);
+      setError(error instanceof Error ? error.message : "알 수 없는 오류가 발생했습니다.");
     } finally {
       setLoading(false);
     }
@@ -124,7 +124,7 @@ export default function AdminReviewsPage() {
   // 탭 변경시 리뷰 로드
   useEffect(() => {
     if (adminCheck.isAdmin) {
-      const reportedOnly = activeTab === 'reported';
+      const reportedOnly = activeTab === "reported";
       loadReviews(1, reportedOnly);
     }
   }, [activeTab, adminCheck.isAdmin]);
@@ -133,57 +133,57 @@ export default function AdminReviewsPage() {
   const handleDeleteReview = async (reviewId: string) => {
     try {
       const response = await fetch(`/api/admin/reviews/${reviewId}`, {
-        method: 'DELETE'
+        method: "DELETE",
       });
 
       const data = await response.json();
 
       if (!data.success) {
-        throw new Error(data.error || '리뷰 삭제에 실패했습니다.');
+        throw new Error(data.error || "리뷰 삭제에 실패했습니다.");
       }
 
       // 리뷰 목록 새로고침
-      loadReviews(pagination.page, activeTab === 'reported');
+      loadReviews(pagination.page, activeTab === "reported");
     } catch (error) {
-      console.error('리뷰 삭제 오류:', error);
-      setError(error instanceof Error ? error.message : '리뷰 삭제 중 오류가 발생했습니다.');
+      console.error("리뷰 삭제 오류:", error);
+      setError(error instanceof Error ? error.message : "리뷰 삭제 중 오류가 발생했습니다.");
     }
   };
 
   // 리뷰 신고 상태 업데이트
-  const handleReviewAction = async (reviewId: string, action: 'approve' | 'reject') => {
+  const handleReviewAction = async (reviewId: string, action: "approve" | "reject") => {
     try {
       const response = await fetch(`/api/admin/reviews/${reviewId}`, {
-        method: 'PATCH',
+        method: "PATCH",
         headers: {
-          'Content-Type': 'application/json'
+          "Content-Type": "application/json",
         },
-        body: JSON.stringify({ action })
+        body: JSON.stringify({ action }),
       });
 
       const data = await response.json();
 
       if (!data.success) {
-        throw new Error(data.error || '리뷰 상태 업데이트에 실패했습니다.');
+        throw new Error(data.error || "리뷰 상태 업데이트에 실패했습니다.");
       }
 
       // 리뷰 목록 새로고침
-      loadReviews(pagination.page, activeTab === 'reported');
+      loadReviews(pagination.page, activeTab === "reported");
     } catch (error) {
-      console.error('리뷰 상태 업데이트 오류:', error);
-      setError(error instanceof Error ? error.message : '리뷰 상태 업데이트 중 오류가 발생했습니다.');
+      console.error("리뷰 상태 업데이트 오류:", error);
+      setError(error instanceof Error ? error.message : "리뷰 상태 업데이트 중 오류가 발생했습니다.");
     }
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleString('ko-KR');
+    return new Date(dateString).toLocaleString("ko-KR");
   };
 
   const renderStars = (rating: number) => {
     return Array.from({ length: 5 }, (_, i) => (
       <Star
         key={i}
-        className={`h-4 w-4 ${i < rating ? 'text-yellow-400 fill-current' : 'text-gray-300'}`}
+        className={`h-4 w-4 ${i < rating ? "text-yellow-400 fill-current" : "text-gray-300"}`}
       />
     ));
   };
@@ -227,7 +227,7 @@ export default function AdminReviewsPage() {
             <div className="text-center py-8">로딩 중...</div>
           ) : reviews.length === 0 ? (
             <div className="text-center py-8 text-gray-500">
-              {activeTab === 'reported' ? '신고된 리뷰가 없습니다.' : '리뷰가 없습니다.'}
+              {activeTab === "reported" ? "신고된 리뷰가 없습니다." : "리뷰가 없습니다."}
             </div>
           ) : (
             <>
@@ -237,7 +237,7 @@ export default function AdminReviewsPage() {
               
               <div className="space-y-4">
                 {reviews.map((review) => (
-                  <Card key={review.id} className={`${review.is_reported ? 'border-red-200 bg-red-50' : ''}`}>
+                  <Card key={review.id} className={`${review.is_reported ? "border-red-200 bg-red-50" : ""}`}>
                     <CardHeader className="pb-4">
                       <div className="flex justify-between items-start">
                         <div className="space-y-2">
@@ -300,7 +300,7 @@ export default function AdminReviewsPage() {
                               <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={() => handleReviewAction(review.id, 'approve')}
+                                onClick={() => handleReviewAction(review.id, "approve")}
                                 className="flex items-center gap-1"
                               >
                                 <CheckCircle className="h-4 w-4" />
@@ -309,7 +309,7 @@ export default function AdminReviewsPage() {
                               <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={() => handleReviewAction(review.id, 'reject')}
+                                onClick={() => handleReviewAction(review.id, "reject")}
                                 className="flex items-center gap-1"
                               >
                                 <XCircle className="h-4 w-4" />
@@ -362,7 +362,7 @@ export default function AdminReviewsPage() {
               {pagination.hasMore && (
                 <div className="text-center mt-6">
                   <Button
-                    onClick={() => loadReviews(pagination.page + 1, activeTab === 'reported')}
+                    onClick={() => loadReviews(pagination.page + 1, activeTab === "reported")}
                     disabled={loading}
                   >
                     더 보기

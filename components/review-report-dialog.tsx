@@ -40,7 +40,9 @@ export function ReviewReportDialog({
   const [description, setDescription] = useState("");
 
   const handleSubmit = async () => {
-    if (!reason) return;
+    if (!reason) {
+return;
+}
 
     const success = await onSubmit(reason, description.trim() || undefined);
     if (success) {

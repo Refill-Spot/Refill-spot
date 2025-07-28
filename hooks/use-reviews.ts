@@ -200,7 +200,7 @@ export const useReviews = ({ storeId }: UseReviewsProps) => {
   // 내 리뷰 찾기
   const findMyReview = useCallback(() => {
     if (!user) return null;
-    return reviews.find(review => review.userId === user.id) || null;
+    return reviews.find(review => review.user.id === user.id) || null;
   }, [reviews, user]);
 
   // 평균 평점 계산

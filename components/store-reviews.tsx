@@ -12,7 +12,7 @@ import { ReviewReportDialog } from "@/components/review-report-dialog";
 import { FormattedReview } from "@/types/store";
 import { formatDistanceToNow } from "date-fns";
 import { enUS, ko } from "date-fns/locale";
-import { Flag, Star, ThumbsUp, Upload, X, Image as ImageIcon, Filter, ChevronDown, Heart, MessageCircle, Share2, Sparkles, TrendingUp, Calendar, Award, Users, Trash2, Shield, ZoomIn, ChevronLeft, ChevronRight } from "lucide-react";
+import { Flag, Star, ThumbsUp, Upload, X, Image as ImageIcon, Filter, ChevronDown, Heart, MessageCircle, Share2, Sparkles, TrendingUp, Calendar, Award, Users, Trash2, Shield, ZoomIn, ChevronLeft, ChevronRight, User } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState, useRef } from "react";
 import { Input } from "@/components/ui/input";
@@ -75,7 +75,7 @@ export function StoreReviews({ storeId, storeName, showWriteForm: externalShowWr
     myReview,
     averageRating,
     totalReviews,
-    actions: { submitReview, updateReview, deleteReview, toggleLike, reportReview, fetchReviews }
+    actions: { submitReview, updateReview, deleteReview, toggleLike, reportReview, fetchReviews },
   } = useReviews({ storeId });
 
   // 필터링된 리뷰 계산
@@ -120,7 +120,7 @@ export function StoreReviews({ storeId, storeName, showWriteForm: externalShowWr
   const activeFiltersCount = [
     ratingFilter !== "all",
     sortOption !== "newest",
-    showOnlyWithImages
+    showOnlyWithImages,
   ].filter(Boolean).length;
 
   // 필터 초기화
@@ -155,33 +155,35 @@ export function StoreReviews({ storeId, storeName, showWriteForm: externalShowWr
 
   // 이미지 업로드 핸들러
   const uploadImages = async (files: File[]): Promise<string[]> => {
-    if (files.length === 0) return [];
+    if (files.length === 0) {
+return [];
+}
 
     setUploadingImages(true);
     try {
       const formData = new FormData();
       files.forEach(file => {
-        formData.append('images', file);
+        formData.append("images", file);
       });
 
-      const response = await fetch('/api/reviews/images/upload', {
-        method: 'POST',
+      const response = await fetch("/api/reviews/images/upload", {
+        method: "POST",
         body: formData,
       });
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || '이미지 업로드에 실패했습니다.');
+        throw new Error(errorData.error || "이미지 업로드에 실패했습니다.");
       }
 
       const data = await response.json();
       return data.imageUrls || [];
     } catch (error) {
-      console.error('이미지 업로드 오류:', error);
+      console.error("이미지 업로드 오류:", error);
       toast({
-        title: '이미지 업로드 실패',
-        description: error instanceof Error ? error.message : '이미지 업로드 중 오류가 발생했습니다.',
-        variant: 'destructive',
+        title: "이미지 업로드 실패",
+        description: error instanceof Error ? error.message : "이미지 업로드 중 오류가 발생했습니다.",
+        variant: "destructive",
       });
       return [];
     } finally {
@@ -248,7 +250,9 @@ export function StoreReviews({ storeId, storeName, showWriteForm: externalShowWr
 
   // 리뷰 삭제 핸들러
   const handleDeleteReview = async () => {
-    if (!user || !myReview) return;
+    if (!user || !myReview) {
+return;
+}
 
     const success = await deleteReview();
     if (success) {
@@ -272,13 +276,13 @@ export function StoreReviews({ storeId, storeName, showWriteForm: externalShowWr
 
     try {
       const response = await fetch(`/api/admin/reviews/${reviewId}`, {
-        method: 'DELETE'
+        method: "DELETE",
       });
 
       const data = await response.json();
 
       if (!data.success) {
-        throw new Error(data.error || '리뷰 삭제에 실패했습니다.');
+        throw new Error(data.error || "리뷰 삭제에 실패했습니다.");
       }
 
       toast({
@@ -289,10 +293,10 @@ export function StoreReviews({ storeId, storeName, showWriteForm: externalShowWr
       // 리뷰 목록 새로고침
       await fetchReviews();
     } catch (error) {
-      console.error('관리자 리뷰 삭제 오류:', error);
+      console.error("관리자 리뷰 삭제 오류:", error);
       toast({
         title: "삭제 실패",
-        description: error instanceof Error ? error.message : '리뷰 삭제 중 오류가 발생했습니다.',
+        description: error instanceof Error ? error.message : "리뷰 삭제 중 오류가 발생했습니다.",
         variant: "destructive",
       });
     }
@@ -306,9 +310,9 @@ export function StoreReviews({ storeId, storeName, showWriteForm: externalShowWr
     
     if (currentImageCount + files.length > maxImages) {
       toast({
-        title: '이미지 개수 초과',
+        title: "이미지 개수 초과",
         description: `이미지는 최대 ${maxImages}개까지 첨부할 수 있습니다.`,
-        variant: 'destructive',
+        variant: "destructive",
       });
       return;
     }
@@ -316,22 +320,22 @@ export function StoreReviews({ storeId, storeName, showWriteForm: externalShowWr
     // 파일 크기 및 형식 검증
     const validFiles = files.filter(file => {
       const maxSize = 5 * 1024 * 1024; // 5MB
-      const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+      const allowedTypes = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
       
       if (!allowedTypes.includes(file.type)) {
         toast({
-          title: '지원하지 않는 파일 형식',
-          description: 'JPG, PNG, WebP 형식의 이미지만 업로드할 수 있습니다.',
-          variant: 'destructive',
+          title: "지원하지 않는 파일 형식",
+          description: "JPG, PNG, WebP 형식의 이미지만 업로드할 수 있습니다.",
+          variant: "destructive",
         });
         return false;
       }
       
       if (file.size > maxSize) {
         toast({
-          title: '파일 크기 초과',
-          description: '각 이미지는 5MB 이하여야 합니다.',
-          variant: 'destructive',
+          title: "파일 크기 초과",
+          description: "각 이미지는 5MB 이하여야 합니다.",
+          variant: "destructive",
         });
         return false;
       }
@@ -349,7 +353,7 @@ export function StoreReviews({ storeId, storeName, showWriteForm: externalShowWr
 
     // 파일 입력 초기화
     if (fileInputRef.current) {
-      fileInputRef.current.value = '';
+      fileInputRef.current.value = "";
     }
   };
 
@@ -403,19 +407,21 @@ export function StoreReviews({ storeId, storeName, showWriteForm: externalShowWr
   // 키보드 네비게이션
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (!imageModalOpen) return;
+      if (!imageModalOpen) {
+return;
+}
       
-      if (e.key === 'ArrowLeft') {
+      if (e.key === "ArrowLeft") {
         handlePrevImage();
-      } else if (e.key === 'ArrowRight') {
+      } else if (e.key === "ArrowRight") {
         handleNextImage();
-      } else if (e.key === 'Escape') {
+      } else if (e.key === "Escape") {
         setImageModalOpen(false);
       }
     };
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
   }, [imageModalOpen, currentImageIndex, currentReviewImages]);
 
   // 신고 핸들러
@@ -425,7 +431,9 @@ export function StoreReviews({ storeId, storeName, showWriteForm: externalShowWr
   };
 
   const handleReportSubmit = async (reason: string, description?: string) => {
-    if (!reportingReviewId) return false;
+    if (!reportingReviewId) {
+return false;
+}
     
     const success = await reportReview(reportingReviewId, reason, description);
     if (success) {
@@ -455,7 +463,7 @@ export function StoreReviews({ storeId, storeName, showWriteForm: externalShowWr
       sm: "h-3 w-3",
       md: "h-4 w-4", 
       lg: "h-5 w-5",
-      xl: "h-6 w-6"
+      xl: "h-6 w-6",
     };
     
     return Array.from({ length: maxStars }).map((_, i) => (
@@ -474,9 +482,15 @@ export function StoreReviews({ storeId, storeName, showWriteForm: externalShowWr
 
   // 평점에 따른 색상 반환
   const getRatingColor = (rating: number) => {
-    if (rating >= 4.5) return "text-green-600";
-    if (rating >= 3.5) return "text-yellow-600";
-    if (rating >= 2.5) return "text-orange-600";
+    if (rating >= 4.5) {
+return "text-green-600";
+}
+    if (rating >= 3.5) {
+return "text-yellow-600";
+}
+    if (rating >= 2.5) {
+return "text-orange-600";
+}
     return "text-red-600";
   };
 
@@ -601,7 +615,7 @@ export function StoreReviews({ storeId, storeName, showWriteForm: externalShowWr
                       className="w-full border-dashed border-2 hover:border-[#FF5722] hover:bg-orange-50"
                     >
                       <Upload className="h-4 w-4 mr-2" />
-                      {uploadingImages ? '업로드 중...' : '이미지 선택 (최대 5개)'}
+                      {uploadingImages ? "업로드 중..." : "이미지 선택 (최대 5개)"}
                     </Button>
                     <p className="text-xs text-gray-500 mt-1">
                       JPG, PNG, WebP 형식, 각 5MB 이하
@@ -617,7 +631,7 @@ export function StoreReviews({ storeId, storeName, showWriteForm: externalShowWr
                   disabled={submitting || uploadingImages}
                 >
                   {submitting || uploadingImages ? 
-                    (uploadingImages ? '이미지 업로드 중...' : t("processing")) : 
+                    (uploadingImages ? "이미지 업로드 중..." : t("processing")) : 
                     (myReview ? t("update_review") : t("submit_review"))
                   }
                 </Button>
@@ -685,9 +699,9 @@ export function StoreReviews({ storeId, storeName, showWriteForm: externalShowWr
                   onClick={() => setShowFilters(!showFilters)}
                   className="px-6 py-3 bg-white border-2 border-gray-200 rounded-2xl font-semibold text-gray-700 hover:border-blue-300 hover:text-blue-600 transition-all duration-200 flex items-center gap-3 shadow-sm hover:shadow-md"
                 >
-                  <span>{showFilters ? '필터 닫기' : '필터 열기'}</span>
+                  <span>{showFilters ? "필터 닫기" : "필터 열기"}</span>
                   <ChevronDown className={`h-5 w-5 transition-transform duration-300 ${
-                    showFilters ? 'rotate-180' : ''
+                    showFilters ? "rotate-180" : ""
                   }`} />
                 </button>
               </div>
@@ -695,7 +709,7 @@ export function StoreReviews({ storeId, storeName, showWriteForm: externalShowWr
             
             {/* 필터 옵션들 */}
             <div className={`transition-all duration-500 ease-out overflow-hidden ${
-              showFilters ? 'max-h-[800px] opacity-100 translate-y-0' : 'max-h-0 opacity-0 -translate-y-4'
+              showFilters ? "max-h-[800px] opacity-100 translate-y-0" : "max-h-0 opacity-0 -translate-y-4"
             }`}>
               <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -708,12 +722,12 @@ export function StoreReviews({ storeId, storeName, showWriteForm: externalShowWr
                     
                     <div className="space-y-2">
                       {[
-                        { value: 'all', label: '전체', stars: 0 },
-                        { value: '5', label: '5점', stars: 5 },
-                        { value: '4', label: '4점', stars: 4 },
-                        { value: '3', label: '3점', stars: 3 },
-                        { value: '2', label: '2점', stars: 2 },
-                        { value: '1', label: '1점', stars: 1 }
+                        { value: "all", label: "전체", stars: 0 },
+                        { value: "5", label: "5점", stars: 5 },
+                        { value: "4", label: "4점", stars: 4 },
+                        { value: "3", label: "3점", stars: 3 },
+                        { value: "2", label: "2점", stars: 2 },
+                        { value: "1", label: "1점", stars: 1 },
                       ].map((option) => (
                         <button
                           key={option.value}
@@ -721,8 +735,8 @@ export function StoreReviews({ storeId, storeName, showWriteForm: externalShowWr
                           onClick={() => setRatingFilter(option.value)}
                           className={`w-full flex items-center justify-between px-4 py-3 rounded-xl border transition-all duration-200 ${
                             ratingFilter === option.value
-                              ? 'bg-[#FF5722]/10 border-[#FF5722] text-[#FF5722] shadow-sm ring-1 ring-[#FF5722]/20'
-                              : 'bg-white border-gray-200 text-gray-700 hover:border-[#FF5722]/50 hover:bg-[#FF5722]/5 hover:text-[#FF5722]'
+                              ? "bg-[#FF5722]/10 border-[#FF5722] text-[#FF5722] shadow-sm ring-1 ring-[#FF5722]/20"
+                              : "bg-white border-gray-200 text-gray-700 hover:border-[#FF5722]/50 hover:bg-[#FF5722]/5 hover:text-[#FF5722]"
                           }`}
                         >
                           <span className="font-medium">{option.label}</span>
@@ -745,11 +759,11 @@ export function StoreReviews({ storeId, storeName, showWriteForm: externalShowWr
                     
                     <div className="space-y-2">
                       {[
-                        { value: 'newest', label: '최신순', desc: '방금 올라온 리뷰' },
-                        { value: 'highest', label: '평점 높은순', desc: '높은 평점부터' },
-                        { value: 'most_liked', label: '인기순', desc: '좋아요가 많은 리뷰' },
-                        { value: 'oldest', label: '오래된순', desc: '오래된 리뷰부터' },
-                        { value: 'lowest', label: '평점 낮은순', desc: '솔직한 리뷰' }
+                        { value: "newest", label: "최신순", desc: "방금 올라온 리뷰" },
+                        { value: "highest", label: "평점 높은순", desc: "높은 평점부터" },
+                        { value: "most_liked", label: "인기순", desc: "좋아요가 많은 리뷰" },
+                        { value: "oldest", label: "오래된순", desc: "오래된 리뷰부터" },
+                        { value: "lowest", label: "평점 낮은순", desc: "솔직한 리뷰" },
                       ].map((option) => (
                         <button
                           key={option.value}
@@ -757,17 +771,17 @@ export function StoreReviews({ storeId, storeName, showWriteForm: externalShowWr
                           onClick={() => setSortOption(option.value)}
                           className={`w-full text-left px-4 py-3 rounded-xl border transition-all duration-200 ${
                             sortOption === option.value
-                              ? 'bg-[#FF5722]/10 border-[#FF5722] text-[#FF5722] shadow-sm ring-1 ring-[#FF5722]/20'
-                              : 'bg-white border-gray-200 text-gray-700 hover:border-[#FF5722]/50 hover:bg-[#FF5722]/5 hover:text-[#FF5722]'
+                              ? "bg-[#FF5722]/10 border-[#FF5722] text-[#FF5722] shadow-sm ring-1 ring-[#FF5722]/20"
+                              : "bg-white border-gray-200 text-gray-700 hover:border-[#FF5722]/50 hover:bg-[#FF5722]/5 hover:text-[#FF5722]"
                           }`}
                         >
                           <div className={`font-medium mb-1 ${
-                            sortOption === option.value ? 'text-[#FF5722]' : 'text-gray-900'
+                            sortOption === option.value ? "text-[#FF5722]" : "text-gray-900"
                           }`}>
                             {option.label}
                           </div>
                           <div className={`text-xs ${
-                            sortOption === option.value ? 'text-[#FF5722]/70' : 'text-gray-500'
+                            sortOption === option.value ? "text-[#FF5722]/70" : "text-gray-500"
                           }`}>
                             {option.desc}
                           </div>
@@ -789,20 +803,20 @@ export function StoreReviews({ storeId, storeName, showWriteForm: externalShowWr
                       onClick={() => setShowOnlyWithImages(!showOnlyWithImages)}
                       className={`w-full flex items-center justify-between px-4 py-3 rounded-xl border transition-all duration-200 mb-6 ${
                         showOnlyWithImages
-                          ? 'bg-[#FF5722]/10 border-[#FF5722] text-[#FF5722] shadow-sm ring-1 ring-[#FF5722]/20'
-                          : 'bg-white border-gray-200 text-gray-700 hover:border-[#FF5722]/50 hover:bg-[#FF5722]/5 hover:text-[#FF5722]'
+                          ? "bg-[#FF5722]/10 border-[#FF5722] text-[#FF5722] shadow-sm ring-1 ring-[#FF5722]/20"
+                          : "bg-white border-gray-200 text-gray-700 hover:border-[#FF5722]/50 hover:bg-[#FF5722]/5 hover:text-[#FF5722]"
                       }`}
                     >
                       <div className="flex items-center gap-3">
                         <ImageIcon className="h-5 w-5" />
                         <div className="text-left">
                           <div className={`font-medium ${
-                            showOnlyWithImages ? 'text-[#FF5722]' : 'text-gray-700'
+                            showOnlyWithImages ? "text-[#FF5722]" : "text-gray-700"
                           }`}>
                             사진 있는 리뷰만
                           </div>
                           <div className={`text-xs ${
-                            showOnlyWithImages ? 'text-[#FF5722]/70' : 'text-gray-500'
+                            showOnlyWithImages ? "text-[#FF5722]/70" : "text-gray-500"
                           }`}>
                             현재 {allReviews.filter(r => r.imageUrls && r.imageUrls.length > 0).length}개 이미지 리뷰
                           </div>
@@ -810,8 +824,8 @@ export function StoreReviews({ storeId, storeName, showWriteForm: externalShowWr
                       </div>
                       <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors duration-200 ${
                         showOnlyWithImages
-                          ? 'bg-[#FF5722] border-[#FF5722]'
-                          : 'border-gray-300'
+                          ? "bg-[#FF5722] border-[#FF5722]"
+                          : "border-gray-300"
                       }`}>
                         {showOnlyWithImages && (
                           <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
@@ -842,18 +856,18 @@ export function StoreReviews({ storeId, storeName, showWriteForm: externalShowWr
                           <div className="pt-2 border-t border-gray-300">
                             <div className="text-xs text-gray-500 mb-2">적용된 필터</div>
                             <div className="flex flex-wrap gap-1">
-                              {ratingFilter !== 'all' && (
+                              {ratingFilter !== "all" && (
                                 <span className="px-2 py-1 bg-[#FF5722] text-white rounded-full text-xs font-medium">
                                   {ratingFilter}점
                                 </span>
                               )}
-                              {sortOption !== 'newest' && (
+                              {sortOption !== "newest" && (
                                 <span className="px-2 py-1 bg-blue-500 text-white rounded-full text-xs font-medium">
                                   {
-                                    sortOption === 'oldest' ? '오래된순' :
-                                    sortOption === 'highest' ? '높은평점' :
-                                    sortOption === 'lowest' ? '낮은평점' :
-                                    sortOption === 'most_liked' ? '인기순' : ''
+                                    sortOption === "oldest" ? "오래된순" :
+                                    sortOption === "highest" ? "높은평점" :
+                                    sortOption === "lowest" ? "낮은평점" :
+                                    sortOption === "most_liked" ? "인기순" : ""
                                   }
                                 </span>
                               )}
@@ -882,7 +896,7 @@ export function StoreReviews({ storeId, storeName, showWriteForm: externalShowWr
             <div className="space-y-4">
               {/* 평균 평점 표시 - 다이닝코드 스타일 */}
               <div className="bg-white border border-gray-200 p-6 mb-6">
-                <h3 className="text-xl font-bold text-gray-900 mb-6">{storeName || '가게'} 방문자 리뷰</h3>
+                <h3 className="text-xl font-bold text-gray-900 mb-6">{storeName || "가게"} 방문자 리뷰</h3>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
                   {/* 왼쪽: 전체 평점 */}
@@ -903,14 +917,14 @@ export function StoreReviews({ storeId, storeName, showWriteForm: externalShowWr
                     {[5, 4, 3, 2, 1].map(rating => {
                       const count = allReviews.filter(r => Math.floor(r.rating) === rating).length;
                       const percentage = totalReviews > 0 ? (count / totalReviews) * 100 : 0;
-                      const label = rating === 5 ? '최고예요' : 
-                                   rating === 4 ? '만족해요' : 
-                                   rating === 3 ? '괜찮아요' : 
-                                   rating === 2 ? '아쉬워요' : '별로예요';
+                      const label = rating === 5 ? "최고예요" : 
+                                   rating === 4 ? "만족해요" : 
+                                   rating === 3 ? "괜찮아요" : 
+                                   rating === 2 ? "아쉬워요" : "별로예요";
                       
                       // 가장 많은 리뷰 개수 찾기
                       const maxCount = Math.max(...[5, 4, 3, 2, 1].map(r => 
-                        allReviews.filter(review => Math.floor(review.rating) === r).length
+                        allReviews.filter(review => Math.floor(review.rating) === r).length,
                       ));
                       const isHighest = count === maxCount && count > 0;
                       
@@ -918,7 +932,7 @@ export function StoreReviews({ storeId, storeName, showWriteForm: externalShowWr
                         <div key={rating} className="flex items-center gap-3">
                           <div className="w-8 text-right font-medium text-gray-700">{rating}</div>
                           <div className={`flex-1 text-sm font-medium ${
-                            isHighest ? 'text-[#FF5722]' : 'text-gray-600'
+                            isHighest ? "text-[#FF5722]" : "text-gray-600"
                           }`}>
                             {label}
                           </div>
@@ -926,7 +940,7 @@ export function StoreReviews({ storeId, storeName, showWriteForm: externalShowWr
                             <div className="h-3 bg-gray-200 rounded-full overflow-hidden">
                               <div 
                                 className={`h-full rounded-full transition-all duration-700 ease-out ${
-                                  percentage > 0 ? 'bg-[#FF5722]' : 'bg-gray-200'
+                                  percentage > 0 ? "bg-[#FF5722]" : "bg-gray-200"
                                 }`}
                                 style={{ width: `${Math.max(percentage, 0)}%` }}
                               />
@@ -946,9 +960,9 @@ export function StoreReviews({ storeId, storeName, showWriteForm: externalShowWr
                   {(() => {
                     // 실제 리뷰 데이터에서 세부 평점 계산
                     const reviewsWithDetailedRatings = allReviews.filter(r => r.detailedRatings);
-                    const tasteRatings = reviewsWithDetailedRatings.map(r => r.detailedRatings?.taste).filter(Boolean);
-                    const priceRatings = reviewsWithDetailedRatings.map(r => r.detailedRatings?.price).filter(Boolean);
-                    const serviceRatings = reviewsWithDetailedRatings.map(r => r.detailedRatings?.service).filter(Boolean);
+                    const tasteRatings = reviewsWithDetailedRatings.map(r => r.detailedRatings?.taste).filter((rating): rating is number => typeof rating === "number");
+                    const priceRatings = reviewsWithDetailedRatings.map(r => r.detailedRatings?.price).filter((rating): rating is number => typeof rating === "number");
+                    const serviceRatings = reviewsWithDetailedRatings.map(r => r.detailedRatings?.service).filter((rating): rating is number => typeof rating === "number");
                     
                     const avgTaste = tasteRatings.length > 0 ? tasteRatings.reduce((a, b) => a + b, 0) / tasteRatings.length : 0;
                     const avgPrice = priceRatings.length > 0 ? priceRatings.reduce((a, b) => a + b, 0) / priceRatings.length : 0;
@@ -956,7 +970,9 @@ export function StoreReviews({ storeId, storeName, showWriteForm: externalShowWr
                     
                     // 각 평점별 분포 계산
                     const calculateDistribution = (ratings: number[]) => {
-                      if (ratings.length === 0) return { high: 0, medium: 0, low: 0 };
+                      if (ratings.length === 0) {
+return { high: 0, medium: 0, low: 0 };
+}
                       const high = ratings.filter(r => r >= 4).length;
                       const medium = ratings.filter(r => r === 3).length;
                       const low = ratings.filter(r => r <= 2).length;
@@ -964,7 +980,7 @@ export function StoreReviews({ storeId, storeName, showWriteForm: externalShowWr
                       return {
                         high: Math.round((high / total) * 100),
                         medium: Math.round((medium / total) * 100),
-                        low: Math.round((low / total) * 100)
+                        low: Math.round((low / total) * 100),
                       };
                     };
                     
@@ -984,9 +1000,9 @@ export function StoreReviews({ storeId, storeName, showWriteForm: externalShowWr
                           <div className="space-y-2">
                             {(() => {
                               const items = [
-                                { label: '좋음', percentage: tasteDistribution.high },
-                                { label: '보통', percentage: tasteDistribution.medium },
-                                { label: '부족', percentage: tasteDistribution.low }
+                                { label: "좋음", percentage: tasteDistribution.high },
+                                { label: "보통", percentage: tasteDistribution.medium },
+                                { label: "부족", percentage: tasteDistribution.low },
                               ];
                               const maxPercentage = Math.max(...items.map(item => item.percentage));
                               
@@ -995,7 +1011,7 @@ export function StoreReviews({ storeId, storeName, showWriteForm: externalShowWr
                                 return (
                                   <div key={item.label} className="flex items-center gap-2 text-sm">
                                     <span className={`w-10 font-medium ${
-                                      isHighest ? 'text-[#FF5722]' : 'text-gray-600'
+                                      isHighest ? "text-[#FF5722]" : "text-gray-600"
                                     }`}>
                                       {item.label}
                                     </span>
@@ -1020,9 +1036,9 @@ export function StoreReviews({ storeId, storeName, showWriteForm: externalShowWr
                           <div className="space-y-2">
                             {(() => {
                               const items = [
-                                { label: '만족', percentage: priceDistribution.high },
-                                { label: '보통', percentage: priceDistribution.medium },
-                                { label: '불만', percentage: priceDistribution.low }
+                                { label: "만족", percentage: priceDistribution.high },
+                                { label: "보통", percentage: priceDistribution.medium },
+                                { label: "불만", percentage: priceDistribution.low },
                               ];
                               const maxPercentage = Math.max(...items.map(item => item.percentage));
                               
@@ -1031,7 +1047,7 @@ export function StoreReviews({ storeId, storeName, showWriteForm: externalShowWr
                                 return (
                                   <div key={item.label} className="flex items-center gap-2 text-sm">
                                     <span className={`w-10 font-medium ${
-                                      isHighest ? 'text-[#FF5722]' : 'text-gray-600'
+                                      isHighest ? "text-[#FF5722]" : "text-gray-600"
                                     }`}>
                                       {item.label}
                                     </span>
@@ -1056,9 +1072,9 @@ export function StoreReviews({ storeId, storeName, showWriteForm: externalShowWr
                           <div className="space-y-2">
                             {(() => {
                               const items = [
-                                { label: '친절함', percentage: serviceDistribution.high },
-                                { label: '보통', percentage: serviceDistribution.medium },
-                                { label: '불친절', percentage: serviceDistribution.low }
+                                { label: "친절함", percentage: serviceDistribution.high },
+                                { label: "보통", percentage: serviceDistribution.medium },
+                                { label: "불친절", percentage: serviceDistribution.low },
                               ];
                               const maxPercentage = Math.max(...items.map(item => item.percentage));
                               
@@ -1067,7 +1083,7 @@ export function StoreReviews({ storeId, storeName, showWriteForm: externalShowWr
                                 return (
                                   <div key={item.label} className="flex items-center gap-2 text-sm">
                                     <span className={`w-10 font-medium ${
-                                      isHighest ? 'text-[#FF5722]' : 'text-gray-600'
+                                      isHighest ? "text-[#FF5722]" : "text-gray-600"
                                     }`}>
                                       {item.label}
                                     </span>
@@ -1090,14 +1106,12 @@ export function StoreReviews({ storeId, storeName, showWriteForm: externalShowWr
               {/* 리뷰 목록 */}
               <div className="bg-white">
                 {filteredReviews.map((review, reviewIndex) => (
-                  <div key={review.id} className={`py-6 px-4 ${reviewIndex !== filteredReviews.length - 1 ? 'border-b border-gray-100' : ''}`}>
+                  <div key={review.id} className={`py-6 px-4 ${reviewIndex !== filteredReviews.length - 1 ? "border-b border-gray-100" : ""}`}>
                     {/* 헤더 - 사용자 정보 */}
                     <div className="flex items-start gap-4 mb-4">
                       {/* 사용자 아바타 - 일반 사람 아이콘 */}
                       <div className="w-16 h-16 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0">
-                        <svg className="w-8 h-8 text-gray-500" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
-                        </svg>
+                        <User className="w-8 h-8 text-gray-500" />
                       </div>
                       
                       <div className="flex-1">
@@ -1125,8 +1139,8 @@ export function StoreReviews({ storeId, storeName, showWriteForm: externalShowWr
                               onClick={(e) => {
                                 e.preventDefault();
                                 e.stopPropagation();
-                                console.log('Image clicked:', imageUrl);
-                                handleImageClick(imageUrl, review.imageUrls!, imageIndex);
+                                console.log("Image clicked:", imageUrl);
+                                handleImageClick(imageUrl, review.imageUrls || [], imageIndex);
                               }}
                             >
                               <Image
@@ -1135,11 +1149,11 @@ export function StoreReviews({ storeId, storeName, showWriteForm: externalShowWr
                                 fill
                                 className="object-cover"
                                 onError={(e) => {
-                                  (e.target as HTMLImageElement).style.display = 'none';
+                                  (e.target as HTMLImageElement).style.display = "none";
                                 }}
                               />
                               {/* 더보기 오버레이 (4번째 이미지에 추가 이미지가 있을 때) */}
-                              {imageIndex === 3 && review.imageUrls.length > 4 && (
+                              {imageIndex === 3 && review.imageUrls && review.imageUrls.length > 4 && (
                                 <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
                                   <span className="text-white text-sm font-medium">
                                     +{review.imageUrls.length - 4}개 더보기
@@ -1179,22 +1193,22 @@ export function StoreReviews({ storeId, storeName, showWriteForm: externalShowWr
                             if (review.detailedRatings.taste) {
                               ratings.push(
                                 <span key="taste" className="text-gray-700">
-                                  <span className="font-medium">맛:</span> {review.detailedRatings.taste === 5 ? '맛있음' : review.detailedRatings.taste === 4 ? '괜찮음' : review.detailedRatings.taste === 3 ? '보통' : review.detailedRatings.taste === 2 ? '별로' : '맛없음'}
-                                </span>
+                                  <span className="font-medium">맛:</span> {review.detailedRatings.taste === 5 ? "맛있음" : review.detailedRatings.taste === 4 ? "괜찮음" : review.detailedRatings.taste === 3 ? "보통" : review.detailedRatings.taste === 2 ? "별로" : "맛없음"}
+                                </span>,
                               );
                             }
                             if (review.detailedRatings.price) {
                               ratings.push(
                                 <span key="price" className="text-gray-700">
-                                  <span className="font-medium">가격:</span> {review.detailedRatings.price === 5 ? '저렴' : review.detailedRatings.price === 4 ? '적당' : review.detailedRatings.price === 3 ? '보통' : review.detailedRatings.price === 2 ? '비쌈' : '너무 비쌈'}
-                                </span>
+                                  <span className="font-medium">가격:</span> {review.detailedRatings.price === 5 ? "저렴" : review.detailedRatings.price === 4 ? "적당" : review.detailedRatings.price === 3 ? "보통" : review.detailedRatings.price === 2 ? "비쌈" : "너무 비쌈"}
+                                </span>,
                               );
                             }
                             if (review.detailedRatings.service) {
                               ratings.push(
                                 <span key="service" className="text-gray-700">
-                                  <span className="font-medium">응대:</span> {review.detailedRatings.service === 5 ? '친절함' : review.detailedRatings.service === 4 ? '괜찮음' : review.detailedRatings.service === 3 ? '보통' : review.detailedRatings.service === 2 ? '별로' : '불친절'}
-                                </span>
+                                  <span className="font-medium">응대:</span> {review.detailedRatings.service === 5 ? "친절함" : review.detailedRatings.service === 4 ? "괜찮음" : review.detailedRatings.service === 3 ? "보통" : review.detailedRatings.service === 2 ? "별로" : "불친절"}
+                                </span>,
                               );
                             }
                             
@@ -1217,7 +1231,7 @@ export function StoreReviews({ storeId, storeName, showWriteForm: externalShowWr
                         <div className="text-sm">
                           <span className="font-bold text-gray-900">주문한 메뉴:</span>
                           <span className="ml-2 text-gray-700 font-medium">
-                            {review.menus.join(' • ')}
+                            {review.menus.join(" • ")}
                           </span>
                         </div>
                       </div>
@@ -1229,7 +1243,7 @@ export function StoreReviews({ storeId, storeName, showWriteForm: externalShowWr
                         <div className="text-sm">
                           <span className="font-bold text-gray-900">키워드:</span>
                           <span className="ml-2 text-gray-700 font-medium leading-relaxed">
-                            {[...(review.keywords || []), ...(review.atmosphere || [])].join(' • ')}
+                            {[...(review.keywords || []), ...(review.atmosphere || [])].join(" • ")}
                           </span>
                         </div>
                       </div>
@@ -1286,7 +1300,7 @@ export function StoreReviews({ storeId, storeName, showWriteForm: externalShowWr
                             e.stopPropagation();
                             
                             const confirmed = window.confirm(
-                              `관리자 권한으로 이 리뷰를 삭제하시겠습니까?\n\n작성자: ${review.user.username}\n평점: ${review.rating}점\n내용: ${review.content?.substring(0, 100)}${review.content && review.content.length > 100 ? '...' : ''}\n\n이 작업은 되돌릴 수 없습니다.`
+                              `관리자 권한으로 이 리뷰를 삭제하시겠습니까?\n\n작성자: ${review.user.username}\n평점: ${review.rating}점\n내용: ${review.content?.substring(0, 100)}${review.content && review.content.length > 100 ? "..." : ""}\n\n이 작업은 되돌릴 수 없습니다.`,
                             );
                             
                             if (confirmed) {
@@ -1396,7 +1410,7 @@ export function StoreReviews({ storeId, storeName, showWriteForm: externalShowWr
                 height={800}
                 className="max-w-full max-h-full object-contain rounded-lg"
                 onError={(e) => {
-                  (e.target as HTMLImageElement).src = '/placeholder-image.png';
+                  (e.target as HTMLImageElement).src = "/placeholder-image.png";
                 }}
               />
             </div>
@@ -1414,8 +1428,8 @@ export function StoreReviews({ storeId, storeName, showWriteForm: externalShowWr
                       }}
                       className={`relative w-12 h-12 rounded border-2 overflow-hidden transition-all duration-200 ${
                         index === currentImageIndex 
-                          ? 'border-white shadow-lg' 
-                          : 'border-gray-400 hover:border-gray-200'
+                          ? "border-white shadow-lg" 
+                          : "border-gray-400 hover:border-gray-200"
                       }`}
                     >
                       <Image

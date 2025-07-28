@@ -109,9 +109,9 @@ export async function POST(
           return NextResponse.json(
             { 
               error: `새 리뷰 작성은 ${remainingMinutes}분 후에 가능합니다.`,
-              remainingTime: remainingMinutes 
+              remainingTime: remainingMinutes, 
             },
-            { status: 429 }
+            { status: 429 },
           );
         }
       }

@@ -460,6 +460,7 @@ return;
       minRating?: number;
       latitude?: number;
       longitude?: number;
+      query?: string;
     }) => {
       apiLogger.debug("필터 적용", filters);
 
@@ -469,6 +470,18 @@ return;
       const radius = filters.maxDistance || 5;
 
       if (lat && lng) {
+        // 위치 정보가 필터에서 제공된 경우 사용자 위치 업데이트
+        if (filters.latitude && filters.longitude) {
+          setUserLocation({ lat: filters.latitude, lng: filters.longitude });
+          
+          // 위치 정보 저장
+          saveUserLocation({
+            lat: filters.latitude,
+            lng: filters.longitude,
+            source: "gps",
+          });
+        }
+        
         // 필터가 적용된 조건으로 가게 목록 다시 로드 (페이지 초기화)
         setCurrentPage(1);
         setHasMore(false);
@@ -481,6 +494,19 @@ return;
           1,
           false,
         );
+        
+        // 검색어 필터링이 있는 경우 추가 처리
+        if (filters.query) {
+          // 검색어로 추가 필터링
+          setTimeout(() => {
+            const filteredStores = allStores.filter(
+              (store) =>
+                store.name.toLowerCase().includes(filters.query!.toLowerCase()) ||
+                store.address.toLowerCase().includes(filters.query!.toLowerCase()),
+            );
+            setStores(filteredStores);
+          }, 1000); // API 호출 후 검색어 필터링
+        }
 
         const filterDesc = [];
         if (radius !== 5) {
@@ -492,13 +518,22 @@ filterDesc.push(`평점 ${filters.minRating}점 이상`);
         if (filters.categories && filters.categories.length > 0) {
 filterDesc.push(`카테고리: ${filters.categories.join(", ")}`);
 }
+        if (filters.query) {
+filterDesc.push(`검색어: "${filters.query}"`);
+}
 
+        // 위치 변경 여부 확인
+        const locationChanged = filters.latitude && filters.longitude;
+        
         toast({
-          title: "필터 적용 완료",
-          description:
-            filterDesc.length > 0
+          title: locationChanged ? "위치 및 필터 적용 완료" : "필터 적용 완료",
+          description: locationChanged 
+            ? "현재 위치로 이동하여 " + (filterDesc.length > 0 
               ? filterDesc.join(", ") + " 조건으로 검색합니다."
-              : "모든 조건으로 검색합니다.",
+              : "모든 조건으로 검색합니다.")
+            : (filterDesc.length > 0
+              ? filterDesc.join(", ") + " 조건으로 검색합니다."
+              : "모든 조건으로 검색합니다."),
         });
       } else {
         toast({

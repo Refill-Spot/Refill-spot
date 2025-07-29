@@ -58,8 +58,8 @@ export async function GET(request: NextRequest) {
 
     // 5. 좌표 범위 분석
     const coordinates = {
-      latitudes: allStores.map(s => s.position_lat).filter(lat => lat != null),
-      longitudes: allStores.map(s => s.position_lng).filter(lng => lng != null),
+      latitudes: allStores.map(s => s.position_lat).filter(lat => lat !== null),
+      longitudes: allStores.map(s => s.position_lng).filter(lng => lng !== null),
     };
 
     const coordinateStats = {

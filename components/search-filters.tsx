@@ -226,7 +226,7 @@ export default function SearchFilters({
       }
 
       // URL 업데이트 (현재 페이지가 메인페이지인지 확인)
-      const isMainPage = window.location.pathname === '/';
+      const isMainPage = window.location.pathname === "/";
       if (!isMainPage) {
         const params = filtersToURLParams(mergedFilters);
         router.replace(`/search?${params.toString()}`);
@@ -267,7 +267,7 @@ export default function SearchFilters({
     }
 
     // URL 초기화 (현재 페이지가 메인페이지가 아닌 경우만)
-    const isMainPage = window.location.pathname === '/';
+    const isMainPage = window.location.pathname === "/";
     if (!isMainPage) {
       const lat = searchParams.get("lat");
       const lng = searchParams.get("lng");

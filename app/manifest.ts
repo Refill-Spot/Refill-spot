@@ -6,7 +6,9 @@ export default function manifest(): MetadataRoute.Manifest {
     short_name: "Refill-spot",
     description: "주변의 무한리필 가게를 쉽게 찾아보세요",
     start_url: "/",
+    scope: "/",
     display: "standalone",
+    orientation: "portrait-primary",
     background_color: "#ffffff",
     theme_color: "#f97316",
     icons: [
@@ -20,15 +22,21 @@ export default function manifest(): MetadataRoute.Manifest {
         sizes: "180x180",
         type: "image/png",
       },
+    ],
+    screenshots: [
       {
-        src: "/android-chrome-192x192",
-        sizes: "192x192",
-        type: "image/png",
+        src: "/placeholder.jpg",
+        sizes: "390x844",
+        type: "image/jpeg",
+        form_factor: "narrow",
+        label: "모바일 화면 - 가게 목록 및 지도",
       },
       {
-        src: "/android-chrome-512x512",
-        sizes: "512x512",
-        type: "image/png",
+        src: "/placeholder.jpg", 
+        sizes: "1280x800",
+        type: "image/jpeg",
+        form_factor: "wide",
+        label: "데스크톱 화면 - 가게 검색 및 지도",
       },
     ],
   };

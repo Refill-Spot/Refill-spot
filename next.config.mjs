@@ -1,3 +1,5 @@
+import withPWA from "@ducanh2912/next-pwa";
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   // ESLint와 TypeScript 오류를 빌드 시 체크하도록 설정
@@ -15,7 +17,7 @@ const nextConfig = {
       ...config.experiments,
       asyncWebAssembly: true,
     };
-    
+
     // 메모리 사용량 최적화
     config.optimization = {
       ...config.optimization,
@@ -28,7 +30,7 @@ const nextConfig = {
         },
       },
     };
-    
+
     return config;
   },
   images: {
@@ -71,4 +73,14 @@ const nextConfig = {
   },
 };
 
-export default nextConfig;
+export default withPWA({
+  dest: "public",
+  cacheOnFrontEndNav: true,
+  aggressiveFrontEndNavCaching: true,
+  reloadOnOnline: true,
+  swcMinify: true,
+  disable: false,
+  workboxOptions: {
+    disableDevLogs: true,
+  },
+})(nextConfig);

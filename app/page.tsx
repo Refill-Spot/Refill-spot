@@ -1,797 +1,438 @@
 "use client";
 
-import { ErrorBoundary } from "@/components/error-boundary";
-import Header from "@/components/header";
-import KakaoMap from "@/components/kakao-map";
-import SearchFilters from "@/components/search-filters";
-import Sidebar from "@/components/sidebar";
-import { StoreListSkeleton } from "@/components/skeleton-loader";
-import StoreList from "@/components/store-list";
 import { Button } from "@/components/ui/button";
-import { useToast } from "@/components/ui/use-toast";
-import { useGeolocation } from "@/hooks/use-geolocation";
-import {
-  getUserLocation,
-  isLocationValid,
-  saveUserLocation,
-} from "@/lib/location-storage";
-import { isOnboardingCompleted } from "@/lib/onboarding-storage";
-import { apiLogger, geolocationLogger } from "@/lib/logger";
-import { Store } from "@/types/store";
-import { useRouter, useSearchParams } from "next/navigation";
-import {
-  memo,
-  Suspense,
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import Header from "@/components/header";
+import { 
+  ArrowRight,
+  MapPin, 
+  Search, 
+  Filter, 
+  Star, 
+  Heart, 
+  ThumbsUp, 
+  AlertTriangle,
+  Clock,
+  DollarSign,
+  Users,
+  Utensils,
+  UtensilsCrossed,
+  Coffee,
+  Soup,
+  Smartphone,
+  ChevronDown
+} from "lucide-react";
+import { useRouter } from "next/navigation";
 
-// 메모이제이션된 StoreList 컴포넌트
-const MemoizedStoreList = memo(StoreList);
-
-function HomeContent() {
-  const searchParams = useSearchParams();
+export default function HomePage() {
   const router = useRouter();
-  const geolocation = useGeolocation();
-  const [stores, setStores] = useState<Store[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [userLocation, setUserLocation] = useState<{
-    lat: number;
-    lng: number;
-  } | null>(null);
-  const [isCheckingOnboarding, setIsCheckingOnboarding] = useState(true);
 
-  // 지도 및 페이지네이션 관련 상태
-  const [selectedStore, setSelectedStore] = useState<Store | null>(null);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [hasMore, setHasMore] = useState(false);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [allStores, setAllStores] = useState<Store[]>([]);
-  const [isFilterOpen, setIsFilterOpen] = useState(false);
-
-  const { toast } = useToast();
-
-  // 가게 목록 가져오기 (페이지네이션 지원)
-  const fetchStores = useCallback(
-    async (
-      lat?: number,
-      lng?: number,
-      radius?: number,
-      minRating?: number,
-      categories?: string[],
-      page: number = 1,
-      append: boolean = false,
-    ) => {
-      apiLogger.debug("fetchStores 호출됨", { 
-        lat: lat?.toFixed(8), 
-        lng: lng?.toFixed(8), 
-        radius, 
-        page, 
-        append,
-      });
-
-      if (!append) {
-        setLoading(true);
-        setError(null);
-      } else {
-        setLoadingMore(true);
-      }
-
-      try {
-        let url = "/api/stores";
-        if (lat && lng) {
-          const params = new URLSearchParams({
-            lat: lat.toString(),
-            lng: lng.toString(),
-            radius: (radius || 5).toString(),
-            page: page.toString(),
-            limit: "20",
-          });
-
-          if (minRating && minRating > 0) {
-            params.append("minRating", minRating.toString());
-          }
-
-          if (categories && categories.length > 0) {
-            params.append("categories", categories.join(","));
-          }
-
-          url += `?${params.toString()}`;
-        }
-
-        apiLogger.debug("API 요청 URL", { url });
-        apiLogger.debug("API 요청 파라미터", {
-          lat: lat,
-          lng: lng,
-          radius: radius || 5,
-          page: page,
-          limit: "20",
-          minRating,
-          categories,
-        });
-
-        // 타임아웃 설정 (10초)
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 10000);
-
-        const response = await fetch(url, {
-          signal: controller.signal,
-          headers: {
-            "Cache-Control": "no-cache",
-          },
-        });
-
-        clearTimeout(timeoutId);
-
-        apiLogger.debug("API 응답 상태", { status: response.status });
-
-        if (!response.ok) {
-          const errorText = await response.text();
-          throw new Error(
-            `HTTP error! status: ${response.status} - ${errorText}`,
-          );
-        }
-
-        const data = await response.json();
-        apiLogger.debug("API 응답 데이터", data);
-
-        if (!data.success || data.error) {
-          throw new Error(
-            data.error?.message ||
-              "가게 정보를 불러오는 중 오류가 발생했습니다.",
-          );
-        }
-
-        const storeData = data.data || [];
-        const pagination = data.pagination || {};
-
-        apiLogger.debug("가게 데이터 개수", { count: storeData.length });
-
-        if (append) {
-          setStores((prevStores) => [...prevStores, ...storeData]);
-          setAllStores((prevStores) => [...prevStores, ...storeData]);
-        } else {
-          setStores(storeData);
-          setAllStores(storeData);
-        }
-
-        setHasMore(pagination.hasMore || false);
-        setCurrentPage(pagination.page || 1);
-
-        if (storeData.length === 0 && !append) {
-          toast({
-            title: "알림",
-            description: "해당 지역에 등록된 가게가 없습니다.",
-          });
-        }
-      } catch (err) {
-        apiLogger.error("fetchStores 오류:", err);
-        if (err instanceof Error && err.name === "AbortError") {
-          setError("요청 시간이 초과되었습니다. 다시 시도해주세요.");
-          toast({
-            title: "시간 초과",
-            description:
-              "요청 시간이 초과되었습니다. 네트워크 상태를 확인해주세요.",
-            variant: "destructive",
-          });
-        } else {
-          const errorMessage =
-            err instanceof Error
-              ? err.message
-              : "알 수 없는 오류가 발생했습니다.";
-          setError(errorMessage);
-          toast({
-            title: "오류",
-            description: errorMessage,
-            variant: "destructive",
-          });
-        }
-      } finally {
-        setLoading(false);
-        setLoadingMore(false);
-      }
-    },
-    [toast],
-  );
-
-  // 더보기 함수
-  const loadMoreStores = useCallback(() => {
-    if (!userLocation || loadingMore || !hasMore) {
-return;
-}
-
-    const nextPage = currentPage + 1;
-    fetchStores(
-      userLocation.lat,
-      userLocation.lng,
-      5,
-      undefined,
-      undefined,
-      nextPage,
-      true,
-    );
-  }, [userLocation, loadingMore, hasMore, currentPage]);
-
-  // 온보딩 체크 (첫 방문자용으로만 동작)
-  useEffect(() => {
-    // 온보딩 체크를 비활성화하고 바로 메인 페이지 진행
-    const checkOnboarding = () => {
-      try {
-        // 로그인한 사용자는 온보딩을 건너뛰고 바로 메인 페이지로
-        setIsCheckingOnboarding(false);
-      } catch (error) {
-        console.error("온보딩 체크 중 오류:", error);
-        setIsCheckingOnboarding(false);
-      }
-    };
-
-    // 클라이언트 사이드에서만 실행
-    if (typeof window !== "undefined") {
-      // 약간의 지연을 두어 렌더링 완료 후 실행
-      setTimeout(checkOnboarding, 100);
+  const scrollToGuide = () => {
+    const guideSection = document.querySelector('#guide-section');
+    if (guideSection) {
+      guideSection.scrollIntoView({ behavior: 'smooth' });
     }
-  }, [router]);
+  };
 
-  // 초기 로드
-  useEffect(() => {
-    // 온보딩 체크가 완료되지 않았으면 대기
-    if (isCheckingOnboarding) {
-      return;
-    }
+  return (
+    <div className="min-h-screen bg-gray-50">
+      {/* 헤더 */}
+      <Header
+        onSearch={() => router.push('/map')}
+        onLocationRequest={() => router.push('/map')}
+        onCustomLocationSet={() => router.push('/map')}
+        userLocation={null}
+        onFilterToggle={() => router.push('/map')}
+        onApplyFilters={() => router.push('/map')}
+      />
 
-    const loadInitialData = async () => {
-      // URL 파라미터에서 검색어 확인
-      const searchQuery = searchParams.get("search");
-      let hasSearchQuery = false;
-      
-      if (searchQuery) {
-        hasSearchQuery = true;
-      }
-
-      // URL 파라미터에서 위치 정보 확인
-      const urlLat = searchParams.get("lat");
-      const urlLng = searchParams.get("lng");
-      const urlSource = searchParams.get("source") as
-        | "gps"
-        | "manual"
-        | "default"
-        | null;
-      const searchLocation = searchParams.get("searchLocation");
-
-      if (urlLat && urlLng) {
-        // URL 파라미터에 위치 정보가 있으면 사용
-        const lat = parseFloat(urlLat);
-        const lng = parseFloat(urlLng);
-
-        if (!isNaN(lat) && !isNaN(lng)) {
-          setUserLocation({ lat, lng });
-          setCurrentPage(1);
-          setHasMore(false);
-          await fetchStores(lat, lng, 5, undefined, undefined, 1, false);
-
-          // URL 파라미터의 위치 정보를 저장
-          saveUserLocation({
-            lat,
-            lng,
-            source: urlSource || "manual",
-          });
-
-          const sourceText = searchLocation 
-            ? `${searchLocation}` 
-            : urlSource === "gps"
-              ? "현재 위치"
-              : urlSource === "manual"
-                ? "설정한 위치"
-                : "이전 위치";
-
-          toast({
-            title: "위치 설정 완료",
-            description: `${sourceText} 주변의 가게를 표시합니다.`,
-          });
-          return;
-        }
-      }
-
-      // URL 파라미터가 없으면 저장된 위치 정보 복원 시도
-      const savedLocation = getUserLocation();
-
-      if (savedLocation && isLocationValid(savedLocation)) {
-        // 저장된 위치 정보가 있으면 사용
-        setUserLocation({ lat: savedLocation.lat, lng: savedLocation.lng });
-        await fetchStores(savedLocation.lat, savedLocation.lng, 5);
-
-        const sourceText =
-          savedLocation.source === "gps"
-            ? "현재 위치"
-            : savedLocation.source === "manual"
-              ? "설정한 위치"
-              : "기본 위치";
-
-        toast({
-          title: "위치 복원 완료",
-          description: `이전에 설정한 ${sourceText} 주변의 가게를 표시합니다.`,
-        });
-      } else {
-        // 저장된 위치 정보가 없으면 기본 위치 사용 (강남역 - 헬로 브라질강남역 좌표)
-        const defaultLocation = {
-          lat: 37.5006249,
-          lng: 127.0277083,
-        };
-
-        geolocationLogger.info("기본 위치 설정 (서울 강남구 중심)", defaultLocation);
-        setUserLocation(defaultLocation);
-        await fetchStores(defaultLocation.lat, defaultLocation.lng, 10);
-
-        // 기본 위치 저장
-        saveUserLocation({
-          lat: defaultLocation.lat,
-          lng: defaultLocation.lng,
-          source: "default",
-        });
-
-        toast({
-          title: "기본 위치 적용",
-          description:
-            "서울 강남역 주변의 가게를 표시합니다. 위치 버튼을 눌러 현재 위치로 변경할 수 있습니다.",
-        });
-      }
-
-    };
-
-    loadInitialData();
-  }, [searchParams, toast, isCheckingOnboarding]);
-
-  // 검색어 파라미터 처리 (별도 useEffect)
-  useEffect(() => {
-    const searchQuery = searchParams.get("search");
-    
-    if (searchQuery && !loading && allStores.length > 0) {
-      const filteredStores = allStores.filter(
-        (store) =>
-          store.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          store.address.toLowerCase().includes(searchQuery.toLowerCase()),
-      );
-      
-      setStores(filteredStores);
-      
-      if (filteredStores.length === 0) {
-        toast({
-          title: "검색 결과 없음",
-          description: "검색 조건에 맞는 가게가 없습니다.",
-        });
-      } else {
-        toast({
-          title: "검색 완료",
-          description: `"${searchQuery}" 검색 결과 ${filteredStores.length}개를 표시합니다.`,
-        });
-      }
-    }
-  }, [searchParams, loading, allStores, toast]);
-
-  // 현재 위치 가져오기 요청
-  const handleGetCurrentLocation = useCallback(async () => {
-    try {
-      const coordinates = await geolocation.getCurrentPosition({
-        saveToStorage: true,
-        source: "gps",
-        showToast: true,
-        customSuccessMessage: "현재 위치 주변의 가게를 표시합니다.",
-      });
-
-      setUserLocation(coordinates);
-      fetchStores(coordinates.lat, coordinates.lng, 5);
-
-      // 지도에 위치 업데이트
-    } catch (error) {
-      // 에러는 useGeolocation 훅에서 이미 처리됨
-      console.error("위치 정보 가져오기 실패:", error);
-    }
-  }, [geolocation, fetchStores]);
-
-  // 사용자 지정 위치 설정
-  const setCustomLocation = useCallback(
-    (lat: number, lng: number, radius: number = 5) => {
-      geolocationLogger.debug("수동 검색으로 위치 설정", {
-        lat: lat.toFixed(8),
-        lng: lng.toFixed(8),
-        radius,
-      });
-
-      // 위치 설정과 동시에 가게 데이터 fetch
-      setUserLocation({ lat, lng });
-      setCurrentPage(1);
-      setHasMore(false);
-
-      fetchStores(lat, lng, radius, undefined, undefined, 1, false);
-
-      // 수동 설정 위치 정보 저장
-      saveUserLocation({
-        lat,
-        lng,
-        source: "manual",
-      });
-
-      // 지도에 위치 업데이트
-
-      toast({
-        title: "위치 설정 완료",
-        description: "설정한 위치 주변의 가게를 표시합니다.",
-      });
-    },
-    [toast, fetchStores],
-  );
-
-  // 검색 처리
-  const handleSearch = useCallback(
-    (query: string) => {
-      if (!query.trim()) {
-        // 검색어가 없으면 기본 위치로 다시 로드
-        fetchStores(userLocation?.lat, userLocation?.lng, 5);
-        return;
-      }
-
-      // 검색어가 있으면 현재 가게 목록에서 필터링
-      const filteredStores = stores.filter(
-        (store) =>
-          store.name.toLowerCase().includes(query.toLowerCase()) ||
-          store.address.toLowerCase().includes(query.toLowerCase()),
-      );
-
-      setStores(filteredStores);
-
-      if (filteredStores.length === 0) {
-        toast({
-          title: "검색 결과 없음",
-          description: "검색 조건에 맞는 가게가 없습니다.",
-        });
-      }
-    },
-    [stores, userLocation, toast],
-  );
-
-  // 사이드바 필터 적용
-  const handleApplyFilters = useCallback(
-    (filters: {
-      categories?: string[];
-      maxDistance?: number;
-      minRating?: number;
-      latitude?: number;
-      longitude?: number;
-      query?: string;
-    }) => {
-      apiLogger.debug("필터 적용", filters);
-
-      // 위치 정보 결정 (필터에서 제공된 위치 또는 현재 사용자 위치)
-      const lat = filters.latitude || userLocation?.lat;
-      const lng = filters.longitude || userLocation?.lng;
-      const radius = filters.maxDistance || 5;
-
-      if (lat && lng) {
-        // 위치 정보가 필터에서 제공된 경우 사용자 위치 업데이트
-        if (filters.latitude && filters.longitude) {
-          setUserLocation({ lat: filters.latitude, lng: filters.longitude });
-          
-          // 위치 정보 저장
-          saveUserLocation({
-            lat: filters.latitude,
-            lng: filters.longitude,
-            source: "gps",
-          });
-        }
-        
-        // 필터가 적용된 조건으로 가게 목록 다시 로드 (페이지 초기화)
-        setCurrentPage(1);
-        setHasMore(false);
-        fetchStores(
-          lat,
-          lng,
-          radius,
-          filters.minRating,
-          filters.categories,
-          1,
-          false,
-        );
-        
-        // 검색어 필터링이 있는 경우 추가 처리
-        if (filters.query) {
-          // 검색어로 추가 필터링
-          setTimeout(() => {
-            const filteredStores = allStores.filter(
-              (store) =>
-                store.name.toLowerCase().includes(filters.query!.toLowerCase()) ||
-                store.address.toLowerCase().includes(filters.query!.toLowerCase()),
-            );
-            setStores(filteredStores);
-          }, 1000); // API 호출 후 검색어 필터링
-        }
-
-        const filterDesc = [];
-        if (radius !== 5) {
-filterDesc.push(`반경 ${radius}km`);
-}
-        if (filters.minRating && filters.minRating > 0) {
-filterDesc.push(`평점 ${filters.minRating}점 이상`);
-}
-        if (filters.categories && filters.categories.length > 0) {
-filterDesc.push(`카테고리: ${filters.categories.join(", ")}`);
-}
-        if (filters.query) {
-filterDesc.push(`검색어: "${filters.query}"`);
-}
-
-        // 위치 변경 여부 확인
-        const locationChanged = filters.latitude && filters.longitude;
-        
-        toast({
-          title: locationChanged ? "위치 및 필터 적용 완료" : "필터 적용 완료",
-          description: locationChanged 
-            ? "현재 위치로 이동하여 " + (filterDesc.length > 0 
-              ? filterDesc.join(", ") + " 조건으로 검색합니다."
-              : "모든 조건으로 검색합니다.")
-            : (filterDesc.length > 0
-              ? filterDesc.join(", ") + " 조건으로 검색합니다."
-              : "모든 조건으로 검색합니다."),
-        });
-      } else {
-        toast({
-          title: "위치 정보 필요",
-          description: "필터를 적용하려면 위치 정보가 필요합니다.",
-          variant: "destructive",
-        });
-      }
-    },
-    [userLocation, toast],
-  );
-
-  // 필터 토글 핸들러
-  const handleFilterToggle = useCallback(() => {
-    setIsFilterOpen(!isFilterOpen);
-  }, [isFilterOpen]);
-
-  // 사이드바 콘텐츠 컴포넌트 (가게 목록만)
-  const SidebarContent = useMemo(() => {
-    return (
-      <div className="h-full flex flex-col">
-        {/* 가게 목록 헤더 */}
-        <div className="p-4 border-b border-gray-200 bg-gray-50">
-          <h3 className="font-semibold text-gray-900">가게 목록</h3>
-          {stores.length > 0 && (
-            <p className="text-sm text-gray-600 mt-1">
-              총{" "}
-              <span className="font-semibold text-[#FF5722]">
-                {stores.length}
+      {/* 히어로 섹션 */}
+      <section className="bg-gradient-to-br from-orange-50 via-white to-red-50 py-16 px-4">
+        <div className="max-w-6xl mx-auto">
+          {/* 메인 히어로 콘텐츠 */}
+          <div className="text-center mb-12">
+            <div className="inline-flex items-center bg-orange-100 text-orange-800 px-4 py-2 rounded-full text-sm font-medium mb-6">
+              🍽️ 대한민국 최대 무한리필 맛집 플랫폼
+            </div>
+            
+            <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-gray-900 mb-6 leading-tight">
+              무한리필 맛집을<br />
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-500 to-red-500">
+                쉽게 찾아보세요
               </span>
-              개의 가게
+            </h1>
+            
+            <p className="text-xl text-gray-600 mb-8 max-w-3xl mx-auto leading-relaxed">
+              전국 무한리필 음식점을 한눈에! 실시간 위치 기반으로 주변 맛집을 찾고, 
+              실제 이용자들의 생생한 리뷰를 확인하세요. 가성비 최고의 무한리필 경험을 시작하세요.
             </p>
-          )}
-        </div>
-
-        {/* 가게 목록 */}
-        <div className="flex-1 overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-          {loading ? (
-            <StoreListSkeleton />
-          ) : error ? (
-            <div className="flex items-center justify-center h-full p-4">
-              <div className="text-center">
-                <p className="text-red-500 mb-4">{error}</p>
-                <button
-                  onClick={() =>
-                    fetchStores(userLocation?.lat, userLocation?.lng, 5)
-                  }
-                  className="px-4 py-2 bg-[#FF5722] text-white rounded-md hover:bg-[#E64A19] transition-colors"
-                >
-                  다시 시도
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div className="pb-4">
-              <MemoizedStoreList stores={stores} />
-
-              {/* 더보기 버튼 */}
-              {hasMore && !loading && !error && (
-                <div className="p-4">
-                  <Button
-                    onClick={loadMoreStores}
-                    disabled={loadingMore}
-                    className="w-full bg-[#FF5722] hover:bg-[#E64A19]"
-                  >
-                    {loadingMore ? (
-                      <>
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                        로딩 중...
-                      </>
-                    ) : (
-                      `더보기 (${stores.length}개 표시됨)`
-                    )}
-                  </Button>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  }, [
-    loading,
-    error,
-    stores,
-    hasMore,
-    loadingMore,
-    loadMoreStores,
-    fetchStores,
-  ]);
-
-  // 뷰 모드별 컴포넌트 메모이제이션
-  const MapView = useMemo(() => {
-    return (
-      <div className="w-full h-full">
-        {loading ? (
-          <div className="w-full h-full bg-gray-200 flex items-center justify-center">
-            <div className="text-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#FF5722] mx-auto mb-4"></div>
-              <p className="text-gray-600">지도 로딩 중...</p>
-            </div>
-          </div>
-        ) : error ? (
-          <div className="w-full h-full bg-gray-100 flex items-center justify-center">
-            <div className="text-center">
-              <p className="text-red-500 mb-4">지도를 불러올 수 없습니다</p>
-              <button
-                onClick={() =>
-                  fetchStores(userLocation?.lat, userLocation?.lng, 5)
-                }
-                className="px-4 py-2 bg-[#FF5722] text-white rounded-md hover:bg-[#E64A19] transition-colors"
+            
+            <div className="flex flex-col sm:flex-row gap-4 justify-center mb-8">
+              <Button 
+                size="lg" 
+                onClick={() => router.push('/map')}
+                className="bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white px-8 py-4 text-lg font-semibold rounded-full shadow-lg hover:shadow-xl transition-all duration-300"
               >
-                다시 시도
-              </button>
+                <MapPin className="w-5 h-5 mr-2" />
+                지금 바로 찾아보기
+              </Button>
+              <Button 
+                variant="outline" 
+                size="lg"
+                onClick={scrollToGuide}
+                className="border-2 border-orange-500 text-orange-600 hover:bg-orange-50 px-8 py-4 text-lg font-semibold rounded-full"
+              >
+                이용 가이드 보기
+              </Button>
             </div>
           </div>
-        ) : (
-          <KakaoMap
-            key={
-              userLocation
-                ? `map-${userLocation.lat.toFixed(6)}-${userLocation.lng.toFixed(6)}`
-                : "map-default"
-            }
-            stores={allStores}
-            userLocation={userLocation}
-            enableClustering={true}
-            selectedStore={selectedStore}
-            onStoreSelect={setSelectedStore}
-            onLocationChange={() => {}} // 위치 변경 시 아무 작업 안함 (자동 검색 비활성화)
-            onManualSearch={setCustomLocation} // 수동 검색 시 위치 업데이트 및 데이터 로드
-            isVisible={true}
-          />
-        )}
-      </div>
-    );
-  }, [
-    loading,
-    error,
-    allStores,
-    userLocation,
-    selectedStore,
-    setCustomLocation,
-  ]);
 
-  // 온보딩 체크 중이면 로딩 화면 표시
-  if (isCheckingOnboarding) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100 flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-16 h-16 bg-gradient-to-br from-orange-500 to-red-500 rounded-2xl flex items-center justify-center mb-4 mx-auto animate-pulse">
-            <svg
-              className="w-8 h-8 text-white"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-              />
-            </svg>
-          </div>
-          <h2 className="text-xl font-semibold text-gray-900 mb-2">
-            Refill-spot
-          </h2>
-          <p className="text-gray-500">무한리필 가게 찾기</p>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <ErrorBoundary fallback={<div className="p-4">오류가 발생했습니다.</div>}>
-      <main className="flex flex-col h-screen bg-[#F5F5F5]">
-        <Header
-          onSearch={handleSearch}
-          onLocationRequest={handleGetCurrentLocation}
-          onCustomLocationSet={setCustomLocation}
-          userLocation={userLocation}
-          onFilterToggle={handleFilterToggle}
-          onApplyFilters={handleApplyFilters}
-        />
-
-        <div className="flex flex-1 overflow-hidden">
-          {/* 왼쪽 패널 - 가게 목록만 */}
-          <div className="hidden lg:block w-[28rem] border-r border-gray-200 bg-white overflow-hidden">
-            {SidebarContent}
-          </div>
-
-          {/* 필터 패널 (모바일 + 데스크톱) */}
-          {isFilterOpen && (
-            <div className="fixed inset-0 z-50 bg-black bg-opacity-50">
-              <div className="lg:w-96 w-80 h-full bg-white overflow-y-auto">
-                <div className="sticky top-0 bg-white border-b border-gray-200 p-4 flex items-center justify-between">
-                  <h2 className="text-lg font-semibold text-gray-900">필터</h2>
-                  <button
-                    onClick={() => setIsFilterOpen(false)}
-                    className="text-gray-500 hover:text-gray-700"
-                  >
-                    <svg
-                      className="w-6 h-6"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M6 18L18 6M6 6l12 12"
-                      />
-                    </svg>
-                  </button>
+          {/* 주요 기능 하이라이트 */}
+          <div className="grid md:grid-cols-3 gap-6 mb-12">
+            <Card className="border-0 shadow-lg hover:shadow-xl transition-shadow duration-300">
+              <CardContent className="p-6 text-center">
+                <div className="w-16 h-16 bg-gradient-to-br from-orange-500 to-red-500 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                  <MapPin className="w-8 h-8 text-white" />
                 </div>
-                <SearchFilters
-                  onApplyFilters={(filters) => {
-                    handleApplyFilters(filters);
-                    setIsFilterOpen(false);
-                  }}
-                />
-              </div>
-            </div>
-          )}
-
-          {/* 메인 콘텐츠 영역 - 지도만 표시 */}
-          <div className="flex-1 relative">
-            {MapView}
-
-            {/* 결과 요약 */}
-            {stores.length > 0 && (
-              <div className="absolute top-4 right-4 bg-white/90 backdrop-blur-sm px-3 py-2 rounded-lg shadow-sm border z-10">
-                <p className="text-sm text-gray-700">
-                  총{" "}
-                  <span className="font-semibold text-[#FF5722]">
-                    {stores.length}
-                  </span>
-                  개의 가게 표시
+                <h3 className="text-xl font-bold text-gray-900 mb-3">실시간 위치 기반 검색</h3>
+                <p className="text-gray-600 leading-relaxed">
+                  GPS를 활용해 현재 위치 주변의 무한리필 맛집을 실시간으로 찾아드립니다. 
+                  거리순, 평점순으로 정렬하여 최적의 선택을 도와드려요.
                 </p>
-                {hasMore && (
-                  <p className="text-xs text-gray-500 mt-1">
-                    더 많은 가게가 있습니다
-                  </p>
-                )}
-              </div>
-            )}
+              </CardContent>
+            </Card>
+
+            <Card className="border-0 shadow-lg hover:shadow-xl transition-shadow duration-300">
+              <CardContent className="p-6 text-center">
+                <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-500 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                  <Star className="w-8 h-8 text-white" />
+                </div>
+                <h3 className="text-xl font-bold text-gray-900 mb-3">실제 이용자 리뷰</h3>
+                <p className="text-gray-600 leading-relaxed">
+                  진짜 이용자들이 남긴 생생한 리뷰와 평점을 확인하세요. 
+                  메뉴 구성, 맛, 서비스까지 솔직한 후기로 현명한 선택을 하세요.
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card className="border-0 shadow-lg hover:shadow-xl transition-shadow duration-300">
+              <CardContent className="p-6 text-center">
+                <div className="w-16 h-16 bg-gradient-to-br from-green-500 to-teal-500 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                  <Search className="w-8 h-8 text-white" />
+                </div>
+                <h3 className="text-xl font-bold text-gray-900 mb-3">다양한 필터 검색</h3>
+                <p className="text-gray-600 leading-relaxed">
+                  한식, 일식, 중식, 양식 등 음식 종류별로 검색하고, 
+                  가격대, 평점, 거리 등 원하는 조건에 맞는 맛집을 쉽게 찾아보세요.
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+
+
+          {/* 스크롤 안내 */}
+          <div className="text-center">
+            <Button
+              variant="ghost"
+              onClick={scrollToGuide}
+              className="text-gray-500 hover:text-orange-500 transition-colors duration-300"
+            >
+              <ChevronDown className="w-6 h-6 animate-bounce" />
+            </Button>
           </div>
         </div>
-      </main>
-    </ErrorBoundary>
-  );
-}
+      </section>
 
-export default function Home() {
-  return (
-    <Suspense fallback={<div>Loading...</div>}>
-      <HomeContent />
-    </Suspense>
+      {/* 이용 가이드 섹션 */}
+      <section id="guide-section" className="py-16 px-4 bg-white">
+        <div className="max-w-6xl mx-auto">
+          {/* 섹션 헤더 */}
+          <div className="text-center mb-12">
+            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
+              Refill-spot 이용 가이드
+            </h2>
+            <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+              처음이세요? 걱정하지 마세요! 쉽고 간단한 4단계로 원하는 무한리필 맛집을 찾아보세요.
+            </p>
+          </div>
+
+          {/* 이용 단계 */}
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-16">
+            <Card className="relative border-0 shadow-lg hover:shadow-xl transition-shadow duration-300">
+              <CardContent className="p-6 text-center">
+                <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
+                  <div className="w-8 h-8 bg-orange-500 text-white rounded-full flex items-center justify-center font-bold text-sm">
+                    1
+                  </div>
+                </div>
+                <div className="w-16 h-16 bg-gradient-to-br from-orange-500 to-red-500 rounded-2xl flex items-center justify-center mx-auto mb-4 mt-4">
+                  <MapPin className="w-8 h-8 text-white" />
+                </div>
+                <h3 className="text-lg font-bold text-gray-900 mb-3">위치 설정</h3>
+                <p className="text-gray-600 text-sm leading-relaxed">
+                  GPS로 현재 위치를 확인하거나 원하는 지역을 직접 검색해서 설정하세요.
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card className="relative border-0 shadow-lg hover:shadow-xl transition-shadow duration-300">
+              <CardContent className="p-6 text-center">
+                <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
+                  <div className="w-8 h-8 bg-blue-500 text-white rounded-full flex items-center justify-center font-bold text-sm">
+                    2
+                  </div>
+                </div>
+                <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-500 rounded-2xl flex items-center justify-center mx-auto mb-4 mt-4">
+                  <Filter className="w-8 h-8 text-white" />
+                </div>
+                <h3 className="text-lg font-bold text-gray-900 mb-3">조건 설정</h3>
+                <p className="text-gray-600 text-sm leading-relaxed">
+                  음식 종류, 가격대, 평점 등 원하는 조건을 설정해서 맞춤 결과를 확인하세요.
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card className="relative border-0 shadow-lg hover:shadow-xl transition-shadow duration-300">
+              <CardContent className="p-6 text-center">
+                <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
+                  <div className="w-8 h-8 bg-green-500 text-white rounded-full flex items-center justify-center font-bold text-sm">
+                    3
+                  </div>
+                </div>
+                <div className="w-16 h-16 bg-gradient-to-br from-green-500 to-teal-500 rounded-2xl flex items-center justify-center mx-auto mb-4 mt-4">
+                  <Search className="w-8 h-8 text-white" />
+                </div>
+                <h3 className="text-lg font-bold text-gray-900 mb-3">맛집 선택</h3>
+                <p className="text-gray-600 text-sm leading-relaxed">
+                  지도나 목록에서 마음에 드는 맛집을 선택해서 상세 정보를 확인하세요.
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card className="relative border-0 shadow-lg hover:shadow-xl transition-shadow duration-300">
+              <CardContent className="p-6 text-center">
+                <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
+                  <div className="w-8 h-8 bg-purple-500 text-white rounded-full flex items-center justify-center font-bold text-sm">
+                    4
+                  </div>
+                </div>
+                <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-pink-500 rounded-2xl flex items-center justify-center mx-auto mb-4 mt-4">
+                  <Star className="w-8 h-8 text-white" />
+                </div>
+                <h3 className="text-lg font-bold text-gray-900 mb-3">리뷰 확인</h3>
+                <p className="text-gray-600 text-sm leading-relaxed">
+                  실제 이용자들의 리뷰와 평점을 확인하고 최종 선택을 하세요.
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* 주요 기능 상세 설명 */}
+          <div className="mb-16">
+            <h3 className="text-2xl font-bold text-gray-900 text-center mb-8">
+              더 스마트하게 이용하는 방법
+            </h3>
+            
+            <div className="grid md:grid-cols-2 gap-8">
+              <Card className="bg-yellow-50 border-yellow-200 shadow-lg">
+                <CardContent className="p-8">
+                  <div className="flex items-center mb-4">
+                    <Heart className="w-6 h-6 text-red-500 mr-3" />
+                    <h4 className="text-xl font-bold text-gray-900">즐겨찾기 활용</h4>
+                  </div>
+                  <p className="text-gray-600 mb-4 leading-relaxed">
+                    마음에 드는 맛집을 즐겨찾기에 저장해두세요. 언제든지 쉽게 다시 찾을 수 있고, 
+                    새로운 리뷰나 정보 업데이트 알림을 받을 수 있습니다.
+                  </p>
+                  <ul className="text-sm text-gray-500 space-y-1">
+                    <li>• 개인 맞춤 맛집 목록 관리</li>
+                    <li>• 새 리뷰 및 정보 업데이트 알림</li>
+                    <li>• 친구들과 즐겨찾기 공유 가능</li>
+                  </ul>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-blue-50 border-blue-200 shadow-lg">
+                <CardContent className="p-8">
+                  <div className="flex items-center mb-4">
+                    <Smartphone className="w-6 h-6 text-blue-500 mr-3" />
+                    <h4 className="text-xl font-bold text-gray-900">모바일 최적화</h4>
+                  </div>
+                  <p className="text-gray-600 mb-4 leading-relaxed">
+                    언제 어디서나 스마트폰으로 편리하게 이용하세요. PWA 지원으로 
+                    앱처럼 사용할 수 있고, 오프라인에서도 기본 기능을 사용할 수 있습니다.
+                  </p>
+                  <ul className="text-sm text-gray-500 space-y-1">
+                    <li>• 반응형 디자인으로 모든 기기 지원</li>
+                    <li>• PWA 설치로 앱처럼 사용</li>
+                    <li>• 오프라인 모드 지원</li>
+                  </ul>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* 무한리필 완벽 가이드 섹션 */}
+      <section className="py-16 px-4 bg-gray-50">
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
+              무한리필 완벽 가이드
+            </h2>
+            <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+              무한리필의 모든 것을 알려드립니다. 에티켓부터 꿀팁까지!
+            </p>
+          </div>
+
+          {/* 무한리필이란? */}
+          <Card className="mb-8 border-0 shadow-lg">
+            <CardHeader>
+              <CardTitle className="flex items-center text-2xl">
+                <Utensils className="w-6 h-6 mr-3 text-blue-500" />
+                무한리필이란?
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div>
+                <p className="text-gray-700 leading-relaxed mb-4">
+                  무한리필(All You Can Eat)은 정해진 금액을 지불하고 제한 시간 내에서 
+                  원하는 만큼 음식을 즐길 수 있는 식사 방식입니다. 한국에서는 특히 
+                  고기, 샐러드바, 뷔페 등 다양한 형태로 운영되고 있습니다.
+                </p>
+                
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div className="bg-blue-50 p-4 rounded-lg">
+                    <h4 className="font-semibold text-blue-900 mb-2 flex items-center">
+                      <DollarSign className="w-4 h-4 mr-2" />
+                      경제적 장점
+                    </h4>
+                    <ul className="text-blue-800 text-sm space-y-1">
+                      <li>• 고정 가격으로 다양한 메뉴 체험</li>
+                      <li>• 대식가들에게 매우 경제적</li>
+                      <li>• 가족 단위 식사에 부담 절감</li>
+                    </ul>
+                  </div>
+                  
+                  <div className="bg-green-50 p-4 rounded-lg">
+                    <h4 className="font-semibold text-green-900 mb-2 flex items-center">
+                      <Star className="w-4 h-4 mr-2" />
+                      경험적 장점
+                    </h4>
+                    <ul className="text-green-800 text-sm space-y-1">
+                      <li>• 새로운 음식 부담 없이 시도</li>
+                      <li>• 친구/가족과 함께 즐기는 재미</li>
+                      <li>• 다양한 조합으로 식사 즐기기</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* 무한리필 꿀팁 모음 */}
+          <Card className="mb-8 border-0 shadow-lg">
+            <CardHeader>
+              <CardTitle className="flex items-center text-2xl">
+                <ThumbsUp className="w-6 h-6 mr-3 text-green-500" />
+                무한리필 꿀팁 모음
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="grid md:grid-cols-2 gap-6">
+                <Card className="bg-yellow-50 border-yellow-200">
+                  <CardHeader>
+                    <CardTitle className="text-lg flex items-center text-yellow-900">
+                      <Clock className="w-5 h-5 mr-2" />
+                      시간대 활용법
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <ul className="space-y-2 text-yellow-800 text-sm">
+                      <li><Badge variant="secondary" className="mr-2">런치</Badge>11:30-12:00 이른 점심으로 대기 없이</li>
+                      <li><Badge variant="secondary" className="mr-2">디너</Badge>17:30-18:00 저녁 피크 전 여유롭게</li>
+                      <li><Badge variant="secondary" className="mr-2">주말</Badge>오픈 시간에 맞춰 방문하기</li>
+                      <li><Badge variant="secondary" className="mr-2">평일</Badge>저녁보다 점심시간 추천</li>
+                    </ul>
+                  </CardContent>
+                </Card>
+
+                <Card className="bg-blue-50 border-blue-200">
+                  <CardHeader>
+                    <CardTitle className="text-lg flex items-center text-blue-900">
+                      <DollarSign className="w-5 h-5 mr-2" />
+                      가성비 극대화
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <ul className="space-y-2 text-blue-800 text-sm">
+                      <li><Badge variant="secondary" className="mr-2">전략</Badge>비싼 메뉴부터 먼저 시도</li>
+                      <li><Badge variant="secondary" className="mr-2">순서</Badge>샐러드→고기→밥→디저트</li>
+                      <li><Badge variant="secondary" className="mr-2">음료</Badge>무료 음료 적극 활용</li>
+                      <li><Badge variant="secondary" className="mr-2">조합</Badge>다양한 소스로 맛 변화</li>
+                    </ul>
+                  </CardContent>
+                </Card>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* 더 자세한 가이드 링크 */}
+          <div className="text-center">
+            <Card className="bg-gradient-to-r from-orange-50 to-red-50 border-0 shadow-lg">
+              <CardContent className="p-8">
+                <h3 className="text-2xl font-bold text-gray-900 mb-4">
+                  더 자세한 가이드가 필요하신가요?
+                </h3>
+                <p className="text-gray-600 mb-6">
+                  무한리필 에티켓, 업종별 상세 가이드, 그리고 더 많은 꿀팁들을 확인해보세요.
+                </p>
+                <Button 
+                  size="lg"
+                  onClick={() => router.push('/guide')}
+                  className="bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white px-8 py-4 text-lg font-semibold rounded-full shadow-lg hover:shadow-xl transition-all duration-300"
+                >
+                  <ArrowRight className="w-5 h-5 mr-2" />
+                  상세 가이드 보기
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </section>
+
+      {/* 마무리 CTA 섹션 */}
+      <section className="py-16 px-4 bg-white">
+        <div className="max-w-4xl mx-auto text-center">
+          <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-6">
+            지금 바로 시작해보세요!
+          </h2>
+          <p className="text-xl text-gray-600 mb-8 max-w-2xl mx-auto">
+            전국 수천 개의 무한리필 맛집이 여러분을 기다리고 있습니다. 
+            가장 가까운 맛집부터 찾아보세요.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <Button 
+              size="lg"
+              onClick={() => router.push('/map')}
+              className="bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white px-8 py-4 text-lg font-semibold rounded-full shadow-lg hover:shadow-xl transition-all duration-300"
+            >
+              <MapPin className="w-5 h-5 mr-2" />
+              맛집 찾으러 가기
+            </Button>
+            <Button 
+              variant="outline" 
+              size="lg"
+              onClick={() => router.push('/guide')}
+              className="border-2 border-orange-500 text-orange-600 hover:bg-orange-50 px-8 py-4 text-lg font-semibold rounded-full"
+            >
+              완전한 가이드 보기
+            </Button>
+          </div>
+        </div>
+      </section>
+    </div>
   );
 }

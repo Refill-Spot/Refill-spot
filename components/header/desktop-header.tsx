@@ -7,7 +7,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Filter, MapPin, Menu, Info, MessageCircle, Bell } from "lucide-react";
+import { Filter, MapPin, Menu, Info, MessageCircle, Bell, Map } from "lucide-react";
 import Link from "next/link";
 import { LocationDialog } from "./location-dialog";
 import { SearchInput } from "./search-input";
@@ -51,9 +51,15 @@ export function DesktopHeader({
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-48">
               <DropdownMenuItem asChild>
-                <Link href="/onboarding" className="flex items-center w-full">
+                <Link href="/map" className="flex items-center w-full">
+                  <Map className="h-4 w-4 mr-2 text-[#FF5722]" />
+                  맛집 찾기
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/guide" className="flex items-center w-full">
                   <Info className="h-4 w-4 mr-2 text-[#2196F3]" />
-                  서비스 소개
+                  이용 가이드
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
@@ -127,9 +133,14 @@ export function DesktopHeader({
           </Button>
         </div>
 
-        {/* 우측 여백 */}
-        <div className="flex items-center">
-          {/* 공간 확보용 */}
+        {/* 우측 버튼들 */}
+        <div className="flex items-center space-x-2">
+          <Button asChild className="bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white">
+            <Link href="/map" className="flex items-center">
+              <Map className="h-4 w-4 mr-2" />
+              맛집 찾기
+            </Link>
+          </Button>
         </div>
       </div>
 

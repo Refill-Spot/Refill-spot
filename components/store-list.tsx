@@ -6,6 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useAuth } from "@/contexts/AuthContext";
 import { useFavorites } from "@/hooks/use-favorites";
+import { usePWADetection } from "@/hooks/use-pwa-detection";
 import { getUserLocation, isLocationValid } from "@/lib/location-storage";
 import { Store } from "@/types/store";
 import { Heart, MapPin } from "lucide-react";
@@ -22,11 +23,12 @@ function StoreList({ stores = [] }: StoreListProps) {
   const router = useRouter();
   const { user } = useAuth();
   const { isFavorite, toggleFavorite } = useFavorites();
+  const { isPWA, navigateConditionally } = usePWADetection();
 
   const handleStoreClick = (store: Store) => {
     setSelectedStore(store);
-    // 간단한 URL로 새 탭에서 열기
-    window.open(`/store/${store.id}`, "_blank");
+    // PWA/브라우저에 따른 조건부 내비게이션
+    navigateConditionally(`/store/${store.id}`);
   };
 
   const handleFavoriteClick = async (e: React.MouseEvent, storeId: number) => {

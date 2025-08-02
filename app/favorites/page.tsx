@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/tooltip";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
+import { usePWADetection } from "@/hooks/use-pwa-detection";
 import { useStoreStore } from "@/lib/store";
 import { Store } from "@/types/store";
 import {
@@ -41,6 +42,7 @@ import { useEffect, useState } from "react";
 export default function FavoritesPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
+  const { navigateConditionally } = usePWADetection();
   const { toast } = useToast();
   const { favorites, favoritesLoading, fetchFavorites, toggleFavorite } =
     useStoreStore();
@@ -253,7 +255,7 @@ return;
                   <div className="flex gap-2">
                     <Button
                       className="flex-1 bg-[#FF5722] hover:bg-[#E64A19]"
-                      onClick={() => router.push(`/store/${store.id}`)}
+                      onClick={() => navigateConditionally(`/store/${store.id}`)}
                     >
                       상세 보기
                     </Button>

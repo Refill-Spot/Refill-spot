@@ -14,7 +14,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Filter, MapPin, Menu, Search, Info, MessageCircle, Bell } from "lucide-react";
+import { Filter, MapPin, Menu, Search, Info, MessageCircle, Bell, Map } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { LocationDialog } from "./location-dialog";
@@ -61,9 +61,15 @@ export function MobileHeader({
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-48">
               <DropdownMenuItem asChild>
-                <Link href="/onboarding" className="flex items-center w-full">
+                <Link href="/map" className="flex items-center w-full">
+                  <Map className="h-4 w-4 mr-2 text-[#FF5722]" />
+                  맛집 찾기
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/guide" className="flex items-center w-full">
                   <Info className="h-4 w-4 mr-2 text-[#2196F3]" />
-                  서비스 소개
+                  이용 가이드
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>

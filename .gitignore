@@ -28,6 +28,9 @@ sql/
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+public/sw.js
+public/swe-worker-*.js
+public/workbox-*.js
 
 # linting
 .eslintcache

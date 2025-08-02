@@ -10,9 +10,9 @@ interface HeroSectionProps {
 
 export default function HeroSection({ onGetStarted }: HeroSectionProps) {
   const scrollToMap = () => {
-    const mapSection = document.querySelector('#map-section');
+    const mapSection = document.querySelector("#map-section");
     if (mapSection) {
-      mapSection.scrollIntoView({ behavior: 'smooth' });
+      mapSection.scrollIntoView({ behavior: "smooth" });
     }
     onGetStarted?.();
   };
@@ -51,9 +51,9 @@ export default function HeroSection({ onGetStarted }: HeroSectionProps) {
               variant="outline" 
               size="lg"
               onClick={() => {
-                const guideSection = document.querySelector('#guide-section');
+                const guideSection = document.querySelector("#guide-section");
                 if (guideSection) {
-                  guideSection.scrollIntoView({ behavior: 'smooth' });
+                  guideSection.scrollIntoView({ behavior: "smooth" });
                 }
               }}
               className="border-2 border-orange-500 text-orange-600 hover:bg-orange-50 px-8 py-4 text-lg font-semibold rounded-full"

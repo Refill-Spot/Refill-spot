@@ -12,7 +12,7 @@ import {
   Smartphone,
   Clock,
   DollarSign,
-  Users
+  Users,
 } from "lucide-react";
 
 export default function GuideSection() {
@@ -198,9 +198,9 @@ export default function GuideSection() {
           <Button 
             size="lg"
             onClick={() => {
-              const mapSection = document.querySelector('#map-section');
+              const mapSection = document.querySelector("#map-section");
               if (mapSection) {
-                mapSection.scrollIntoView({ behavior: 'smooth' });
+                mapSection.scrollIntoView({ behavior: "smooth" });
               }
             }}
             className="bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white px-8 py-4 text-lg font-semibold rounded-full shadow-lg hover:shadow-xl transition-all duration-300"

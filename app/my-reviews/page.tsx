@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
+import { usePWADetection } from "@/hooks/use-pwa-detection";
 import { formatDistanceToNow } from "date-fns";
 import { ko } from "date-fns/locale";
 import { ArrowLeft, Calendar, Star, TrendingUp } from "lucide-react";
@@ -43,6 +44,7 @@ export default function MyReviewsPage() {
   const { user, loading: authLoading } = useAuth();
   const { toast } = useToast();
   const router = useRouter();
+  const { navigateConditionally } = usePWADetection();
 
   const [reviews, setReviews] = useState<MyReview[]>([]);
   const [statistics, setStatistics] = useState<ReviewStatistics | null>(null);
@@ -326,7 +328,7 @@ return;
                           variant="outline"
                           size="sm"
                           onClick={() =>
-                            router.push(`/store/${review.store.id}`)
+                            navigateConditionally(`/store/${review.store.id}`)
                           }
                         >
                           가게 보기

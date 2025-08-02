@@ -225,9 +225,12 @@ export default function SearchFilters({
         onApplyFilters(mergedFilters);
       }
 
-      // URL 업데이트
-      const params = filtersToURLParams(mergedFilters);
-      router.replace(`/search?${params.toString()}`);
+      // URL 업데이트 (현재 페이지가 메인페이지인지 확인)
+      const isMainPage = window.location.pathname === "/";
+      if (!isMainPage) {
+        const params = filtersToURLParams(mergedFilters);
+        router.replace(`/search?${params.toString()}`);
+      }
     },
     [
       categories,
@@ -263,13 +266,16 @@ export default function SearchFilters({
       onApplyFilters({});
     }
 
-    // URL 초기화
-    const lat = searchParams.get("lat");
-    const lng = searchParams.get("lng");
-    if (lat && lng) {
-      router.replace(`/search?lat=${lat}&lng=${lng}`);
-    } else {
-      router.replace("/search");
+    // URL 초기화 (현재 페이지가 메인페이지가 아닌 경우만)
+    const isMainPage = window.location.pathname === "/";
+    if (!isMainPage) {
+      const lat = searchParams.get("lat");
+      const lng = searchParams.get("lng");
+      if (lat && lng) {
+        router.replace(`/search?lat=${lat}&lng=${lng}`);
+      } else {
+        router.replace("/search");
+      }
     }
   }, [router, searchParams, onApplyFilters, resetStoreFilters]);
 

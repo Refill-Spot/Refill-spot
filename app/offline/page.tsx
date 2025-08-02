@@ -2,11 +2,16 @@
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { WifiOff, RefreshCw } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { useCacheStatus } from "@/hooks/use-cache-status";
+import { WifiOff, RefreshCw, Database, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useState } from "react";
 
 export default function OfflinePage() {
   const router = useRouter();
+  const { isOnline, hasCachedData, cacheInfo, clearCache } = useCacheStatus();
+  const [isClearing, setIsClearing] = useState(false);
 
   const handleRetry = () => {
     if (navigator.onLine) {
@@ -14,6 +19,12 @@ export default function OfflinePage() {
     } else {
       window.location.reload();
     }
+  };
+
+  const handleClearCache = async () => {
+    setIsClearing(true);
+    await clearCache();
+    setIsClearing(false);
   };
 
   return (
@@ -53,11 +64,60 @@ export default function OfflinePage() {
             </Button>
           </div>
 
-          <div className="pt-4 border-t">
-            <p className="text-xs text-muted-foreground text-center">
-              💡 팁: 이전에 방문했던 가게 정보는 오프라인에서도 확인할 수 있습니다.
-            </p>
-          </div>
+          {hasCachedData && (
+            <div className="pt-4 border-t space-y-3">
+              <div className="flex items-center gap-2 justify-center">
+                <Database className="h-4 w-4 text-green-600" />
+                <span className="text-sm font-medium">캐시된 데이터</span>
+              </div>
+              
+              <div className="flex flex-wrap gap-2 justify-center">
+                {cacheInfo.stores && (
+                  <Badge variant="secondary" className="text-xs">
+                    가게 목록
+                  </Badge>
+                )}
+                {cacheInfo.storeDetails && (
+                  <Badge variant="secondary" className="text-xs">
+                    가게 상세
+                  </Badge>
+                )}
+                {cacheInfo.favorites && (
+                  <Badge variant="secondary" className="text-xs">
+                    즐겨찾기
+                  </Badge>
+                )}
+                {cacheInfo.reviews && (
+                  <Badge variant="secondary" className="text-xs">
+                    리뷰
+                  </Badge>
+                )}
+              </div>
+
+              <Button
+                onClick={handleClearCache}
+                variant="outline"
+                size="sm"
+                className="w-full"
+                disabled={isClearing}
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                {isClearing ? "삭제 중..." : "캐시 데이터 삭제"}
+              </Button>
+              
+              <p className="text-xs text-muted-foreground text-center">
+                💡 오프라인에서도 이전 데이터를 확인할 수 있습니다.
+              </p>
+            </div>
+          )}
+
+          {!hasCachedData && (
+            <div className="pt-4 border-t">
+              <p className="text-xs text-muted-foreground text-center">
+                💡 온라인 상태에서 데이터를 불러오면 오프라인에서도 사용할 수 있습니다.
+              </p>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

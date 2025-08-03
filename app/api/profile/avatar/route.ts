@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
     if (!user) {
       return NextResponse.json(
         { error: "로그인이 필요합니다." },
-        { status: 401 }
+        { status: 401 },
       );
     }
 
@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
     if (!file) {
       return NextResponse.json(
         { error: "파일이 필요합니다." },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
         {
           error: "지원하지 않는 파일 형식입니다. (jpeg, jpg, png, webp만 가능)",
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
     if (file.size > 5 * 1024 * 1024) {
       return NextResponse.json(
         { error: "파일 크기가 너무 큽니다. (최대 5MB)" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -119,7 +119,7 @@ export async function DELETE(request: NextRequest) {
     if (!user) {
       return NextResponse.json(
         { error: "로그인이 필요합니다." },
-        { status: 401 }
+        { status: 401 },
       );
     }
 

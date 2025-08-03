@@ -19,7 +19,9 @@ export function ProfileImageUpload({ onUploadComplete }: ProfileImageUploadProps
   const [isDragging, setIsDragging] = useState(false);
 
   const handleFileSelect = useCallback(async (file: File) => {
-    if (!file) return;
+    if (!file) {
+      return;
+    }
 
     // 파일 유효성 검사
     const allowedTypes = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
@@ -81,7 +83,9 @@ export function ProfileImageUpload({ onUploadComplete }: ProfileImageUploadProps
   }, [toast, onUploadComplete]);
 
   const handleDeleteImage = async () => {
-    if (!profile?.avatar_url) return;
+    if (!profile?.avatar_url) {
+      return;
+    }
 
     setIsUploading(true);
 

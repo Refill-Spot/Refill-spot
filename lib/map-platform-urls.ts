@@ -1,4 +1,4 @@
-import { Store } from '@/types/store';
+import { Store } from "@/types/store";
 
 export interface MapPlatformUrls {
   naver: string;

@@ -14,7 +14,6 @@ import { useToast } from "@/components/ui/use-toast";
 import { SearchInput } from "@/components/header/search-input";
 import { StoreReviews } from "@/components/store-reviews";
 import { ReviewWriteDialog } from "@/components/review-write-dialog";
-import { MapComparisonDialog } from "@/components/map-comparison-dialog";
 import { PlatformViewDialog } from "@/components/platform-view-dialog";
 import { getUserLocation, isLocationValid } from "@/lib/location-storage";
 import { Store } from "@/types/store";
@@ -54,7 +53,6 @@ export default function StorePage() {
   const [showReviewDialog, setShowReviewDialog] = useState(false);
   const [refreshReviews, setRefreshReviews] = useState(0);
   const [showAllMenus, setShowAllMenus] = useState(false);
-  const [showMapComparison, setShowMapComparison] = useState(false);
   const [showNaverPlatform, setShowNaverPlatform] = useState(false);
   const [showKakaoPlatform, setShowKakaoPlatform] = useState(false);
 

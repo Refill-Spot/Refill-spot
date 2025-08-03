@@ -18,36 +18,36 @@ interface PlatformViewDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   store: Store;
-  platform: 'naver' | 'kakao';
+  platform: "naver" | "kakao";
 }
 
 export function PlatformViewDialog({ 
   open, 
   onOpenChange, 
   store,
-  platform 
+  platform,
 }: PlatformViewDialogProps) {
   const [loading, setLoading] = useState(true);
   
   const platformConfig = {
     naver: {
-      name: '네이버지도',
-      color: '#03C75A',
+      name: "네이버지도",
+      color: "#03C75A",
       url: generateNaverMapUrl(store),
-      rating: store.rating.naver
+      rating: store.rating.naver,
     },
     kakao: {
-      name: '카카오맵',
-      color: '#FEE500',
+      name: "카카오맵",
+      color: "#FEE500",
       url: generateKakaoMapUrl(store),
-      rating: store.rating.kakao
-    }
+      rating: store.rating.kakao,
+    },
   };
 
   const config = platformConfig[platform];
 
   const handleOpenExternal = () => {
-    window.open(config.url, '_blank', 'noopener,noreferrer');
+    window.open(config.url, "_blank", "noopener,noreferrer");
   };
 
   return (

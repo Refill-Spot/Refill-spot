@@ -77,6 +77,7 @@ export interface FormattedReview {
   user: {
     id: string;
     username: string;
+    avatar_url?: string;
   };
 }
 
@@ -91,5 +92,6 @@ export interface ReviewFromDb {
   updated_at: string;
   profiles: {
     username: string;
+    avatar_url?: string;
   };
 }

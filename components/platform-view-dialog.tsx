@@ -52,7 +52,7 @@ export function PlatformViewDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-5xl h-[90vh] flex flex-col p-0">
+      <DialogContent className="max-w-[95vw] w-[95vw] h-[95vh] flex flex-col p-0">
         <DialogHeader className="px-6 py-4 border-b">
           <DialogTitle className="flex items-center gap-3 text-xl">
             <div 
@@ -100,15 +100,25 @@ export function PlatformViewDialog({
                   </Badge>
                 )}
               </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleOpenExternal}
-                className="text-gray-600 hover:text-gray-900"
-              >
-                <ExternalLink className="w-4 h-4 mr-1" />
-                새 창에서 열기
-              </Button>
+              <div className="flex gap-2">
+                <Button
+                  onClick={handleOpenExternal}
+                  style={{ backgroundColor: config.color }}
+                  className="text-white hover:opacity-90"
+                  size="sm"
+                >
+                  <ExternalLink className="w-4 h-4 mr-1" />
+                  {config.name}에서 보기
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onOpenChange(false)}
+                  className="text-gray-600 hover:text-gray-900"
+                >
+                  닫기
+                </Button>
+              </div>
             </div>
             
             <div className="flex-1 relative">

@@ -19,7 +19,7 @@ import {
 
 type AuthContextType = {
   user: User | null;
-  profile: { username: string; role?: string; is_admin?: boolean } | null;
+  profile: { username: string; role?: string; is_admin?: boolean; avatar_url?: string; bio?: string } | null;
   loading: boolean;
   signUp: (
     email: string,
@@ -34,7 +34,8 @@ type AuthContextType = {
   signInWithKakao: () => Promise<void>;
   signOut: () => Promise<void>;
   updateProfile: (data: {
-    username: string;
+    username?: string;
+    bio?: string;
   }) => Promise<{ error: Error | null }>;
 };
 
@@ -42,7 +43,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  const [profile, setProfile] = useState<{ username: string; role?: string; is_admin?: boolean } | null>(null);
+  const [profile, setProfile] = useState<{ username: string; role?: string; is_admin?: boolean; avatar_url?: string; bio?: string } | null>(null);
   const [loading, setLoading] = useState(true);
   const [initialized, setInitialized] = useState(false);
   const loadingUserRef = useRef<string | null>(null);
@@ -96,7 +97,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           try {
             const { data, error } = await supabase
               .from("profiles")
-              .select("username, role, is_admin")
+              .select("username, role, is_admin, avatar_url, bio")
               .eq("id", user.id)
               .single();
 
@@ -507,7 +508,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   // 프로필 업데이트
-  const updateProfile = async (data: { username: string }) => {
+  const updateProfile = async (data: { username?: string; bio?: string }) => {
     try {
       if (!user) {
         throw new Error("로그인이 필요합니다.");
@@ -519,7 +520,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .eq("id", user.id);
 
       if (!error) {
-        setProfile(prev => prev ? { ...prev, username: data.username } : { username: data.username });
+        setProfile(prev => prev ? { ...prev, ...data } : { username: data.username || "", ...data });
         toast({
           title: "프로필 업데이트 완료",
           description: "프로필이 성공적으로 업데이트되었습니다.",

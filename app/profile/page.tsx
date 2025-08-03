@@ -12,8 +12,10 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
+import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
+import { ProfileImageUpload } from "@/components/profile-image-upload";
 import { ChevronLeft, LogOut, Save, User } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -25,6 +27,7 @@ export default function ProfilePage() {
   const [isEditing, setIsEditing] = useState(false);
   const [profileData, setProfileData] = useState({
     username: "",
+    bio: "",
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -38,12 +41,13 @@ export default function ProfilePage() {
     if (profile) {
       setProfileData({
         username: profile.username || "",
+        bio: profile.bio || "",
       });
     }
   }, [user, profile, loading, router]);
 
   // 입력값 변경 핸들러
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setProfileData((prev) => ({
       ...prev,
@@ -59,6 +63,7 @@ export default function ProfilePage() {
     try {
       const { error } = await updateProfile({
         username: profileData.username,
+        bio: profileData.bio,
       });
 
       if (error) {
@@ -115,8 +120,13 @@ export default function ProfilePage() {
         <div className="md:col-span-1">
           <Card>
             <CardContent className="p-6 flex flex-col items-center">
-              <div className="w-24 h-24 rounded-full bg-gray-200 flex items-center justify-center mb-4">
-                <User className="w-12 h-12 text-gray-500" />
+              <div className="mb-4">
+                <Avatar className="w-24 h-24 border-2 border-gray-200">
+                  <AvatarImage src={profile?.avatar_url} alt={profile?.username} />
+                  <AvatarFallback className="bg-gray-100">
+                    <User className="w-12 h-12 text-gray-400" />
+                  </AvatarFallback>
+                </Avatar>
               </div>
               <div className="text-center">
                 <h2 className="text-xl font-semibold">{profile?.username}</h2>
@@ -143,6 +153,19 @@ export default function ProfilePage() {
 
         {/* 프로필 정보 */}
         <div className="md:col-span-3">
+          {/* 프로필 이미지 업로드 카드 */}
+          <Card className="mb-6">
+            <CardHeader>
+              <CardTitle>프로필 사진</CardTitle>
+              <CardDescription>
+                프로필 사진을 변경하거나 삭제할 수 있습니다.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ProfileImageUpload />
+            </CardContent>
+          </Card>
+
           <Card>
             <CardHeader>
               <CardTitle>프로필 정보</CardTitle>
@@ -177,6 +200,20 @@ export default function ProfilePage() {
                       className={!isEditing ? "bg-gray-50" : ""}
                     />
                   </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="bio">자기소개</Label>
+                    <Textarea
+                      id="bio"
+                      name="bio"
+                      value={profileData.bio}
+                      onChange={handleChange}
+                      disabled={!isEditing}
+                      className={!isEditing ? "bg-gray-50" : ""}
+                      placeholder="자신을 소개해보세요..."
+                      rows={3}
+                    />
+                  </div>
                 </div>
 
                 <div className="mt-6 flex justify-end">
@@ -189,7 +226,8 @@ export default function ProfilePage() {
                           setIsEditing(false);
                           if (profile) {
                             setProfileData({
-                              username: profile.username,
+                              username: profile.username || "",
+                              bio: profile.bio || "",
                             });
                           }
                         }}

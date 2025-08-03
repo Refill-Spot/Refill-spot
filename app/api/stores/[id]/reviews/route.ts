@@ -158,6 +158,7 @@ export async function POST(
           user: {
             id: data.user_id,
             username: data.profiles.username,
+            avatar_url: data.profiles.avatar_url,
           },
         },
       };
@@ -200,6 +201,7 @@ export async function POST(
           user: {
             id: data.user_id,
             username: data.profiles.username,
+            avatar_url: data.profiles.avatar_url,
           },
         },
       };
@@ -238,13 +240,13 @@ export async function GET(
       error: authError,
     } = await supabase.auth.getUser();
 
-    // 리뷰 조회 - profiles 테이블 조인으로 실제 사용자명 가져오기
+    // 리뷰 조회 - profiles 테이블 조인으로 실제 사용자명과 아바타 가져오기
     const { data: reviews, error } = await supabase
       .from("reviews")
       .select(
         `
         *,
-        profiles:profiles!inner(username)
+        profiles:profiles!inner(username, avatar_url)
       `,
       )
       .eq("store_id", storeId)
@@ -298,6 +300,7 @@ export async function GET(
       user: {
         id: review.user_id,
         username: review.profiles.username,
+        avatar_url: review.profiles.avatar_url,
       },
     }));
 

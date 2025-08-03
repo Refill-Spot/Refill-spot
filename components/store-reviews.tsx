@@ -1109,10 +1109,13 @@ return { high: 0, medium: 0, low: 0 };
                   <div key={review.id} className={`py-6 px-4 ${reviewIndex !== filteredReviews.length - 1 ? "border-b border-gray-100" : ""}`}>
                     {/* 헤더 - 사용자 정보 */}
                     <div className="flex items-start gap-4 mb-4">
-                      {/* 사용자 아바타 - 일반 사람 아이콘 */}
-                      <div className="w-16 h-16 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0">
-                        <User className="w-8 h-8 text-gray-500" />
-                      </div>
+                      {/* 사용자 아바타 */}
+                      <Avatar className="w-16 h-16 border-2 border-gray-200 flex-shrink-0">
+                        <AvatarImage src={review.user.avatar_url} alt={review.user.username} />
+                        <AvatarFallback className="bg-gray-100">
+                          <User className="w-8 h-8 text-gray-400" />
+                        </AvatarFallback>
+                      </Avatar>
                       
                       <div className="flex-1">
                         {/* 사용자 이름 */}

@@ -210,7 +210,7 @@ export default function Header({
           </div>
 
           {/* 사용자 메뉴 (공통) - 오른쪽 끝 */}
-          <div className="flex items-center space-x-4 ml-auto">
+          <div className="flex items-center space-x-4 ml-4">
             {loading ? (
               <div className="flex items-center space-x-2">
                 <div className="relative">

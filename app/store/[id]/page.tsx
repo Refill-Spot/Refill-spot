@@ -14,6 +14,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { SearchInput } from "@/components/header/search-input";
 import { StoreReviews } from "@/components/store-reviews";
 import { ReviewWriteDialog } from "@/components/review-write-dialog";
+import { PlatformViewDialog } from "@/components/platform-view-dialog";
 import { getUserLocation, isLocationValid } from "@/lib/location-storage";
 import { Store } from "@/types/store";
 import { MenuItem } from "@/types/menu";
@@ -52,6 +53,8 @@ export default function StorePage() {
   const [showReviewDialog, setShowReviewDialog] = useState(false);
   const [refreshReviews, setRefreshReviews] = useState(0);
   const [showAllMenus, setShowAllMenus] = useState(false);
+  const [showNaverPlatform, setShowNaverPlatform] = useState(false);
+  const [showKakaoPlatform, setShowKakaoPlatform] = useState(false);
 
   useEffect(() => {
     const fetchStore = async () => {
@@ -505,17 +508,19 @@ return;
                 
                 {/* 평점 정보 */}
                 <div className="flex items-center gap-4 mb-3">
-                  {(store.rating.naver > 0 || store.rating.kakao > 0) && (
-                    <div className="flex items-center gap-2">
-                      <Star className="w-5 h-5 text-yellow-400 fill-current" />
-                      <span className="text-lg font-semibold">
-                        {store.rating.naver > 0 ? store.rating.naver : store.rating.kakao}
-                      </span>
-                      <span className="text-white/80 text-sm">
-                        ({store.rating.naver > 0 ? "네이버" : "카카오"} 평점)
-                      </span>
-                    </div>
-                  )}
+                  <div className="flex items-center gap-3">
+                    {(store.rating.naver > 0 || store.rating.kakao > 0) && (
+                      <div className="flex items-center gap-2">
+                        <Star className="w-5 h-5 text-yellow-400 fill-current" />
+                        <span className="text-lg font-semibold">
+                          {store.rating.naver > 0 ? store.rating.naver : store.rating.kakao}
+                        </span>
+                        <span className="text-white/80 text-sm">
+                          ({store.rating.naver > 0 ? "네이버" : "카카오"} 평점)
+                        </span>
+                      </div>
+                    )}
+                  </div>
                   {store.distance && (
                     <div className="text-white/80 text-sm">
                       현재 위치에서 {store.distance}km
@@ -559,13 +564,25 @@ return;
                     <Clock className="w-5 h-5 text-[#FF5722]" />
                     운영 정보
                   </CardTitle>
-                  <Button
-                    onClick={handleViewInNaverMap}
-                    className="bg-[#03C75A] hover:bg-[#02B351] text-white"
-                  >
-                    <ExternalLink className="w-4 h-4 mr-2" />
-                    지도로 보기
-                  </Button>
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <Button
+                      onClick={() => setShowNaverPlatform(true)}
+                      className="bg-[#03C75A] hover:bg-[#02B351] text-white"
+                      size="sm"
+                    >
+                      <Star className="w-4 h-4 mr-2" />
+                      네이버 평점
+                    </Button>
+                    <Button
+                      onClick={() => setShowKakaoPlatform(true)}
+                      variant="outline"
+                      className="border-[#FEE500] bg-[#FEE500] hover:bg-[#FDD835] text-black"
+                      size="sm"
+                    >
+                      <Star className="w-4 h-4 mr-2" />
+                      카카오 평점
+                    </Button>
+                  </div>
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -1042,6 +1059,26 @@ return [];
           onReviewSubmitted={() => {
             setRefreshReviews(prev => prev + 1);
           }}
+        />
+      )}
+
+      {/* 네이버 플랫폼 다이얼로그 */}
+      {store && (
+        <PlatformViewDialog
+          open={showNaverPlatform}
+          onOpenChange={setShowNaverPlatform}
+          store={store}
+          platform="naver"
+        />
+      )}
+
+      {/* 카카오 플랫폼 다이얼로그 */}
+      {store && (
+        <PlatformViewDialog
+          open={showKakaoPlatform}
+          onOpenChange={setShowKakaoPlatform}
+          store={store}
+          platform="kakao"
         />
       )}
     </div>

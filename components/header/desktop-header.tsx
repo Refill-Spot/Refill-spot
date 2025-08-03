@@ -134,7 +134,7 @@ export function DesktopHeader({
         </div>
 
         {/* 우측 버튼들 */}
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center space-x-2 mr-3">
           <Button asChild className="bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white">
             <Link href="/map" className="flex items-center">
               <Map className="h-4 w-4 mr-2" />

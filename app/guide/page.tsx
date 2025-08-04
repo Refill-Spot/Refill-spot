@@ -407,22 +407,14 @@ export default function GuidePage() {
               이 가이드를 참고해서 더욱 즐겁고 만족스러운 무한리필 경험을 만들어보세요. 
               Refill-spot에서 전국의 무한리필 맛집을 찾아보실 수 있습니다.
             </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <div className="flex justify-center">
               <Button 
                 size="lg"
-                onClick={() => router.push("/")}
+                onClick={() => router.push("/map")}
                 className="bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white px-8 py-4 text-lg font-semibold rounded-full shadow-lg hover:shadow-xl transition-all duration-300"
               >
                 <MapPin className="w-5 h-5 mr-2" />
                 맛집 찾으러 가기
-              </Button>
-              <Button 
-                variant="outline" 
-                size="lg"
-                onClick={() => router.push("/recommendations")}
-                className="border-2 border-orange-500 text-orange-600 hover:bg-orange-50 px-8 py-4 text-lg font-semibold rounded-full"
-              >
-                추천 맛집 보기
               </Button>
             </div>
           </CardContent>

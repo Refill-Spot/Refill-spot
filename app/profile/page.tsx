@@ -31,6 +31,17 @@ export default function ProfilePage() {
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // 뒤로가기 핸들러
+  const handleGoBack = () => {
+    // 브라우저 히스토리를 확인하여 이전 페이지로 돌아가기
+    if (window.history.length > 1) {
+      router.back();
+    } else {
+      // 히스토리가 없으면 지도 페이지로 이동
+      router.push("/map");
+    }
+  };
+
   // 로그인 상태 확인 및 프로필 데이터 로드
   useEffect(() => {
     if (!loading && !user) {
@@ -106,7 +117,7 @@ export default function ProfilePage() {
         <Button
           variant="ghost"
           size="icon"
-          onClick={() => router.push("/")}
+          onClick={handleGoBack}
           className="mr-2"
         >
           <ChevronLeft className="h-5 w-5" />

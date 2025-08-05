@@ -32,8 +32,6 @@ export async function GET(request: NextRequest) {
         created_at,
         updated_at,
         image_urls,
-        is_reported,
-        report_count,
         store_id,
         stores (
           id,
@@ -42,15 +40,21 @@ export async function GET(request: NextRequest) {
         ),
         profiles (
           id,
-          username,
-          email
+          username
+        ),
+        review_reports (
+          id,
+          reason,
+          status,
+          created_at
         )
       `)
       .order("created_at", { ascending: false })
       .range(from, to);
 
     if (reportedOnly) {
-      query = query.eq("is_reported", true);
+      // 신고된 리뷰만 조회 (review_reports 테이블에 레코드가 있는 경우)
+      query = query.not("review_reports", "is", null);
     }
 
     if (storeId) {
@@ -67,10 +71,11 @@ export async function GET(request: NextRequest) {
     // 총 개수 조회
     let countQuery = supabase
       .from("reviews")
-      .select("*", { count: "exact", head: true });
+      .select("review_reports(*)", { count: "exact", head: true });
 
     if (reportedOnly) {
-      countQuery = countQuery.eq("is_reported", true);
+      // 신고된 리뷰만 카운트
+      countQuery = countQuery.not("review_reports", "is", null);
     }
 
     if (storeId) {

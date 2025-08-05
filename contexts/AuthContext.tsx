@@ -161,12 +161,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // 타임아웃과 경쟁하여 프로필 로딩
         try {
           const profileData = await Promise.race([loadProfile(), timeoutPromise]);
+          authLogger.debug("프로필 설정 완료", { 
+            userId: user.id, 
+            isAdmin: profileData.is_admin,
+            role: profileData.role 
+          });
           setProfile(profileData as any);
-          authLogger.debug("프로필 설정 완료", { userId: user.id });
+          
+          // 어드민 상태 디버깅
+          if (profileData.is_admin === true) {
+            authLogger.info("🔑 어드민 사용자 로그인 감지", { 
+              userId: user.id, 
+              email: user.email 
+            });
+          }
         } catch (timeoutError) {
           authLogger.warn("타임아웃으로 인한 fallback 프로필 사용", { userId: user.id });
-          const fallbackUsername = user.email?.split("@")[0] || `user_${Math.random().toString(36).substring(2, 10)}`;
-          setProfile({ username: fallbackUsername, role: 'user', is_admin: false });
+          // 기존 프로필이 있고 admin 정보가 있다면 유지
+          setProfile(prevProfile => {
+            if (prevProfile && prevProfile.is_admin !== undefined) {
+              authLogger.debug("기존 어드민 프로필 유지", { is_admin: prevProfile.is_admin });
+              return prevProfile;
+            }
+            const fallbackUsername = user.email?.split("@")[0] || `user_${Math.random().toString(36).substring(2, 10)}`;
+            return { username: fallbackUsername, role: 'user', is_admin: false };
+          });
         }
         
         // 프로필 로딩 완료 시 완료 토스트 (소셜 로그인의 경우)
@@ -272,6 +291,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             }
           }
         } else if (mounted) {
+          authLogger.debug("사용자 로그아웃, 프로필 초기화");
           setProfile(null);
           setLoading(false);
         }

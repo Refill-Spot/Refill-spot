@@ -377,7 +377,7 @@ return;
                         지도로 돌아가기
                       </button>
                     </DropdownMenuItem>
-                    {profile?.is_admin && (
+                    {profile?.is_admin === true && (
                       <>
                         <DropdownMenuItem asChild>
                           <button

@@ -273,7 +273,7 @@ export default function Header({
                       현재 위치로 이동
                     </button>
                   </DropdownMenuItem>
-                  {profile?.is_admin && (
+                  {profile?.is_admin === true && (
                     <>
                       <DropdownMenuItem asChild>
                         <button

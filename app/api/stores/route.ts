@@ -90,7 +90,7 @@ throw storeError;
             
             // categories가 JSON인지 배열인지 확인하고 처리
             if (store.categories) {
-              if (typeof store.categories === 'string') {
+              if (typeof store.categories === "string") {
                 try {
                   storeCategories = JSON.parse(store.categories);
                 } catch (e) {
@@ -98,14 +98,14 @@ throw storeError;
                 }
               } else if (Array.isArray(store.categories)) {
                 storeCategories = store.categories;
-              } else if (typeof store.categories === 'object') {
+              } else if (typeof store.categories === "object") {
                 // JSON 객체인 경우 (PostGIS에서 반환된 경우)
                 storeCategories = store.categories;
               }
             }
             
             const hasMatchingCategory = selectedCategories.some((category) =>
-              Array.isArray(storeCategories) && storeCategories.includes(category)
+              Array.isArray(storeCategories) && storeCategories.includes(category),
             );
             
             if (!hasMatchingCategory) {
@@ -114,7 +114,7 @@ throw storeError;
           }
 
           // 검색어 필터링
-          if (queryStr && queryStr.trim()) {
+          if (queryStr?.trim()) {
             const query = queryStr.trim().toLowerCase();
             const storeName = store.name?.toLowerCase() || "";
             const storeAddress = store.address?.toLowerCase() || "";
@@ -132,7 +132,7 @@ throw storeError;
             store, 
             store.distance_km.toString(),
             reviewStat?.avgRating || null,
-            reviewStat?.reviewCount || null
+            reviewStat?.reviewCount || null,
           );
         });
 
@@ -215,7 +215,7 @@ throw storeError;
             store, 
             store.distance_km.toString(),
             reviewStat?.avgRating || null,
-            reviewStat?.reviewCount || null
+            reviewStat?.reviewCount || null,
           );
         });
 

@@ -569,7 +569,7 @@ return "text-orange-600";
               취소
             </Button>
             <Link href="/login">
-              <Button>로그인하기</Button>
+              <Button className="bg-[#FF5722] hover:bg-[#E64A19] text-white">로그인하기</Button>
             </Link>
           </div>
         </DialogContent>

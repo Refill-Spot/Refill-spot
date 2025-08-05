@@ -102,7 +102,7 @@ function HomeContent() {
             params.append("categories", categories.join(","));
           }
 
-          if (query && query.trim()) {
+          if (query?.trim()) {
             params.append("query", query.trim());
           }
 
@@ -315,10 +315,18 @@ return;
 
           // 필터 적용 메시지 생성
           const filterDesc = [];
-          if (radius !== 5) filterDesc.push(`반경 ${radius}km`);
-          if (minRating && minRating > 0) filterDesc.push(`평점 ${minRating}점 이상`);
-          if (categories && categories.length > 0) filterDesc.push(`카테고리: ${categories.join(", ")}`);
-          if (query) filterDesc.push(`검색어: "${query}"`);
+          if (radius !== 5) {
+            filterDesc.push(`반경 ${radius}km`);
+          }
+          if (minRating && minRating > 0) {
+            filterDesc.push(`평점 ${minRating}점 이상`);
+          }
+          if (categories && categories.length > 0) {
+            filterDesc.push(`카테고리: ${categories.join(", ")}`);
+          }
+          if (query) {
+            filterDesc.push(`검색어: "${query}"`);
+          }
 
           toast({
             title: "위치 설정 완료",

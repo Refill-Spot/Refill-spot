@@ -29,6 +29,8 @@ interface Review {
   updated_at: string;
   image_urls?: string[];
   store_id: string;
+  is_reported?: boolean;
+  report_count?: number;
   stores: {
     id: string;
     name: string;

@@ -160,13 +160,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         // 타임아웃과 경쟁하여 프로필 로딩
         try {
-          const profileData = await Promise.race([loadProfile(), timeoutPromise]);
+          const profileData = await Promise.race([loadProfile(), timeoutPromise]) as any;
           authLogger.debug("프로필 설정 완료", { 
             userId: user.id, 
             isAdmin: profileData.is_admin,
             role: profileData.role 
           });
-          setProfile(profileData as any);
+          setProfile(profileData);
           
           // 어드민 상태 디버깅
           if (profileData.is_admin === true) {

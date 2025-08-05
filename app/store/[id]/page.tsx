@@ -10,6 +10,14 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/use-toast";
 import { SearchInput } from "@/components/header/search-input";
 import { StoreReviews } from "@/components/store-reviews";
@@ -36,6 +44,7 @@ import {
   Star,
   Utensils,
   User,
+  X,
 } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -54,6 +63,7 @@ export default function StorePage() {
   const [showAllMenus, setShowAllMenus] = useState(false);
   const [showNaverPlatform, setShowNaverPlatform] = useState(false);
   const [showKakaoPlatform, setShowKakaoPlatform] = useState(false);
+  const [showLoginAlert, setShowLoginAlert] = useState(false);
 
   useEffect(() => {
     const fetchStore = async () => {
@@ -143,7 +153,13 @@ return;
     if (!store) {
 return;
 }
-    await toggleFavorite(store.id);
+    
+    if (!user) {
+      setShowLoginAlert(true);
+      return;
+    }
+    
+    await toggleFavorite(store.id, false);
   };
 
   // 로그아웃 핸들러
@@ -1088,6 +1104,32 @@ return [];
           platform="kakao"
         />
       )}
+
+      {/* 로그인 필요 다이얼로그 */}
+      <Dialog open={showLoginAlert} onOpenChange={setShowLoginAlert}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>로그인이 필요합니다</DialogTitle>
+            <DialogDescription>
+              즐겨찾기를 추가하려면 먼저 로그인해주세요.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowLoginAlert(false)}>
+              취소
+            </Button>
+            <Button
+              onClick={() => {
+                const currentUrl = window.location.pathname + window.location.search;
+                router.push(`/login?returnUrl=${encodeURIComponent(currentUrl)}`);
+              }}
+              className="bg-[#FF5722] hover:bg-[#E64A19] text-white"
+            >
+              로그인하기
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

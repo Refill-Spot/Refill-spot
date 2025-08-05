@@ -343,6 +343,15 @@ return;
                   <DropdownMenuContent align="end" className="w-48">
                     <DropdownMenuItem asChild>
                       <button
+                        onClick={() => router.push("/profile")}
+                        className="w-full flex items-center"
+                      >
+                        <Settings className="h-4 w-4 mr-2 text-[#9C27B0]" />
+                        프로필 설정
+                      </button>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <button
                         onClick={() => router.push("/my-reviews")}
                         className="w-full flex items-center"
                       >

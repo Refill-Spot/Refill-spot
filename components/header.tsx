@@ -20,7 +20,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useGeolocation } from "@/hooks/use-geolocation";
 import { useGooglePlaces } from "@/hooks/use-google-places";
 import { useLocationSearch } from "@/hooks/use-location-search";
-import { Heart, LogOut, Map, Settings, User, MessageSquare } from "lucide-react";
+import { Heart, LogOut, Map, Settings, Star, User, MessageSquare } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { DesktopHeader } from "./header/desktop-header";
@@ -244,6 +244,15 @@ export default function Header({
                     >
                       <Settings className="h-4 w-4 mr-2 text-[#9C27B0]" />
                       프로필 설정
+                    </button>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <button
+                      onClick={() => router.push("/my-reviews")}
+                      className="w-full flex items-center"
+                    >
+                      <Star className="h-4 w-4 mr-2 text-yellow-500" />
+                      내가 작성한 리뷰
                     </button>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>

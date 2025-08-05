@@ -83,7 +83,6 @@ export default function TermsPage() {
                     <li>대표자명: 이동휘</li>
                     <li>사업자등록번호: **</li>
                     <li>사업장 주소: **</li>
-                    <li>대표 전화번호: 010-6441-8374</li>
                     <li>대표 이메일 주소: refillspot.official@gmail.com</li>
                   </ul>
                 </div>
@@ -569,7 +568,6 @@ export default function TermsPage() {
                 <p>대표자: 이동휘</p>
                 <p>사업장 소재지: **</p>
                 <p>전자우편주소: refillspot.official@gmail.com</p>
-                <p>전화번호: 010-6441-8374</p>
                 <p>사업자등록번호: **</p>
               </div>
             </div>

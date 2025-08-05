@@ -263,7 +263,7 @@ export default function PrivacyPage() {
                   <ul className="space-y-1">
                     <li>성명 : 이동휘</li>
                     <li>직책 : 대표자</li>
-                    <li>연락처 : 010-6441-8374, refillspot.official@gmail.com</li>
+                    <li>연락처 : refillspot.official@gmail.com</li>
                   </ul>
                   <h3 className="font-semibold mb-2 mt-3">개인정보 보호 담당부서</h3>
                   <ul className="space-y-1">
@@ -327,7 +327,6 @@ export default function PrivacyPage() {
                 <p>회사명: Refill-spot</p>
                 <p>대표자: 이동휘</p>
                 <p>이메일: refillspot.official@gmail.com</p>
-                <p>전화번호: 010-6441-8374</p>
               </div>
             </div>
 

@@ -5,7 +5,6 @@ import { useTranslation } from "@/hooks/use-translation";
 import {
   fetchAllStores,
   fetchFilteredStores,
-  fetchStoreRating,
 } from "@/lib/api-utils";
 import { Store } from "@/types/store";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -122,50 +121,14 @@ export function useFetchStores(
         console.warn("가게 데이터가 비어있습니다. 필터:", filters);
       }
 
-      // 별점 정보가 없는 가게에 대해 별점 정보 가져오기
-      const storesWithRatings = await Promise.all(
-        storeData.map(async (store) => {
-          // store가 undefined인 경우 건너뛰기
-          if (!store) {
-            console.warn("잘못된 가게 데이터:", store);
-            return null;
-          }
-
-          // 별점 정보가 없거나 0인 경우, 혹은 rating 필드가 없는 경우 별도 API 호출
-          if (
-            !store.rating ||
-            (store.rating.naver === 0 && store.rating.kakao === 0)
-          ) {
-            try {
-              // 별점 정보 가져오기
-              const ratingData = await fetchStoreRating(
-                store.name,
-                store.address
-              );
-
-              // 별점 정보 업데이트
-              return {
-                ...store,
-                rating: {
-                  naver: ratingData.naverRating || 0,
-                  kakao: ratingData.kakaoRating || 0,
-                },
-              };
-            } catch (err) {
-              // 별점 정보 가져오기 실패 시 기존 정보 유지
-              console.warn(`${store.name} 별점 정보 가져오기 실패:`, err);
-              return store;
-            }
-          }
-
-          return store;
-        })
-      );
-
-      // null 값 제거 후 Store[] 타입으로 변환
-      const validStores = storesWithRatings.filter(
-        (store) => store !== null
-      ) as Store[];
+      // 유효하지 않은 가게 데이터 필터링
+      const validStores = storeData.filter((store) => {
+        if (!store) {
+          console.warn("잘못된 가게 데이터:", store);
+          return false;
+        }
+        return true;
+      });
 
       setStores(validStores);
       setError(null);
@@ -207,7 +170,7 @@ export function useFetchStores(
 
     // 필터 변경 시에만 데이터 가져오기
     fetchStores();
-  }, [fetchStores]);
+  }, [filters]); // fetchStores 대신 filters를 의존성으로 사용
 
   // 새로운 필터를 설정하는 함수
   const updateFilters = useCallback((newFilters: StoreFilters) => {

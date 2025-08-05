@@ -845,12 +845,8 @@ return;
                 </div>
                 <div className="flex items-center gap-1 text-sm">
                   <Star className="h-4 w-4 fill-[#FFA726] text-[#FFA726]" />
-                  <span>{selectedStore.rating.naver}</span>
-                  <span className="text-gray-400">네이버</span>
-                  <span className="mx-1">|</span>
-                  <Star className="h-4 w-4 fill-[#FFA726] text-[#FFA726]" />
-                  <span>{selectedStore.rating.kakao}</span>
-                  <span className="text-gray-400">카카오</span>
+                  <span>{selectedStore.avgRating ? selectedStore.avgRating.toFixed(1) : "평점 없음"}</span>
+                  <span className="text-gray-400">({selectedStore.reviewCount || 0}개 리뷰)</span>
                 </div>
                 <div className="flex items-center gap-2 mt-1 text-sm text-gray-600">
                   <span>

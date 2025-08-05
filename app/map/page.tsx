@@ -64,6 +64,7 @@ function HomeContent() {
       categories?: string[],
       page: number = 1,
       append: boolean = false,
+      query?: string,
     ) => {
       apiLogger.debug("fetchStores 호출됨", { 
         lat: lat?.toFixed(8), 
@@ -71,6 +72,9 @@ function HomeContent() {
         radius, 
         page, 
         append,
+        minRating,
+        categories,
+        query,
       });
 
       if (!append) {
@@ -99,6 +103,10 @@ function HomeContent() {
             params.append("categories", categories.join(","));
           }
 
+          if (query && query.trim()) {
+            params.append("query", query.trim());
+          }
+
           url += `?${params.toString()}`;
         }
 
@@ -111,6 +119,7 @@ function HomeContent() {
           limit: "20",
           minRating,
           categories,
+          query,
         });
 
         // 타임아웃 설정 (10초)
@@ -203,17 +212,24 @@ function HomeContent() {
 return;
 }
 
+    // 현재 URL 파라미터에서 필터 정보 추출
+    const currentCategories = searchParams.get("categories");
+    const currentDistance = searchParams.get("distance");
+    const currentRating = searchParams.get("rating") || searchParams.get("minRating");
+    const currentQuery = searchParams.get("q") || searchParams.get("query");
+
     const nextPage = currentPage + 1;
     fetchStores(
       userLocation.lat,
       userLocation.lng,
-      5,
-      undefined,
-      undefined,
+      currentDistance ? parseFloat(currentDistance) : 5,
+      currentRating ? parseFloat(currentRating) : undefined,
+      currentCategories ? currentCategories.split(",") : undefined,
       nextPage,
       true,
+      currentQuery || undefined,
     );
-  }, [userLocation, loadingMore, hasMore, currentPage]);
+  }, [userLocation, loadingMore, hasMore, currentPage, searchParams]);
 
   // 온보딩 체크 (첫 방문자용으로만 동작)
   useEffect(() => {
@@ -251,9 +267,13 @@ return;
         hasSearchQuery = true;
       }
 
-      // URL 파라미터에서 위치 정보 확인
+      // URL 파라미터에서 위치 정보 및 필터 정보 확인
       const urlLat = searchParams.get("lat");
       const urlLng = searchParams.get("lng");
+      const urlCategories = searchParams.get("categories");
+      const urlDistance = searchParams.get("distance");
+      const urlRating = searchParams.get("rating");
+      const urlQuery = searchParams.get("q");
       const urlSource = searchParams.get("source") as
         | "gps"
         | "manual"
@@ -270,7 +290,14 @@ return;
           setUserLocation({ lat, lng });
           setCurrentPage(1);
           setHasMore(false);
-          await fetchStores(lat, lng, 5, undefined, undefined, 1, false);
+
+          // URL 파라미터에서 필터 정보 추출
+          const radius = urlDistance ? parseFloat(urlDistance) : 5;
+          const minRating = urlRating ? parseFloat(urlRating) : undefined;
+          const categories = urlCategories ? urlCategories.split(",") : undefined;
+          const query = urlQuery || undefined;
+
+          await fetchStores(lat, lng, radius, minRating, categories, 1, false, query);
 
           // URL 파라미터의 위치 정보를 저장
           saveUserLocation({
@@ -287,9 +314,18 @@ return;
                 ? "설정한 위치"
                 : "이전 위치";
 
+          // 필터 적용 메시지 생성
+          const filterDesc = [];
+          if (radius !== 5) filterDesc.push(`반경 ${radius}km`);
+          if (minRating && minRating > 0) filterDesc.push(`평점 ${minRating}점 이상`);
+          if (categories && categories.length > 0) filterDesc.push(`카테고리: ${categories.join(", ")}`);
+          if (query) filterDesc.push(`검색어: "${query}"`);
+
           toast({
             title: "위치 설정 완료",
-            description: `${sourceText} 주변의 가게를 표시합니다.`,
+            description: filterDesc.length > 0 
+              ? `${sourceText} 주변에서 ${filterDesc.join(", ")} 조건으로 검색합니다.`
+              : `${sourceText} 주변의 가게를 표시합니다.`,
           });
           return;
         }
@@ -493,20 +529,10 @@ return;
           filters.categories,
           1,
           false,
+          filters.query,
         );
         
-        // 검색어 필터링이 있는 경우 추가 처리
-        if (filters.query) {
-          // 검색어로 추가 필터링
-          setTimeout(() => {
-            const filteredStores = allStores.filter(
-              (store) =>
-                store.name.toLowerCase().includes(filters.query!.toLowerCase()) ||
-                store.address.toLowerCase().includes(filters.query!.toLowerCase()),
-            );
-            setStores(filteredStores);
-          }, 1000); // API 호출 후 검색어 필터링
-        }
+        // 검색어 필터링은 서버에서 처리되므로 클라이언트 사이드 필터링 제거
 
         const filterDesc = [];
         if (radius !== 5) {
@@ -543,7 +569,7 @@ filterDesc.push(`검색어: "${filters.query}"`);
         });
       }
     },
-    [userLocation, toast],
+    [userLocation, toast, fetchStores],
   );
 
   // 필터 토글 핸들러
@@ -730,7 +756,7 @@ filterDesc.push(`검색어: "${filters.query}"`);
             <div className="fixed inset-0 z-50 bg-black bg-opacity-50">
               <div className="lg:w-96 w-80 h-full bg-white overflow-y-auto">
                 <div className="sticky top-0 bg-white border-b border-gray-200 p-4 flex items-center justify-between">
-                  <h2 className="text-lg font-semibold text-gray-900">필터</h2>
+                  <h2 className="text-lg font-semibold text-gray-900">🔍 필터</h2>
                   <button
                     onClick={() => setIsFilterOpen(false)}
                     className="text-gray-500 hover:text-gray-700"
@@ -751,6 +777,7 @@ filterDesc.push(`검색어: "${filters.query}"`);
                   </button>
                 </div>
                 <SearchFilters
+                  userLocation={userLocation}
                   onApplyFilters={(filters) => {
                     handleApplyFilters(filters);
                     setIsFilterOpen(false);

@@ -19,19 +19,15 @@ export function useMapView() {
   const { toast } = useToast();
   const { t } = useTranslation();
   const [initialLoadDone, setInitialLoadDone] = useState(false);
-  const initialParamsProcessedRef = useRef(false);
 
-  // URL 파라미터에서 필터 설정 가져오기
+  // URL 파라미터에서 필터 설정 가져오기 (새로고침 시에도 항상 실행)
   useEffect(() => {
-    // 이미 처리된 경우 중복 실행 방지
-    if (initialParamsProcessedRef.current) {
-      return;
-    }
-
     try {
       const filters = extractFiltersFromURL(searchParams);
+      console.log("🔍 URL에서 추출한 필터:", filters);
 
       if (Object.keys(filters).length > 0) {
+        console.log("✅ URL 필터를 적용합니다");
         setFilters(filters);
 
         // 위치 정보가 있으면 상태 업데이트
@@ -43,13 +39,12 @@ export function useMapView() {
         }
 
         setInitialLoadDone(true);
-        initialParamsProcessedRef.current = true;
       } else if (!initialLoadDone) {
+        console.log("📝 기본 데이터 로드");
         // 최초 한 번만 초기 데이터 로드
         resetFilters();
         refetch();
         setInitialLoadDone(true);
-        initialParamsProcessedRef.current = true;
       }
     } catch (err) {
       console.error("URL 파라미터 처리 중 오류:", err);
@@ -59,7 +54,6 @@ export function useMapView() {
         resetFilters();
         refetch();
         setInitialLoadDone(true);
-        initialParamsProcessedRef.current = true;
       }
     }
   }, [searchParams, setFilters, resetFilters, refetch, initialLoadDone]);

@@ -98,12 +98,8 @@ function StoreList({ stores = [] }: StoreListProps) {
 
                         <div className="flex items-center gap-1 text-sm mb-2">
                           <span className="text-[#FFA726]">★</span>
-                          <span>{store.rating.naver}</span>
-                          <span className="text-gray-400">(네이버)</span>
-                          <span className="mx-1">|</span>
-                          <span className="text-[#FFA726]">★</span>
-                          <span>{store.rating.kakao}</span>
-                          <span className="text-gray-400">(카카오)</span>
+                          <span>{store.avgRating ? store.avgRating.toFixed(1) : "평점 없음"}</span>
+                          <span className="text-gray-400">({store.reviewCount || 0}개 리뷰)</span>
                           {store.distance && (
                             <>
                               <span className="mx-1">•</span>

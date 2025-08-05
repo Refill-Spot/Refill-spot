@@ -27,11 +27,13 @@ import { useCallback, useEffect, useState } from "react";
 interface SearchFiltersProps {
   onApplyFilters?: (filters: StoreFilters) => void;
   initialFilters?: StoreFilters;
+  userLocation?: { lat: number; lng: number } | null;
 }
 
 export default function SearchFilters({
   onApplyFilters,
   initialFilters,
+  userLocation,
 }: SearchFiltersProps) {
   const { t } = useTranslation();
   const router = useRouter();
@@ -92,85 +94,86 @@ export default function SearchFilters({
   // URL 파라미터에서 필터 설정 가져오기
   useEffect(() => {
     const categoryParam = searchParams.get("categories");
-    const distanceParam = searchParams.get("distance");
-    const ratingParam = searchParams.get("rating");
-    const queryParam = searchParams.get("q");
+    const distanceParam = searchParams.get("distance") || searchParams.get("radius");
+    const ratingParam = searchParams.get("rating") || searchParams.get("minRating");
+    const queryParam = searchParams.get("q") || searchParams.get("query");
 
-    let updated = false;
+    let shouldUpdate = false;
+    let newCategoryState = { ...categories };
+    let newRadius = radius[0];
+    let newMinRating = minRating;
+    let newSearchQuery = searchQuery;
 
+    // 카테고리 업데이트
     if (categoryParam) {
       const categoryList = categoryParam.split(",");
-      const newCategoryState = { ...categories };
-      let categoryUpdated = false;
-
+      
       Object.keys(newCategoryState).forEach((key) => {
         const shouldCheck = categoryList.includes(key);
         if (newCategoryState[key] !== shouldCheck) {
           newCategoryState[key] = shouldCheck;
-          categoryUpdated = true;
+          shouldUpdate = true;
         }
       });
-
-      if (categoryUpdated) {
-        setCategories(newCategoryState);
-        updated = true;
+    } else {
+      // 카테고리 파라미터가 없으면 모든 카테고리 해제
+      const hasSelectedCategories = Object.values(newCategoryState).some(val => val);
+      if (hasSelectedCategories) {
+        newCategoryState = {
+          고기: false,
+          해산물: false,
+          양식: false,
+          한식: false,
+          중식: false,
+          일식: false,
+          카페: false,
+          디저트: false,
+        };
+        shouldUpdate = true;
       }
     }
 
+    // 거리 업데이트
     if (distanceParam) {
       const distanceValue = Number(distanceParam);
-      if (!isNaN(distanceValue) && radius[0] !== distanceValue) {
-        setRadius([distanceValue]);
-        updated = true;
+      if (!isNaN(distanceValue) && newRadius !== distanceValue) {
+        newRadius = distanceValue;
+        shouldUpdate = true;
       }
+    } else if (newRadius !== 3) {
+      newRadius = 3; // 기본값으로 리셋
+      shouldUpdate = true;
     }
 
+    // 평점 업데이트
     if (ratingParam) {
       const ratingValue = Number(ratingParam);
-      if (!isNaN(ratingValue) && minRating !== ratingValue) {
-        setMinRating(ratingValue);
-        updated = true;
+      if (!isNaN(ratingValue) && newMinRating !== ratingValue) {
+        newMinRating = ratingValue;
+        shouldUpdate = true;
       }
+    } else if (newMinRating !== 0) {
+      newMinRating = 0; // 기본값으로 리셋
+      shouldUpdate = true;
     }
 
-    if (queryParam && searchQuery !== queryParam) {
-      setSearchQuery(queryParam);
-      updated = true;
+    // 검색어 업데이트
+    if (queryParam && newSearchQuery !== queryParam) {
+      newSearchQuery = queryParam;
+      shouldUpdate = true;
+    } else if (!queryParam && newSearchQuery !== "") {
+      newSearchQuery = ""; // 기본값으로 리셋
+      shouldUpdate = true;
     }
 
-    // URL 파라미터에서 필터값이 변경되었다면 필터 적용
-    if (updated) {
-      // 자동으로 필터 적용
-      const filters: StoreFilters = {};
-
-      if (categoryParam) {
-        filters.categories = categoryParam.split(",");
-      }
-
-      if (distanceParam) {
-        filters.maxDistance = Number(distanceParam);
-      }
-
-      if (ratingParam) {
-        filters.minRating = Number(ratingParam);
-      }
-
-      if (queryParam) {
-        filters.query = queryParam;
-      }
-
-      if (onApplyFilters) {
-        onApplyFilters(filters);
-      }
+    // 상태 업데이트
+    if (shouldUpdate) {
+      setCategories(newCategoryState);
+      setRadius([newRadius]);
+      setMinRating(newMinRating);
+      setSearchQuery(newSearchQuery);
     }
-  }, [
-    searchParams,
-    Object.values(categories).join(","),
-    radius.join(","),
-    minRating,
-    searchQuery,
-    onApplyFilters,
-  ]);
+  }, [searchParams]);
 
   const handleCategoryChange = (category: string) => {
     setCategories({
@@ -204,32 +207,56 @@ export default function SearchFilters({
         .filter(([_, isSelected]) => isSelected)
         .map(([category]) => category);
 
-      // 기본 필터
-      const newFilters: StoreFilters = {
-        ...(selectedCategories.length > 0
-          ? { categories: selectedCategories }
-          : {}),
-        ...(radius[0] > 0 ? { maxDistance: radius[0] } : {}),
-        ...(minRating > 0 ? { minRating } : {}),
-        ...(searchQuery ? { query: searchQuery } : {}),
-      };
+      // 기본 필터 생성
+      const baseFilters: StoreFilters = {};
+      
+      if (selectedCategories.length > 0) {
+        baseFilters.categories = selectedCategories;
+      }
+      
+      if (radius[0] !== 3) { // 기본값이 3이 아닐 때만 추가
+        baseFilters.maxDistance = radius[0];
+      }
+      
+      if (minRating > 0) {
+        baseFilters.minRating = minRating;
+      }
+      
+      if (searchQuery.trim()) {
+        baseFilters.query = searchQuery.trim();
+      }
 
-      // 추가 필터 병합 (위치 정보 등)
-      const mergedFilters = { ...newFilters, ...additionalFilters };
+      // 현재 위치 정보 추가
+      if (userLocation) {
+        baseFilters.latitude = userLocation.lat;
+        baseFilters.longitude = userLocation.lng;
+      }
+
+      // 추가 필터 병합
+      const finalFilters = { ...baseFilters, ...additionalFilters };
 
       // 글로벌 스토어 업데이트
-      updateFilters(mergedFilters);
+      updateFilters(finalFilters);
+
+      // URL 업데이트
+      const params = filtersToURLParams(finalFilters);
+      const currentPath = window.location.pathname;
+      const currentParams = new URLSearchParams(window.location.search);
+      
+      // 위치 정보는 URL에서 유지
+      const lat = currentParams.get("lat");
+      const lng = currentParams.get("lng");
+      if (lat && lng) {
+        params.set("lat", lat);
+        params.set("lng", lng);
+      }
+      
+      const newUrl = params.toString() ? `${currentPath}?${params.toString()}` : currentPath;
+      router.replace(newUrl);
 
       // 필터 적용 (상위 컴포넌트 콜백)
       if (onApplyFilters) {
-        onApplyFilters(mergedFilters);
-      }
-
-      // URL 업데이트 (현재 페이지가 메인페이지인지 확인)
-      const isMainPage = window.location.pathname === "/";
-      if (!isMainPage) {
-        const params = filtersToURLParams(mergedFilters);
-        router.replace(`/search?${params.toString()}`);
+        onApplyFilters(finalFilters);
       }
     },
     [
@@ -237,6 +264,7 @@ export default function SearchFilters({
       radius,
       minRating,
       searchQuery,
+      userLocation,
       router,
       onApplyFilters,
       updateFilters,
@@ -266,16 +294,15 @@ export default function SearchFilters({
       onApplyFilters({});
     }
 
-    // URL 초기화 (현재 페이지가 메인페이지가 아닌 경우만)
-    const isMainPage = window.location.pathname === "/";
-    if (!isMainPage) {
-      const lat = searchParams.get("lat");
-      const lng = searchParams.get("lng");
-      if (lat && lng) {
-        router.replace(`/search?lat=${lat}&lng=${lng}`);
-      } else {
-        router.replace("/search");
-      }
+    // URL 초기화 (파라미터만 제거, 위치 정보는 유지)
+    const lat = searchParams.get("lat");
+    const lng = searchParams.get("lng");
+    const currentPath = window.location.pathname;
+    
+    if (lat && lng) {
+      router.replace(`${currentPath}?lat=${lat}&lng=${lng}`);
+    } else {
+      router.replace(currentPath);
     }
   }, [router, searchParams, onApplyFilters, resetStoreFilters]);
 

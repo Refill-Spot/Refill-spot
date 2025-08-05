@@ -20,7 +20,6 @@ import { Store } from "@/types/store";
 import { MenuItem } from "@/types/menu";
 import { useAuth } from "@/contexts/AuthContext";
 import { useFavorites } from "@/hooks/use-favorites";
-import { resetOnboardingStatus } from "@/lib/onboarding-storage";
 import {
   ArrowLeft,
   ChevronDown,
@@ -150,7 +149,6 @@ return;
   // 로그아웃 핸들러
   const handleLogout = async () => {
     try {
-      resetOnboardingStatus();
       await signOut();
     } catch (error) {
       console.error("로그아웃 오류:", error);
@@ -292,7 +290,7 @@ return;
             {/* 중간: 로고 + 프로젝트명 + 검색창 */}
             <div className="flex items-center gap-12 flex-1 justify-center">
               <button 
-                onClick={() => router.push("/")}
+                onClick={() => router.push("/map")}
                 className="flex items-center space-x-2 hover:opacity-80 transition-opacity"
               >
                 <div className="bg-gradient-to-br from-orange-500 to-red-500 rounded-lg p-2">
@@ -942,6 +940,14 @@ return [];
                     onClick={() => router.push("/")}
                     className="hover:text-[#FF5722] transition-colors"
                   >
+                    서비스 소개
+                  </button>
+                </li>
+                <li>
+                  <button
+                    onClick={() => router.push("/map")}
+                    className="hover:text-[#FF5722] transition-colors"
+                  >
                     가게 찾기
                   </button>
                 </li>
@@ -951,14 +957,6 @@ return [];
                     className="hover:text-[#FF5722] transition-colors"
                   >
                     공지사항
-                  </button>
-                </li>
-                <li>
-                  <button
-                    onClick={() => router.push("/onboarding")}
-                    className="hover:text-[#FF5722] transition-colors"
-                  >
-                    서비스 소개
                   </button>
                 </li>
                 <li>

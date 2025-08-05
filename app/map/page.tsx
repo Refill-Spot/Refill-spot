@@ -15,7 +15,6 @@ import {
   isLocationValid,
   saveUserLocation,
 } from "@/lib/location-storage";
-import { isOnboardingCompleted } from "@/lib/onboarding-storage";
 import { apiLogger, geolocationLogger } from "@/lib/logger";
 import { Store } from "@/types/store";
 import { useRouter, useSearchParams } from "next/navigation";

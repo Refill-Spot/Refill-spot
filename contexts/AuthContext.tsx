@@ -288,7 +288,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           // 리다이렉트 처리 - OAuth 로그인만 여기서 처리
           const currentPath = window.location.pathname;
           
-          if (isOAuthLogin && (currentPath === "/login" || currentPath === "/onboarding")) {
+          if (isOAuthLogin && currentPath === "/login") {
             // OAuth 로그인의 경우 프로필 처리 중임을 알림
             toast({
               title: "로그인 성공",

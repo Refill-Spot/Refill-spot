@@ -20,8 +20,11 @@ export function useMapView() {
   const { t } = useTranslation();
   const [initialLoadDone, setInitialLoadDone] = useState(false);
 
-  // URL 파라미터에서 필터 설정 가져오기 (새로고침 시에도 항상 실행)
+  // URL 파라미터에서 필터 설정 가져오기 (초기 로드 시에만 실행)
   useEffect(() => {
+    // 이미 초기 로드가 완료되었다면 실행하지 않음
+    if (initialLoadDone) return;
+
     try {
       const filters = extractFiltersFromURL(searchParams);
       console.log("🔍 URL에서 추출한 필터:", filters);
@@ -37,26 +40,49 @@ export function useMapView() {
             lng: filters.longitude,
           });
         }
-
-        setInitialLoadDone(true);
-      } else if (!initialLoadDone) {
+      } else {
         console.log("📝 기본 데이터 로드");
-        // 최초 한 번만 초기 데이터 로드
+        // 기본 데이터 로드
         resetFilters();
         refetch();
-        setInitialLoadDone(true);
       }
+
+      setInitialLoadDone(true);
     } catch (err) {
       console.error("URL 파라미터 처리 중 오류:", err);
 
-      // 오류 발생시 기본 데이터 로드 (최초 한 번만)
-      if (!initialLoadDone) {
-        resetFilters();
-        refetch();
-        setInitialLoadDone(true);
-      }
+      // 오류 발생시 기본 데이터 로드
+      resetFilters();
+      refetch();
+      setInitialLoadDone(true);
     }
-  }, [searchParams, setFilters, resetFilters, refetch, initialLoadDone]);
+  }, []); // 의존성 배열 비우기 - 마운트 시에만 실행
+
+  // URL 파라미터가 변경될 때마다 필터 업데이트 (초기 로드 이후)
+  useEffect(() => {
+    // 초기 로드가 완료되지 않았으면 실행하지 않음
+    if (!initialLoadDone) return;
+
+    try {
+      const filters = extractFiltersFromURL(searchParams);
+      console.log("🔄 URL 파라미터 변경 감지, 필터 업데이트:", filters);
+
+      // 필터 적용
+      setFilters(filters);
+
+      // 위치 정보가 있으면 상태 업데이트
+      if (filters.latitude && filters.longitude) {
+        const newLocation = {
+          lat: filters.latitude,
+          lng: filters.longitude,
+        };
+        console.log("🗺️ 새로운 사용자 위치 설정:", newLocation);
+        setUserLocation(newLocation);
+      }
+    } catch (err) {
+      console.error("URL 파라미터 변경 처리 중 오류:", err);
+    }
+  }, [searchParams, initialLoadDone]); // searchParams 변경 시 실행
 
   // 사용자 지정 위치 설정
   const setCustomLocation = useCallback(
@@ -80,12 +106,12 @@ export function useMapView() {
           maxDistance,
         });
 
-        // URL 업데이트
+        // URL 업데이트 (현재 경로 유지)
         const params = new URLSearchParams();
         params.set("lat", latitude.toString());
         params.set("lng", longitude.toString());
         params.set("distance", maxDistance.toString());
-        router.replace(`/?${params.toString()}`);
+        router.replace(`${window.location.pathname}?${params.toString()}`);
 
         toast({
           title: t("location_updated"),
@@ -132,12 +158,12 @@ export function useMapView() {
             // query: undefined
           });
 
-          // URL 업데이트
+          // URL 업데이트 (현재 경로 유지)
           const params = new URLSearchParams();
           params.set("lat", latitude.toString());
           params.set("lng", longitude.toString());
           params.set("distance", maxDistance.toString());
-          router.replace(`/?${params.toString()}`);
+          router.replace(`${window.location.pathname}?${params.toString()}`);
 
           toast({
             title: t("location_detected"),
@@ -210,7 +236,7 @@ export function useMapView() {
 
         setFilters(searchFilters);
 
-        // URL 업데이트
+        // URL 업데이트 (현재 경로 유지)
         const params = new URLSearchParams();
         params.set("q", query.trim());
 
@@ -220,7 +246,7 @@ export function useMapView() {
           params.set("distance", "5");
         }
 
-        router.replace(`/?${params.toString()}`);
+        router.replace(`${window.location.pathname}?${params.toString()}`);
       } catch (err) {
         console.error("검색 처리 중 오류:", err);
         toast({
@@ -243,7 +269,7 @@ export function useMapView() {
       try {
         if (!filters || Object.keys(filters).length === 0) {
           resetFilters();
-          router.replace("/");
+          router.replace(window.location.pathname);
           return;
         }
 
@@ -256,7 +282,7 @@ export function useMapView() {
 
         setFilters(updatedFilters);
 
-        // URL 업데이트
+        // URL 업데이트 (현재 경로 유지)
         const params = new URLSearchParams();
 
         if (updatedFilters.categories?.length) {
@@ -276,7 +302,7 @@ export function useMapView() {
           params.set("lng", updatedFilters.longitude.toString());
         }
 
-        router.replace(`/?${params.toString()}`);
+        router.replace(`${window.location.pathname}?${params.toString()}`);
       } catch (err) {
         console.error("필터 적용 중 오류:", err);
         toast({

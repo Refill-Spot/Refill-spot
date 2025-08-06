@@ -226,8 +226,8 @@ return;
     const lat = place.geometry.location.lat();
     const lng = place.geometry.location.lng();
     
-    // 지도 페이지로 이동하면서 위치 정보 전달
-    router.push(`/?lat=${lat}&lng=${lng}&distance=5`);
+    // 검색 페이지로 이동하면서 위치 정보 전달
+    router.push(`/search?lat=${lat}&lng=${lng}&distance=5`);
   };
 
   const handleManualSearch = async (searchText: string) => {
@@ -254,18 +254,18 @@ return;
             const lat = results[0].geometry.location.lat();
             const lng = results[0].geometry.location.lng();
             
-            // 검색한 위치로 지도 페이지 이동
-            router.push(`/?lat=${lat}&lng=${lng}&distance=5&searchLocation=${encodeURIComponent(searchText)}`);
+            // 검색한 위치로 검색 페이지 이동
+            router.push(`/search?lat=${lat}&lng=${lng}&distance=5&searchLocation=${encodeURIComponent(searchText)}`);
           } else {
-            // Geocoding이 실패한 경우 기존 방식으로 fallback
-            router.push(`/?search=${encodeURIComponent(searchText)}`);
+            // Geocoding이 실패한 경우 검색 페이지로 fallback
+            router.push(`/search?search=${encodeURIComponent(searchText)}`);
           }
         },
       );
     } catch (error) {
       console.error("Geocoding error:", error);
-      // 오류 발생 시 기존 방식으로 fallback
-      router.push(`/?search=${encodeURIComponent(searchText)}`);
+      // 오류 발생 시 검색 페이지로 fallback
+      router.push(`/search?search=${encodeURIComponent(searchText)}`);
     }
   };
 

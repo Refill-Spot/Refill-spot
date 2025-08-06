@@ -274,6 +274,16 @@ return;
 
       console.log("지도 초기화 완료:", newMap);
 
+      // center prop이 있으면 초기화 직후 중심점 설정
+      if (center) {
+        console.log("🎯 초기화 직후 지도 중심 설정:", center);
+        const centerLatLng = new window.kakao.maps.LatLng(center.lat, center.lng);
+        newMap.setCenter(centerLatLng);
+        if (newMap.getLevel() > 5) {
+          newMap.setLevel(5);
+        }
+      }
+
       // 지도 클릭 이벤트 - 선택된 가게 초기화
       window.kakao.maps.event.addListener(newMap, "click", () => {
         setSelectedStore(null);
@@ -354,17 +364,43 @@ return;
     isMapDragging,
   ]); // 새로운 의존성 추가
 
-  // center props로 지도 중심 이동
+  // center props로 지도 중심 이동 (지도 초기화 완료 후)
   useEffect(() => {
-    if (map && center) {
-      console.log("center props로 지도 중심 이동:", center);
-      map.setCenter(new window.kakao.maps.LatLng(center.lat, center.lng));
+    if (!map || !center || !window.kakao?.maps || !isVisible) {
+      return;
     }
-  }, [center, map]);
 
-  // userLocation 변경 시 지도 중심 업데이트 및 마커 추가
+    console.log("center props로 지도 중심 이동:", center);
+    
+    // 지도가 완전히 초기화될 때까지 잠시 대기
+    const timer = setTimeout(() => {
+      try {
+        const centerLatLng = new window.kakao.maps.LatLng(center.lat, center.lng);
+        map.setCenter(centerLatLng);
+        
+        // 약간의 줌 레벨 조정
+        if (map.getLevel() > 5) {
+          map.setLevel(5);
+        }
+        
+        // 지도 리사이즈 (레이아웃 재계산)
+        setTimeout(() => {
+          map.relayout();
+        }, 100);
+        
+        console.log("✅ 지도 중심 이동 완료:", center);
+      } catch (error) {
+        console.error("지도 중심 이동 중 오류:", error);
+      }
+    }, 300); // 300ms 대기
+
+    return () => clearTimeout(timer);
+  }, [center, map, isVisible]);
+
+  // userLocation 변경 시 지도 중심 업데이트 및 마커 추가 (center prop이 없을 때만)
   useEffect(() => {
-    if (!map || !userLocation || !window.kakao?.maps || !isVisible) {
+    if (!map || !userLocation || !window.kakao?.maps || !isVisible || center) {
+      // center prop이 있으면 userLocation으로 지도 중심 이동하지 않음
       return;
     }
 
@@ -404,7 +440,7 @@ return;
 
     setUserLocationMarker(newUserMarker);
     console.log("사용자 위치 마커 생성 완료");
-  }, [map, userLocation, isVisible]); // 컴포넌트가 완전히 새로 마운트되므로 단순한 의존성 사용
+  }, [map, userLocation, isVisible, center]); // center 의존성 추가
 
   // 지도 가시성 변경 시 리사이즈 처리
   useEffect(() => {

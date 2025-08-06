@@ -43,7 +43,7 @@ export function useFetchStores(
   const isFetching = useRef(false);
   const retryCount = useRef(0);
 
-  const fetchStores = useCallback(async () => {
+  const fetchStores = useCallback(async (currentFilters?: StoreFilters) => {
     // 이미 fetch 중이면 중복 실행 방지
     if (isFetching.current) return;
 
@@ -51,20 +51,23 @@ export function useFetchStores(
     setLoading(true);
     setError(null);
 
+    // 현재 필터 또는 전달된 필터 사용
+    const activeFilters = currentFilters || filters;
+
     try {
       let storeData: Store[] = [];
 
       // 필터 조건 유무 확인
       const hasFilters =
-        (filters.latitude && filters.longitude) ||
-        (filters.categories && filters.categories.length > 0) ||
-        filters.minRating ||
-        filters.query;
+        (activeFilters.latitude && activeFilters.longitude) ||
+        (activeFilters.categories && activeFilters.categories.length > 0) ||
+        activeFilters.minRating ||
+        activeFilters.query;
 
       if (hasFilters) {
         try {
           // 필터링된 가게 목록 가져오기
-          storeData = await fetchFilteredStores(filters);
+          storeData = await fetchFilteredStores(activeFilters);
         } catch (filterError) {
           console.error("필터링된 가게 목록 조회 실패:", filterError);
 
@@ -75,12 +78,12 @@ export function useFetchStores(
 
             try {
               // 검색어만 있는 경우 기본 목록 가져오기
-              if (filters.query && !filters.latitude && !filters.longitude) {
+              if (activeFilters.query && !activeFilters.latitude && !activeFilters.longitude) {
                 console.log("검색어 기반 필터링 실패, 기본 목록으로 대체");
                 storeData = await fetchAllStores();
               } else {
                 // 위치 기반 필터링 실패 시 필터 제거하고 재시도
-                const simplifiedFilters = { ...filters };
+                const simplifiedFilters = { ...activeFilters };
                 delete simplifiedFilters.latitude;
                 delete simplifiedFilters.longitude;
                 delete simplifiedFilters.maxDistance;
@@ -118,7 +121,7 @@ export function useFetchStores(
 
       // 데이터가 비어있는 경우 로그 남기기
       if (storeData.length === 0) {
-        console.warn("가게 데이터가 비어있습니다. 필터:", filters);
+        console.warn("가게 데이터가 비어있습니다. 필터:", activeFilters);
       }
 
       // 유효하지 않은 가게 데이터 필터링
@@ -158,7 +161,7 @@ export function useFetchStores(
       setLoading(false);
       isFetching.current = false;
     }
-  }, [filters, toast, t]);
+  }, [toast, t]);
 
   // 필터가 변경될 때마다 가게 목록 다시 가져오기
   useEffect(() => {
@@ -169,8 +172,8 @@ export function useFetchStores(
     }
 
     // 필터 변경 시에만 데이터 가져오기
-    fetchStores();
-  }, [filters]); // fetchStores 대신 filters를 의존성으로 사용
+    fetchStores(filters);
+  }, [filters]); // fetchStores 의존성 제거
 
   // 새로운 필터를 설정하는 함수
   const updateFilters = useCallback((newFilters: StoreFilters) => {
@@ -196,8 +199,8 @@ export function useFetchStores(
 
   // 수동으로 데이터를 다시 가져오는 함수
   const refetch = useCallback(() => {
-    fetchStores();
-  }, [fetchStores]);
+    fetchStores(filters);
+  }, [filters]); // fetchStores 의존성 제거
 
   return {
     stores,

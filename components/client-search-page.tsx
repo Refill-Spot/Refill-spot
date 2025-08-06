@@ -210,7 +210,8 @@ return;
           ) : (
             <KakaoMap
               stores={stores}
-              userLocation={userLocation}
+              userLocation={null} // userLocation 대신 center 사용
+              center={userLocation} // 검색 위치로 지도 중심 설정
               enableClustering={true}
               selectedStore={selectedStore}
               onStoreSelect={setSelectedStore}

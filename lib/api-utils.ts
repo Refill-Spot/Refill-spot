@@ -85,6 +85,7 @@ export const extractFiltersFromURL = (
   const distanceParam = searchParams.get("distance");
   const ratingParam = searchParams.get("rating");
   const queryParam = searchParams.get("q");
+  const searchLocationParam = searchParams.get("searchLocation");
   const latParam = searchParams.get("lat");
   const lngParam = searchParams.get("lng");
 
@@ -108,6 +109,11 @@ export const extractFiltersFromURL = (
 
   if (queryParam) {
     filters.query = queryParam;
+  }
+
+  // searchLocation 파라미터 처리 (주로 검색 페이지에서 사용)
+  if (searchLocationParam) {
+    filters.query = searchLocationParam;
   }
 
   if (latParam && lngParam) {

@@ -49,7 +49,7 @@ export default function HomePage() {
 
       {/* 히어로 섹션 */}
       <section className="bg-gradient-to-br from-orange-50 via-white to-red-50 py-16 px-4">
-        <div className="max-w-6xl mx-auto">
+        <div className="max-w-6xl xl:max-w-7xl 2xl:max-w-8xl mx-auto">
           {/* 메인 히어로 콘텐츠 */}
           <div className="text-center mb-12">
             <div className="inline-flex items-center bg-orange-100 text-orange-800 px-4 py-2 rounded-full text-sm font-medium mb-6">
@@ -146,7 +146,7 @@ export default function HomePage() {
 
       {/* 이용 가이드 섹션 */}
       <section id="guide-section" className="py-16 px-4 bg-white">
-        <div className="max-w-6xl mx-auto">
+        <div className="max-w-6xl xl:max-w-7xl 2xl:max-w-8xl mx-auto">
           {/* 섹션 헤더 */}
           <div className="text-center mb-12">
             <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
@@ -277,7 +277,7 @@ export default function HomePage() {
 
       {/* 무한리필 완벽 가이드 섹션 */}
       <section className="py-16 px-4 bg-gray-50">
-        <div className="max-w-6xl mx-auto">
+        <div className="max-w-6xl xl:max-w-7xl 2xl:max-w-8xl mx-auto">
           <div className="text-center mb-12">
             <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
               무한리필 완벽 가이드
@@ -405,7 +405,7 @@ export default function HomePage() {
 
       {/* 마무리 CTA 섹션 */}
       <section className="py-16 px-4 bg-white">
-        <div className="max-w-4xl mx-auto text-center">
+        <div className="max-w-4xl xl:max-w-5xl 2xl:max-w-6xl mx-auto text-center">
           <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-6">
             지금 바로 시작해보세요!
           </h2>

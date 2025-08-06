@@ -95,7 +95,7 @@ export function DesktopHeader({
         </div>
 
         {/* 검색 영역 */}
-        <div className="flex-1 max-w-2xl mx-8 flex items-center space-x-6">
+        <div className="flex-1 max-w-2xl xl:max-w-4xl 2xl:max-w-6xl mx-8 flex items-center space-x-6">
           {/* 필터 버튼 */}
           <Button variant="outline" size="sm" onClick={onFilterClick}>
             <Filter className="h-4 w-4 text-[#FF5722]" />

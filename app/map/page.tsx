@@ -754,14 +754,14 @@ filterDesc.push(`검색어: "${filters.query}"`);
 
         <div className="flex flex-1 overflow-hidden">
           {/* 왼쪽 패널 - 가게 목록만 */}
-          <div className="hidden lg:block w-[28rem] border-r border-gray-200 bg-white overflow-hidden">
+          <div className="hidden lg:block lg:w-[30%] xl:w-[28%] 2xl:w-[25%] border-r border-gray-200 bg-white overflow-hidden">
             {SidebarContent}
           </div>
 
           {/* 필터 패널 (모바일 + 데스크톱) */}
           {isFilterOpen && (
             <div className="fixed inset-0 z-50 bg-black bg-opacity-50">
-              <div className="lg:w-96 w-80 h-full bg-white overflow-y-auto">
+              <div className="w-80 lg:w-[25%] xl:w-[22%] 2xl:w-[20%] h-full bg-white overflow-y-auto">
                 <div className="sticky top-0 bg-white border-b border-gray-200 p-4 flex items-center justify-between">
                   <h2 className="text-lg font-semibold text-gray-900">🔍 필터</h2>
                   <button

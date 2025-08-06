@@ -7,7 +7,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { useGeolocation } from "@/hooks/use-geolocation";
 import { mapLogger } from "@/lib/logger";
 import { Store } from "@/types/store";
-import { MapPin, Star, X } from "lucide-react";
+import { MapPin, Star, X, ExternalLink, Phone } from "lucide-react";
 import Link from "next/link";
 import Script from "next/script";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -847,61 +847,107 @@ return;
         aria-label="카카오 지도"
       ></div>
 
-      {/* 선택된 가게 정보 팝업 */}
+      {/* 선택된 가게 정보 팝업 - 크기 및 디자인 개선 */}
       {selectedStore && (
-        <Card className="absolute bottom-24 left-1/2 transform -translate-x-1/2 md:left-auto md:right-4 md:bottom-4 md:transform-none w-80 shadow-lg z-20">
-          <CardContent className="p-4">
-            <div className="flex gap-3">
+        <Card className="absolute bottom-4 left-1/2 transform -translate-x-1/2 md:left-auto md:right-4 md:bottom-4 md:transform-none w-96 max-w-[calc(100vw-2rem)] shadow-xl border-2 border-[#FF5722]/20 z-20 bg-white/95 backdrop-blur-sm">
+          <CardContent className="p-6">
+            {/* 헤더 - 닫기 버튼과 제목 */}
+            <div className="flex justify-between items-start mb-4">
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 bg-[#FF5722] rounded-full"></div>
+                <span className="text-sm font-medium text-[#FF5722]">가게 정보</span>
+              </div>
+              <button
+                className="text-gray-400 hover:text-gray-600 p-1 hover:bg-gray-100 rounded-full transition-colors"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSelectedStore(null);
+                  onStoreSelect?.(null);
+                }}
+                aria-label="닫기"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* 메인 컨텐츠 */}
+            <div className="flex gap-4">
               <div
-                className="w-20 h-20 rounded-md bg-gray-200 flex-shrink-0 bg-cover bg-center"
+                className="w-24 h-24 rounded-lg bg-gray-200 flex-shrink-0 bg-cover bg-center shadow-sm"
                 style={{
                   backgroundImage: selectedStore.imageUrls?.[0]
                     ? `url(${selectedStore.imageUrls[0]})`
-                    : "url('/placeholder.svg?height=80&width=80')",
+                    : "url('/placeholder.svg?height=96&width=96')",
                 }}
                 role="img"
                 aria-label={`${selectedStore.name} 이미지`}
               ></div>
-              <div className="flex-1">
-                <div className="flex justify-between items-start">
-                  <h3 className="font-bold text-[#333333]">
-                    {selectedStore.name}
-                  </h3>
-                  <button
-                    className="text-gray-400 hover:text-gray-600"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setSelectedStore(null);
-                      onStoreSelect?.(null);
-                    }}
-                    aria-label="닫기"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                </div>
-                <div className="flex items-center gap-1 text-sm">
-                  <Star className="h-4 w-4 fill-[#FFA726] text-[#FFA726]" />
-                  <span>{selectedStore.avgRating ? selectedStore.avgRating.toFixed(1) : "평점 없음"}</span>
-                  <span className="text-gray-400">({selectedStore.reviewCount || 0}개 리뷰)</span>
-                </div>
-                <div className="flex items-center gap-2 mt-1 text-sm text-gray-600">
-                  <span>
-                    {selectedStore.distance
-                      ? `${selectedStore.distance}km`
-                      : "거리 정보 없음"}
+              
+              <div className="flex-1 min-w-0">
+                <h3 className="font-bold text-lg text-[#333333] mb-2 line-clamp-1">
+                  {selectedStore.name}
+                </h3>
+                
+                {/* 평점 및 리뷰 */}
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="flex items-center gap-1">
+                    <Star className="h-4 w-4 fill-[#FFA726] text-[#FFA726]" />
+                    <span className="font-medium text-[#FFA726]">
+                      {selectedStore.avgRating ? selectedStore.avgRating.toFixed(1) : "평점 없음"}
+                    </span>
+                  </div>
+                  <span className="text-gray-500 text-sm">
+                    리뷰 {selectedStore.reviewCount || 0}개
                   </span>
                 </div>
+
+                {/* 거리 정보 */}
+                <div className="flex items-center gap-1 mb-2">
+                  <MapPin className="h-4 w-4 text-gray-400" />
+                  <span className="text-sm text-gray-600">
+                    {selectedStore.distance ? `${selectedStore.distance}km` : "거리 정보 없음"}
+                  </span>
+                </div>
+
+                {/* 카테고리 태그 */}
+                {selectedStore.categories && selectedStore.categories.length > 0 && (
+                  <div className="flex flex-wrap gap-1 mb-3">
+                    {selectedStore.categories.slice(0, 2).map((category, index) => (
+                      <Badge key={index} variant="secondary" className="text-xs bg-[#FF5722]/10 text-[#FF5722] border-[#FF5722]/20">
+                        {category}
+                      </Badge>
+                    ))}
+                    {selectedStore.refillItems && Array.isArray(selectedStore.refillItems) && selectedStore.refillItems.length > 0 && (
+                      <Badge className="text-xs bg-[#FF5722] text-white">무한리필</Badge>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
-            <Button 
-              className="w-full mt-3 bg-[#FF5722] hover:bg-[#E64A19]"
-              onClick={() => {
-                // 간단한 URL로 새 탭에서 열기
-                window.open(`/store/${selectedStore.id}`, "_blank");
-              }}
-            >
-              상세 보기
-            </Button>
+
+            {/* 액션 버튼 */}
+            <div className="flex gap-2 mt-4">
+              <Button 
+                className="flex-1 bg-[#FF5722] hover:bg-[#E64A19] text-white font-medium shadow-sm"
+                onClick={() => {
+                  window.open(`/store/${selectedStore.id}`, "_blank");
+                }}
+              >
+                <ExternalLink className="h-4 w-4 mr-2" />
+                상세 보기
+              </Button>
+              {selectedStore.phoneNumber && (
+                <Button
+                  variant="outline"
+                  className="border-[#FF5722] text-[#FF5722] hover:bg-[#FF5722] hover:text-white"
+                  onClick={() => {
+                    window.open(`tel:${selectedStore.phoneNumber}`, "_self");
+                  }}
+                >
+                  <Phone className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
           </CardContent>
         </Card>
       )}

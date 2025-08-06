@@ -6,6 +6,15 @@ import { authLogger } from "@/lib/logger";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { getSafeReturnUrl } from "@/lib/utils";
 import { AuthError, User } from "@supabase/supabase-js";
+
+interface Profile {
+  id?: string;
+  username: string;
+  role?: string;
+  is_admin?: boolean;
+  avatar_url?: string;
+  bio?: string;
+}
 import { useRouter } from "next/navigation";
 import {
   createContext,
@@ -19,7 +28,7 @@ import {
 
 type AuthContextType = {
   user: User | null;
-  profile: { username: string; role?: string; is_admin?: boolean; avatar_url?: string; bio?: string } | null;
+  profile: Profile | null;
   loading: boolean;
   signUp: (
     email: string,
@@ -43,7 +52,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  const [profile, setProfile] = useState<{ username: string; role?: string; is_admin?: boolean; avatar_url?: string; bio?: string } | null>(null);
+  const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   const [initialized, setInitialized] = useState(false);
   const loadingUserRef = useRef<string | null>(null);
@@ -160,13 +169,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         // 타임아웃과 경쟁하여 프로필 로딩
         try {
-          const profileData = await Promise.race([loadProfile(), timeoutPromise]);
-          setProfile(profileData as any);
-          authLogger.debug("프로필 설정 완료", { userId: user.id });
+          const profileData = await Promise.race([loadProfile(), timeoutPromise]) as Profile;
+          authLogger.debug("프로필 설정 완료", { 
+            userId: user.id, 
+            isAdmin: profileData.is_admin,
+            role: profileData.role 
+          });
+          setProfile(profileData);
+          
+          // 어드민 상태 디버깅
+          if (profileData.is_admin === true) {
+            authLogger.info("🔑 어드민 사용자 로그인 감지", { 
+              userId: user.id, 
+              email: user.email 
+            });
+          }
         } catch (timeoutError) {
           authLogger.warn("타임아웃으로 인한 fallback 프로필 사용", { userId: user.id });
-          const fallbackUsername = user.email?.split("@")[0] || `user_${Math.random().toString(36).substring(2, 10)}`;
-          setProfile({ username: fallbackUsername, role: 'user', is_admin: false });
+          // 기존 프로필이 있고 admin 정보가 있다면 유지
+          setProfile(prevProfile => {
+            if (prevProfile && prevProfile.is_admin !== undefined) {
+              authLogger.debug("기존 어드민 프로필 유지", { is_admin: prevProfile.is_admin });
+              return prevProfile;
+            }
+            const fallbackUsername = user.email?.split("@")[0] || `user_${Math.random().toString(36).substring(2, 10)}`;
+            return { username: fallbackUsername, role: 'user', is_admin: false };
+          });
         }
         
         // 프로필 로딩 완료 시 완료 토스트 (소셜 로그인의 경우)
@@ -272,6 +300,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             }
           }
         } else if (mounted) {
+          authLogger.debug("사용자 로그아웃, 프로필 초기화");
           setProfile(null);
           setLoading(false);
         }
@@ -288,7 +317,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           // 리다이렉트 처리 - OAuth 로그인만 여기서 처리
           const currentPath = window.location.pathname;
           
-          if (isOAuthLogin && (currentPath === "/login" || currentPath === "/onboarding")) {
+          if (isOAuthLogin && currentPath === "/login") {
             // OAuth 로그인의 경우 프로필 처리 중임을 알림
             toast({
               title: "로그인 성공",

@@ -92,14 +92,47 @@ export async function POST(
         review_id: reviewId,
         reason,
         description: description || null,
+        status: "pending", // 기본 상태는 pending
       });
 
     if (insertError) {
       throw insertError;
     }
 
+    // 해당 리뷰의 총 신고 수 확인
+    const { count: reportCount, error: countError } = await supabase
+      .from("review_reports")
+      .select("*", { count: "exact", head: true })
+      .eq("review_id", reviewId);
+
+    if (countError) {
+      console.error("신고 수 확인 오류:", countError);
+    }
+
+    // 신고가 5개 이상이면 자동으로 검토 상태로 변경
+    let message = "신고가 접수되었습니다. 검토 후 조치하겠습니다.";
+    
+    if (reportCount && reportCount >= 5) {
+      // 해당 리뷰의 모든 pending 상태 신고를 'reviewed' 상태로 자동 변경
+      const { error: updateError } = await supabase
+        .from("review_reports")
+        .update({ 
+          status: "reviewed",
+          reviewed_at: new Date().toISOString(),
+        })
+        .eq("review_id", reviewId)
+        .eq("status", "pending");
+
+      if (updateError) {
+        console.error("신고 상태 업데이트 오류:", updateError);
+      } else {
+        message = "신고가 접수되었습니다. 신고가 5개 이상 누적되어 자동으로 검토 상태로 변경되었습니다.";
+      }
+    }
+
     return NextResponse.json({ 
-      message: "신고가 접수되었습니다. 검토 후 조치하겠습니다.", 
+      message,
+      reportCount: reportCount || 1,
     });
   } catch (error) {
     console.error("리뷰 신고 오류:", error);

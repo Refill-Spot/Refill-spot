@@ -49,7 +49,7 @@ export async function searchNaverPlaces(
   query: string,
 ): Promise<NaverPlaceSearchResult[]> {
   if (!NAVER_CLIENT_ID || !NAVER_CLIENT_SECRET) {
-    console.warn("네이버 API 키가 설정되지 않았습니다.");
+    console.warn("네이버 API 키가 설정되지 않았습니다. NAVER_CLIENT_ID와 NAVER_CLIENT_SECRET 환경 변수를 확인해주세요.");
     return [];
   }
 
@@ -89,7 +89,15 @@ export async function searchNaverPlaces(
       };
     });
   } catch (error) {
-    console.error("네이버 장소 검색 오류:", error);
+    if (axios.isAxiosError(error)) {
+      if (error.response?.status === 401) {
+        console.error("네이버 API 인증 오류: API 키를 확인해주세요. Client ID:", NAVER_CLIENT_ID ? "설정됨" : "설정되지 않음", "Client Secret:", NAVER_CLIENT_SECRET ? "설정됨" : "설정되지 않음");
+      } else {
+        console.error("네이버 장소 검색 오류:", error.response?.status, error.response?.data);
+      }
+    } else {
+      console.error("네이버 장소 검색 오류:", error);
+    }
     return [];
   }
 }

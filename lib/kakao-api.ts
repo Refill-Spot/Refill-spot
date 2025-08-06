@@ -1,7 +1,7 @@
 import axios from "axios";
 
-// 카카오 지도 API 키
-const KAKAO_API_KEY = process.env.NEXT_PUBLIC_KAKAO_API_KEY;
+// 카카오 지도 API 키 (서버 사이드에서는 KAKAO_API_KEY, 클라이언트 사이드에서는 NEXT_PUBLIC_KAKAO_API_KEY 사용)
+const KAKAO_API_KEY = process.env.KAKAO_API_KEY || process.env.NEXT_PUBLIC_KAKAO_API_KEY;
 
 interface KakaoPlaceSearchResult {
   id: string; // 장소 ID
@@ -48,7 +48,7 @@ export async function searchKakaoPlaces(
   options?: { x?: number; y?: number; radius?: number },
 ): Promise<KakaoPlaceSearchResult[]> {
   if (!KAKAO_API_KEY) {
-    console.warn("카카오 API 키가 설정되지 않았습니다.");
+    console.warn("카카오 API 키가 설정되지 않았습니다. KAKAO_API_KEY 또는 NEXT_PUBLIC_KAKAO_API_KEY 환경 변수를 확인해주세요.");
     return [];
   }
 
@@ -71,7 +71,15 @@ export async function searchKakaoPlaces(
 
     return response.data.documents;
   } catch (error) {
-    console.error("카카오 장소 검색 오류:", error);
+    if (axios.isAxiosError(error)) {
+      if (error.response?.status === 401) {
+        console.error("카카오 API 인증 오류: API 키를 확인해주세요. 현재 키:", KAKAO_API_KEY ? "설정됨" : "설정되지 않음");
+      } else {
+        console.error("카카오 장소 검색 오류:", error.response?.status, error.response?.data);
+      }
+    } else {
+      console.error("카카오 장소 검색 오류:", error);
+    }
     return [];
   }
 }

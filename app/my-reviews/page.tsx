@@ -101,6 +101,17 @@ return;
     }
   }, [authLoading, user, fetchMyReviews, router]);
 
+  // 뒤로가기 핸들러
+  const handleGoBack = () => {
+    // 브라우저 히스토리를 확인하여 이전 페이지로 돌아가기
+    if (window.history.length > 1) {
+      router.back();
+    } else {
+      // 히스토리가 없으면 지도 페이지로 이동
+      router.push("/map");
+    }
+  };
+
   // 별점 렌더링
   const renderStars = (rating: number) => {
     return Array.from({ length: 5 }).map((_, i) => (
@@ -145,7 +156,7 @@ return;
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => router.back()}
+              onClick={handleGoBack}
               className="flex items-center gap-2"
             >
               <ArrowLeft className="h-4 w-4" />
@@ -352,7 +363,7 @@ return;
               <p className="text-gray-600 mb-6">
                 방문한 가게에 첫 번째 리뷰를 작성해보세요!
               </p>
-              <Button onClick={() => router.push("/")}>가게 찾아보기</Button>
+              <Button onClick={() => router.push("/map")}>가게 찾아보기</Button>
             </CardContent>
           </Card>
         )}

@@ -45,10 +45,15 @@ export async function GET(request: NextRequest) {
       : validStoreName;
 
     // 네이버 및 카카오 API 병렬 호출 (에러 안전 처리)
-    const [naverRating, kakaoRating] = await Promise.allSettled([
-      getNaverPlaceRating(searchQuery),
-      getKakaoPlaceRating(searchQuery),
-    ]);
+    // TODO: API 키 문제 해결 후 활성화
+    // const [naverRating, kakaoRating] = await Promise.allSettled([
+    //   getNaverPlaceRating(searchQuery),
+    //   getKakaoPlaceRating(searchQuery),
+    // ]);
+    
+    // 임시로 기본값 반환 (API 키 문제 해결 시까지)
+    const naverRating = { status: "fulfilled" as const, value: 0 };
+    const kakaoRating = { status: "fulfilled" as const, value: 0 };
 
     // 결과 처리
     const naverScore = naverRating.status === "fulfilled" ? naverRating.value : 0;

@@ -113,13 +113,15 @@ export function useFavorites() {
   }, []);
 
   // 즐겨찾기 추가
-  const addToFavorites = useCallback(async (storeId: number) => {
+  const addToFavorites = useCallback(async (storeId: number, showToastOnError = true) => {
     if (!user) {
-      toast({
-        title: '로그인 필요',
-        description: '즐겨찾기를 추가하려면 로그인이 필요합니다.',
-        variant: 'destructive',
-      });
+      if (showToastOnError) {
+        toast({
+          title: '로그인 필요',
+          description: '즐겨찾기를 추가하려면 로그인이 필요합니다.',
+          variant: 'destructive',
+        });
+      }
       return false;
     }
 
@@ -222,13 +224,13 @@ export function useFavorites() {
   }, [user, toast, updateGlobalCache, fetchFavorites]);
 
   // 즐겨찾기 토글
-  const toggleFavorite = useCallback(async (storeId: number) => {
+  const toggleFavorite = useCallback(async (storeId: number, showToastOnError = true) => {
     const isFavorite = favoriteStoreIds.has(storeId);
     
     if (isFavorite) {
       return await removeFromFavorites(storeId);
     } else {
-      return await addToFavorites(storeId);
+      return await addToFavorites(storeId, showToastOnError);
     }
   }, [favoriteStoreIds, addToFavorites, removeFromFavorites]);
 

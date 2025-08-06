@@ -36,6 +36,9 @@ export interface Store {
     naver: number;
     kakao: number;
   };
+  // 자체 리뷰 시스템 평점
+  avgRating?: number; // 평균 평점 (1-5점)
+  reviewCount?: number; // 리뷰 개수
   position: {
     lat: number;
     lng: number;

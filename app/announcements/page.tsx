@@ -111,13 +111,13 @@ return content;
           <div className="mb-6">
             <div className="flex items-center justify-between mb-4">
               <Button variant="ghost" asChild className="text-black hover:text-black hover:bg-gray-100">
-                <Link href="/">
+                <Link href="/map">
                   <Home className="h-4 w-4 mr-2" />
                   지도로 돌아가기
                 </Link>
               </Button>
               <nav className="text-sm text-muted-foreground">
-                <Link href="/" className="hover:text-[#FF5722] transition-colors">
+                <Link href="/map" className="hover:text-[#FF5722] transition-colors">
                   홈
                 </Link>
                 <span className="mx-2">/</span>

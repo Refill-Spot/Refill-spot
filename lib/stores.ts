@@ -13,6 +13,8 @@ interface CategoryItem {
 export function mapStoreFromDb(
   store: StoreFromDb,
   distance?: number | string | null,
+  avgRating?: number | null,
+  reviewCount?: number | null,
 ): Store {
 
   // PostGIS 함수에서 반환하는 categories는 JSON 배열 형태이고,
@@ -41,6 +43,8 @@ export function mapStoreFromDb(
       naver: store.naver_rating || 0,
       kakao: store.kakao_rating || 0,
     },
+    avgRating: avgRating || undefined,
+    reviewCount: reviewCount || undefined,
     position: {
       lat: store.position_lat,
       lng: store.position_lng,
@@ -96,7 +100,7 @@ export async function getStores(): Promise<Store[]> {
     return [];
   }
 
-  // 공통 매핑 함수 사용
+  // 공통 매핑 함수 사용 (리뷰 통계는 여기서는 제공하지 않음)
   return data.map((store: StoreFromDb) => mapStoreFromDb(store));
 }
 
@@ -123,7 +127,7 @@ export async function getNearbyStores(
     return [];
   }
 
-  // 공통 매핑 함수 사용
+  // 공통 매핑 함수 사용 (리뷰 통계는 여기서는 제공하지 않음)
   return data.map((store: StoreFromDb) =>
     mapStoreFromDb(store, store.distance),
   );
@@ -149,6 +153,6 @@ export async function getStoreById(id: number): Promise<Store | null> {
     return null;
   }
 
-  // 공통 매핑 함수 사용
+  // 공통 매핑 함수 사용 (리뷰 통계는 여기서는 제공하지 않음)
   return mapStoreFromDb(data);
 }

@@ -149,7 +149,7 @@ export default function NewAnnouncementPage() {
             </Link>
           </Button>
           <nav className="text-sm text-muted-foreground">
-            <Link href="/" className="hover:text-primary">
+            <Link href="/map" className="hover:text-primary">
               홈
             </Link>
             <span className="mx-2">/</span>

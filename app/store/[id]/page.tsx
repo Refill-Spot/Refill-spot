@@ -10,6 +10,14 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/use-toast";
 import { SearchInput } from "@/components/header/search-input";
 import { StoreReviews } from "@/components/store-reviews";
@@ -20,7 +28,6 @@ import { Store } from "@/types/store";
 import { MenuItem } from "@/types/menu";
 import { useAuth } from "@/contexts/AuthContext";
 import { useFavorites } from "@/hooks/use-favorites";
-import { resetOnboardingStatus } from "@/lib/onboarding-storage";
 import {
   ArrowLeft,
   ChevronDown,
@@ -37,6 +44,7 @@ import {
   Star,
   Utensils,
   User,
+  X,
 } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -55,6 +63,7 @@ export default function StorePage() {
   const [showAllMenus, setShowAllMenus] = useState(false);
   const [showNaverPlatform, setShowNaverPlatform] = useState(false);
   const [showKakaoPlatform, setShowKakaoPlatform] = useState(false);
+  const [showLoginAlert, setShowLoginAlert] = useState(false);
 
   useEffect(() => {
     const fetchStore = async () => {
@@ -144,13 +153,18 @@ return;
     if (!store) {
 return;
 }
-    await toggleFavorite(store.id);
+    
+    if (!user) {
+      setShowLoginAlert(true);
+      return;
+    }
+    
+    await toggleFavorite(store.id, false);
   };
 
   // 로그아웃 핸들러
   const handleLogout = async () => {
     try {
-      resetOnboardingStatus();
       await signOut();
     } catch (error) {
       console.error("로그아웃 오류:", error);
@@ -212,8 +226,8 @@ return;
     const lat = place.geometry.location.lat();
     const lng = place.geometry.location.lng();
     
-    // 지도 페이지로 이동하면서 위치 정보 전달
-    router.push(`/?lat=${lat}&lng=${lng}&distance=5`);
+    // 검색 페이지로 이동하면서 위치 정보 전달
+    router.push(`/search?lat=${lat}&lng=${lng}&distance=5`);
   };
 
   const handleManualSearch = async (searchText: string) => {
@@ -240,18 +254,18 @@ return;
             const lat = results[0].geometry.location.lat();
             const lng = results[0].geometry.location.lng();
             
-            // 검색한 위치로 지도 페이지 이동
-            router.push(`/?lat=${lat}&lng=${lng}&distance=5&searchLocation=${encodeURIComponent(searchText)}`);
+            // 검색한 위치로 검색 페이지 이동
+            router.push(`/search?lat=${lat}&lng=${lng}&distance=5&searchLocation=${encodeURIComponent(searchText)}`);
           } else {
-            // Geocoding이 실패한 경우 기존 방식으로 fallback
-            router.push(`/?search=${encodeURIComponent(searchText)}`);
+            // Geocoding이 실패한 경우 검색 페이지로 fallback
+            router.push(`/search?search=${encodeURIComponent(searchText)}`);
           }
         },
       );
     } catch (error) {
       console.error("Geocoding error:", error);
-      // 오류 발생 시 기존 방식으로 fallback
-      router.push(`/?search=${encodeURIComponent(searchText)}`);
+      // 오류 발생 시 검색 페이지로 fallback
+      router.push(`/search?search=${encodeURIComponent(searchText)}`);
     }
   };
 
@@ -292,7 +306,7 @@ return;
             {/* 중간: 로고 + 프로젝트명 + 검색창 */}
             <div className="flex items-center gap-12 flex-1 justify-center">
               <button 
-                onClick={() => router.push("/")}
+                onClick={() => router.push("/map")}
                 className="flex items-center space-x-2 hover:opacity-80 transition-opacity"
               >
                 <div className="bg-gradient-to-br from-orange-500 to-red-500 rounded-lg p-2">
@@ -345,6 +359,15 @@ return;
                   <DropdownMenuContent align="end" className="w-48">
                     <DropdownMenuItem asChild>
                       <button
+                        onClick={() => router.push("/profile")}
+                        className="w-full flex items-center"
+                      >
+                        <Settings className="h-4 w-4 mr-2 text-[#9C27B0]" />
+                        프로필 설정
+                      </button>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <button
                         onClick={() => router.push("/my-reviews")}
                         className="w-full flex items-center"
                       >
@@ -370,7 +393,7 @@ return;
                         지도로 돌아가기
                       </button>
                     </DropdownMenuItem>
-                    {profile?.is_admin && (
+                    {profile?.is_admin === true && (
                       <>
                         <DropdownMenuItem asChild>
                           <button
@@ -942,6 +965,14 @@ return [];
                     onClick={() => router.push("/")}
                     className="hover:text-[#FF5722] transition-colors"
                   >
+                    서비스 소개
+                  </button>
+                </li>
+                <li>
+                  <button
+                    onClick={() => router.push("/map")}
+                    className="hover:text-[#FF5722] transition-colors"
+                  >
                     가게 찾기
                   </button>
                 </li>
@@ -951,14 +982,6 @@ return [];
                     className="hover:text-[#FF5722] transition-colors"
                   >
                     공지사항
-                  </button>
-                </li>
-                <li>
-                  <button
-                    onClick={() => router.push("/onboarding")}
-                    className="hover:text-[#FF5722] transition-colors"
-                  >
-                    서비스 소개
                   </button>
                 </li>
                 <li>
@@ -1081,6 +1104,32 @@ return [];
           platform="kakao"
         />
       )}
+
+      {/* 로그인 필요 다이얼로그 */}
+      <Dialog open={showLoginAlert} onOpenChange={setShowLoginAlert}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>로그인이 필요합니다</DialogTitle>
+            <DialogDescription>
+              즐겨찾기를 추가하려면 먼저 로그인해주세요.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowLoginAlert(false)}>
+              취소
+            </Button>
+            <Button
+              onClick={() => {
+                const currentUrl = window.location.pathname + window.location.search;
+                router.push(`/login?returnUrl=${encodeURIComponent(currentUrl)}`);
+              }}
+              className="bg-[#FF5722] hover:bg-[#E64A19] text-white"
+            >
+              로그인하기
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

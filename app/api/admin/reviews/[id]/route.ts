@@ -95,10 +95,17 @@ export async function PATCH(
       },
     );
 
-    // 리뷰 존재 확인
+    // 리뷰와 신고 내역 확인
     const { data: existingReview, error: fetchError } = await supabase
       .from("reviews")
-      .select("id, is_reported, report_count")
+      .select(`
+        id,
+        review_reports (
+          id,
+          status,
+          reason
+        )
+      `)
       .eq("id", id)
       .single();
 
@@ -106,37 +113,42 @@ export async function PATCH(
       return apiResponse.error("리뷰를 찾을 수 없습니다.", 404);
     }
 
-    let updateData: any = {};
-
-    if (action === "approve") {
-      // 신고 승인 - 리뷰를 정상으로 되돌림
-      updateData = {
-        is_reported: false,
-        report_count: 0,
-      };
-    } else if (action === "reject") {
-      // 신고 거부 - 신고된 상태 유지하지만 추가 조치 가능
-      updateData = {
-        is_reported: true,
-      };
+    // 신고 내역이 없으면 에러
+    if (!existingReview.review_reports || existingReview.review_reports.length === 0) {
+      return apiResponse.error("해당 리뷰에 대한 신고 내역이 없습니다.", 400);
     }
 
-    // 리뷰 상태 업데이트
-    const { data: updatedReview, error: updateError } = await supabase
-      .from("reviews")
+    let updateData: any = {};
+    let message = "";
+
+    if (action === "approve") {
+      // 신고 승인 - 신고 상태를 'reviewed'로 변경
+      updateData = { status: "reviewed", reviewed_at: new Date().toISOString(), reviewed_by: adminCheck.user?.id };
+      message = "신고가 승인되어 처리되었습니다.";
+    } else if (action === "dismiss") {
+      // 신고 기각 - 신고 상태를 'dismissed'로 변경
+      updateData = { status: "dismissed", reviewed_at: new Date().toISOString(), reviewed_by: adminCheck.user?.id };
+      message = "신고가 기각되었습니다.";
+    } else {
+      return apiResponse.error("잘못된 액션입니다. 'approve' 또는 'dismiss'만 허용됩니다.", 400);
+    }
+
+    // review_reports 테이블 업데이트
+    const { data: updatedReports, error: updateError } = await supabase
+      .from("review_reports")
       .update(updateData)
-      .eq("id", id)
-      .select()
-      .single();
+      .eq("review_id", id)
+      .eq("status", "pending")
+      .select();
 
     if (updateError) {
-      console.error("리뷰 상태 업데이트 오류:", updateError);
-      return apiResponse.error("리뷰 상태 업데이트에 실패했습니다.", 500);
+      console.error("신고 상태 업데이트 오류:", updateError);
+      return apiResponse.error("신고 상태 업데이트에 실패했습니다.", 500);
     }
 
     return apiResponse.success({
-      message: action === "approve" ? "신고가 승인되어 리뷰가 정상화되었습니다." : "신고가 거부되었습니다.",
-      review: updatedReview,
+      message,
+      updated_reports: updatedReports,
     });
 
   } catch (error) {

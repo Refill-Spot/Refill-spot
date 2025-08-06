@@ -20,8 +20,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useGeolocation } from "@/hooks/use-geolocation";
 import { useGooglePlaces } from "@/hooks/use-google-places";
 import { useLocationSearch } from "@/hooks/use-location-search";
-import { resetOnboardingStatus } from "@/lib/onboarding-storage";
-import { Heart, LogOut, Map, Settings, User, MessageSquare } from "lucide-react";
+import { Heart, LogOut, Map, Settings, Star, User, MessageSquare } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { DesktopHeader } from "./header/desktop-header";
@@ -97,10 +96,7 @@ export default function Header({
 
   const handleLogout = async () => {
     try {
-      // 온보딩 상태 초기화는 로그아웃 성공 후에만 실행
       await signOut();
-      // 로그아웃 성공 후 온보딩 상태 초기화
-      resetOnboardingStatus();
     } catch (error) {
       console.error("헤더 로그아웃 오류:", error);
     }
@@ -252,6 +248,15 @@ export default function Header({
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
                     <button
+                      onClick={() => router.push("/my-reviews")}
+                      className="w-full flex items-center"
+                    >
+                      <Star className="h-4 w-4 mr-2 text-yellow-500" />
+                      내가 작성한 리뷰
+                    </button>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <button
                       onClick={() => router.push("/favorites")}
                       className="w-full flex items-center"
                     >
@@ -268,7 +273,7 @@ export default function Header({
                       현재 위치로 이동
                     </button>
                   </DropdownMenuItem>
-                  {profile?.is_admin && (
+                  {profile?.is_admin === true && (
                     <>
                       <DropdownMenuItem asChild>
                         <button

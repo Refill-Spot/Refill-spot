@@ -27,10 +27,8 @@ export function useMapView() {
 
     try {
       const filters = extractFiltersFromURL(searchParams);
-      console.log("🔍 URL에서 추출한 필터:", filters);
 
       if (Object.keys(filters).length > 0) {
-        console.log("✅ URL 필터를 적용합니다");
         setFilters(filters);
 
         // 위치 정보가 있으면 상태 업데이트
@@ -41,7 +39,6 @@ export function useMapView() {
           });
         }
       } else {
-        console.log("📝 기본 데이터 로드");
         // 기본 데이터 로드
         resetFilters();
         refetch();
@@ -65,7 +62,6 @@ export function useMapView() {
 
     try {
       const filters = extractFiltersFromURL(searchParams);
-      console.log("🔄 URL 파라미터 변경 감지, 필터 업데이트:", filters);
 
       // 필터 적용
       setFilters(filters);
@@ -76,7 +72,6 @@ export function useMapView() {
           lat: filters.latitude,
           lng: filters.longitude,
         };
-        console.log("🗺️ 새로운 사용자 위치 설정:", newLocation);
         setUserLocation(newLocation);
       }
     } catch (err) {
@@ -331,7 +326,6 @@ export function useMapView() {
 
       // 새 타이머 설정
       retryTimeoutRef.current = setTimeout(() => {
-        console.log("오류로 인한 데이터 재시도...");
         // 오류 발생 시 필터 초기화하고 기본 데이터 로드
         resetFilters();
         refetch();

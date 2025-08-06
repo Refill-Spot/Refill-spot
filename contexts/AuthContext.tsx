@@ -6,6 +6,15 @@ import { authLogger } from "@/lib/logger";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { getSafeReturnUrl } from "@/lib/utils";
 import { AuthError, User } from "@supabase/supabase-js";
+
+interface Profile {
+  id?: string;
+  username: string;
+  role?: string;
+  is_admin?: boolean;
+  avatar_url?: string;
+  bio?: string;
+}
 import { useRouter } from "next/navigation";
 import {
   createContext,
@@ -19,7 +28,7 @@ import {
 
 type AuthContextType = {
   user: User | null;
-  profile: { username: string; role?: string; is_admin?: boolean; avatar_url?: string; bio?: string } | null;
+  profile: Profile | null;
   loading: boolean;
   signUp: (
     email: string,
@@ -43,7 +52,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  const [profile, setProfile] = useState<{ username: string; role?: string; is_admin?: boolean; avatar_url?: string; bio?: string } | null>(null);
+  const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   const [initialized, setInitialized] = useState(false);
   const loadingUserRef = useRef<string | null>(null);
@@ -160,7 +169,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         // 타임아웃과 경쟁하여 프로필 로딩
         try {
-          const profileData = await Promise.race([loadProfile(), timeoutPromise]) as any;
+          const profileData = await Promise.race([loadProfile(), timeoutPromise]) as Profile;
           authLogger.debug("프로필 설정 완료", { 
             userId: user.id, 
             isAdmin: profileData.is_admin,

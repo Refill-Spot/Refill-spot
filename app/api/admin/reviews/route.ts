@@ -18,6 +18,7 @@ export async function GET(request: NextRequest) {
     const page = parseInt(searchParams.get("page") || "1");
     const limit = parseInt(searchParams.get("limit") || "20");
     const reportedOnly = searchParams.get("reported_only") === "true";
+    const autoReviewed = searchParams.get("auto_reviewed") === "true";
     const storeId = searchParams.get("store_id");
 
     const from = (page - 1) * limit;
@@ -46,7 +47,9 @@ export async function GET(request: NextRequest) {
           id,
           reason,
           status,
-          created_at
+          created_at,
+          reviewed_at,
+          reviewed_by
         )
       `)
       .order("created_at", { ascending: false })
@@ -54,6 +57,11 @@ export async function GET(request: NextRequest) {
 
     if (reportedOnly) {
       // 신고된 리뷰만 조회 (review_reports 테이블에 레코드가 있는 경우)
+      query = query.not("review_reports", "is", null);
+    }
+
+    if (autoReviewed) {
+      // 자동으로 검토 상태로 변경된 리뷰들 (reviewed_at은 있지만 reviewed_by가 없는 경우)
       query = query.not("review_reports", "is", null);
     }
 
@@ -78,6 +86,11 @@ export async function GET(request: NextRequest) {
       countQuery = countQuery.not("review_reports", "is", null);
     }
 
+    if (autoReviewed) {
+      // 자동으로 검토 상태로 변경된 리뷰들 카운트
+      countQuery = countQuery.not("review_reports", "is", null);
+    }
+
     if (storeId) {
       countQuery = countQuery.eq("store_id", storeId);
     }
@@ -89,8 +102,25 @@ export async function GET(request: NextRequest) {
       return apiResponse.error("리뷰 개수를 불러오는데 실패했습니다.", 500);
     }
 
+    // 리뷰 데이터에 자동 검토 여부 플래그 추가
+    const enrichedReviews = (reviews || []).map(review => {
+      const reports = Array.isArray(review.review_reports) ? review.review_reports : [];
+      const hasAutoReviewed = reports.some(report => 
+        report.status === "reviewed" && 
+        report.reviewed_at && 
+        !report.reviewed_by,
+      );
+      const reportCount = reports.length;
+      
+      return {
+        ...review,
+        is_auto_reviewed: hasAutoReviewed,
+        report_count: reportCount,
+      };
+    });
+
     return apiResponse.success({
-      reviews: reviews || [],
+      reviews: enrichedReviews,
       pagination: {
         page,
         limit,

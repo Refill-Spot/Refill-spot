@@ -1,13 +1,12 @@
 "use client";
 
-import StoreList from "@/components/store-list";
-import Sidebar from "@/components/sidebar";
 import Header from "@/components/header";
 import KakaoMap from "@/components/kakao-map";
-import { useMapView } from "@/hooks/use-map-view";
-import { useState, useCallback, useEffect } from "react";
 import SearchFilters from "@/components/search-filters";
+import StoreList from "@/components/store-list";
+import { useMapView } from "@/hooks/use-map-view";
 import { Store } from "@/types/store";
+import { useCallback, useState } from "react";
 
 export default function ClientSearchPage() {
   const {
@@ -32,8 +31,8 @@ export default function ClientSearchPage() {
   // 주소/지역명 검색 핸들러
   const handleSearchWithGeocode = async (query: string) => {
     if (!query?.trim()) {
-return;
-}
+      return;
+    }
 
     try {
       // 1. geocode API 호출하여 주소를 좌표로 변환
@@ -138,22 +137,32 @@ return;
           <div className="fixed inset-0 z-50 bg-black bg-opacity-50">
             <div className="lg:w-96 w-80 h-full bg-white overflow-y-auto">
               <div className="sticky top-0 bg-white border-b border-gray-200 p-4 flex items-center justify-between">
-                <h2 className="text-lg font-semibold text-gray-900">🔍 필터</h2>
+                <h2 className="text-lg font-semibold text-gray-900">필터</h2>
                 <button
                   onClick={() => setIsFilterOpen(false)}
                   className="text-gray-500 hover:text-gray-700"
                 >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  <svg
+                    className="w-6 h-6"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M6 18L18 6M6 6l12 12"
+                    />
                   </svg>
                 </button>
               </div>
-              <SearchFilters 
+              <SearchFilters
                 userLocation={userLocation}
                 onApplyFilters={(filters) => {
                   setFilters(filters);
                   setIsFilterOpen(false);
-                }} 
+                }}
               />
             </div>
           </div>
@@ -163,12 +172,16 @@ return;
         <div className="flex-1 relative">
           {/* 상단 필터 버튼 */}
           <div className="absolute top-4 left-4 z-10">
-            <button 
+            <button
               className="lg:hidden px-4 py-2 bg-white border-2 border-[#FF5722] text-[#FF5722] rounded-md text-sm font-medium hover:bg-[#FF5722] hover:text-white transition-colors duration-200 flex items-center gap-2 shadow-sm"
               onClick={() => setIsFilterOpen(!isFilterOpen)}
             >
               <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M3 3a1 1 0 011-1h12a1 1 0 011 1v3a1 1 0 01-.293.707L12 11.414V15a1 1 0 01-.293.707l-2 2A1 1 0 018 17v-5.586L3.293 6.707A1 1 0 013 6V3z" clipRule="evenodd" />
+                <path
+                  fillRule="evenodd"
+                  d="M3 3a1 1 0 011-1h12a1 1 0 011 1v3a1 1 0 01-.293.707L12 11.414V15a1 1 0 01-.293.707l-2 2A1 1 0 018 17v-5.586L3.293 6.707A1 1 0 013 6V3z"
+                  clipRule="evenodd"
+                />
               </svg>
               필터
             </button>

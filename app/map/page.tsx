@@ -4,7 +4,6 @@ import { ErrorBoundary } from "@/components/error-boundary";
 import Header from "@/components/header";
 import KakaoMap from "@/components/kakao-map";
 import SearchFilters from "@/components/search-filters";
-import Sidebar from "@/components/sidebar";
 import { StoreListSkeleton } from "@/components/skeleton-loader";
 import StoreList from "@/components/store-list";
 import { Button } from "@/components/ui/button";
@@ -65,11 +64,11 @@ function HomeContent() {
       append: boolean = false,
       query?: string,
     ) => {
-      apiLogger.debug("fetchStores 호출됨", { 
-        lat: lat?.toFixed(8), 
-        lng: lng?.toFixed(8), 
-        radius, 
-        page, 
+      apiLogger.debug("fetchStores 호출됨", {
+        lat: lat?.toFixed(8),
+        lng: lng?.toFixed(8),
+        radius,
+        page,
         append,
         minRating,
         categories,
@@ -208,13 +207,14 @@ function HomeContent() {
   // 더보기 함수
   const loadMoreStores = useCallback(() => {
     if (!userLocation || loadingMore || !hasMore) {
-return;
-}
+      return;
+    }
 
     // 현재 URL 파라미터에서 필터 정보 추출
     const currentCategories = searchParams.get("categories");
     const currentDistance = searchParams.get("distance");
-    const currentRating = searchParams.get("rating") || searchParams.get("minRating");
+    const currentRating =
+      searchParams.get("rating") || searchParams.get("minRating");
     const currentQuery = searchParams.get("q") || searchParams.get("query");
 
     const nextPage = currentPage + 1;
@@ -238,7 +238,7 @@ return;
         // 로그인한 사용자는 온보딩을 건너뛰고 바로 메인 페이지로
         setIsCheckingOnboarding(false);
       } catch (error) {
-        console.error("온보딩 체크 중 오류:", error);
+        apiLogger.error("온보딩 체크 중 오류:", error);
         setIsCheckingOnboarding(false);
       }
     };
@@ -261,7 +261,7 @@ return;
       // URL 파라미터에서 검색어 확인
       const searchQuery = searchParams.get("search");
       let hasSearchQuery = false;
-      
+
       if (searchQuery) {
         hasSearchQuery = true;
       }
@@ -293,10 +293,21 @@ return;
           // URL 파라미터에서 필터 정보 추출
           const radius = urlDistance ? parseFloat(urlDistance) : 5;
           const minRating = urlRating ? parseFloat(urlRating) : undefined;
-          const categories = urlCategories ? urlCategories.split(",") : undefined;
+          const categories = urlCategories
+            ? urlCategories.split(",")
+            : undefined;
           const query = urlQuery || undefined;
 
-          await fetchStores(lat, lng, radius, minRating, categories, 1, false, query);
+          await fetchStores(
+            lat,
+            lng,
+            radius,
+            minRating,
+            categories,
+            1,
+            false,
+            query,
+          );
 
           // URL 파라미터의 위치 정보를 저장
           saveUserLocation({
@@ -305,8 +316,8 @@ return;
             source: urlSource || "manual",
           });
 
-          const sourceText = searchLocation 
-            ? `${searchLocation}` 
+          const sourceText = searchLocation
+            ? `${searchLocation}`
             : urlSource === "gps"
               ? "현재 위치"
               : urlSource === "manual"
@@ -330,9 +341,10 @@ return;
 
           toast({
             title: "위치 설정 완료",
-            description: filterDesc.length > 0 
-              ? `${sourceText} 주변에서 ${filterDesc.join(", ")} 조건으로 검색합니다.`
-              : `${sourceText} 주변의 가게를 표시합니다.`,
+            description:
+              filterDesc.length > 0
+                ? `${sourceText} 주변에서 ${filterDesc.join(", ")} 조건으로 검색합니다.`
+                : `${sourceText} 주변의 가게를 표시합니다.`,
           });
           return;
         }
@@ -364,7 +376,10 @@ return;
           lng: 127.0277083,
         };
 
-        geolocationLogger.info("기본 위치 설정 (서울 강남구 중심)", defaultLocation);
+        geolocationLogger.info(
+          "기본 위치 설정 (서울 강남구 중심)",
+          defaultLocation,
+        );
         setUserLocation(defaultLocation);
         await fetchStores(defaultLocation.lat, defaultLocation.lng, 10);
 
@@ -381,7 +396,6 @@ return;
             "서울 강남역 주변의 가게를 표시합니다. 위치 버튼을 눌러 현재 위치로 변경할 수 있습니다.",
         });
       }
-
     };
 
     loadInitialData();
@@ -390,16 +404,16 @@ return;
   // 검색어 파라미터 처리 (별도 useEffect)
   useEffect(() => {
     const searchQuery = searchParams.get("search");
-    
+
     if (searchQuery && !loading && allStores.length > 0) {
       const filteredStores = allStores.filter(
         (store) =>
           store.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
           store.address.toLowerCase().includes(searchQuery.toLowerCase()),
       );
-      
+
       setStores(filteredStores);
-      
+
       if (filteredStores.length === 0) {
         toast({
           title: "검색 결과 없음",
@@ -430,7 +444,7 @@ return;
       // 지도에 위치 업데이트
     } catch (error) {
       // 에러는 useGeolocation 훅에서 이미 처리됨
-      console.error("위치 정보 가져오기 실패:", error);
+      geolocationLogger.error("위치 정보 가져오기 실패:", error);
     }
   }, [geolocation, fetchStores]);
 
@@ -516,7 +530,7 @@ return;
         // 위치 정보가 필터에서 제공된 경우 사용자 위치 업데이트
         if (filters.latitude && filters.longitude) {
           setUserLocation({ lat: filters.latitude, lng: filters.longitude });
-          
+
           // 위치 정보 저장
           saveUserLocation({
             lat: filters.latitude,
@@ -524,7 +538,7 @@ return;
             source: "gps",
           });
         }
-        
+
         // 필터가 적용된 조건으로 가게 목록 다시 로드 (페이지 초기화)
         setCurrentPage(1);
         setHasMore(false);
@@ -538,35 +552,36 @@ return;
           false,
           filters.query,
         );
-        
+
         // 검색어 필터링은 서버에서 처리되므로 클라이언트 사이드 필터링 제거
 
         const filterDesc = [];
         if (radius !== 5) {
-filterDesc.push(`반경 ${radius}km`);
-}
+          filterDesc.push(`반경 ${radius}km`);
+        }
         if (filters.minRating && filters.minRating > 0) {
-filterDesc.push(`평점 ${filters.minRating}점 이상`);
-}
+          filterDesc.push(`평점 ${filters.minRating}점 이상`);
+        }
         if (filters.categories && filters.categories.length > 0) {
-filterDesc.push(`카테고리: ${filters.categories.join(", ")}`);
-}
+          filterDesc.push(`카테고리: ${filters.categories.join(", ")}`);
+        }
         if (filters.query) {
-filterDesc.push(`검색어: "${filters.query}"`);
-}
+          filterDesc.push(`검색어: "${filters.query}"`);
+        }
 
         // 위치 변경 여부 확인
         const locationChanged = filters.latitude && filters.longitude;
-        
+
         toast({
           title: locationChanged ? "위치 및 필터 적용 완료" : "필터 적용 완료",
-          description: locationChanged 
-            ? "현재 위치로 이동하여 " + (filterDesc.length > 0 
+          description: locationChanged
+            ? "현재 위치로 이동하여 " +
+              (filterDesc.length > 0
+                ? filterDesc.join(", ") + " 조건으로 검색합니다."
+                : "모든 조건으로 검색합니다.")
+            : filterDesc.length > 0
               ? filterDesc.join(", ") + " 조건으로 검색합니다."
-              : "모든 조건으로 검색합니다.")
-            : (filterDesc.length > 0
-              ? filterDesc.join(", ") + " 조건으로 검색합니다."
-              : "모든 조건으로 검색합니다."),
+              : "모든 조건으로 검색합니다.",
         });
       } else {
         toast({
@@ -763,7 +778,7 @@ filterDesc.push(`검색어: "${filters.query}"`);
             <div className="fixed inset-0 z-50 bg-black bg-opacity-50">
               <div className="w-80 lg:w-[25%] xl:w-[22%] 2xl:w-[20%] h-full bg-white overflow-y-auto">
                 <div className="sticky top-0 bg-white border-b border-gray-200 p-4 flex items-center justify-between">
-                  <h2 className="text-lg font-semibold text-gray-900">🔍 필터</h2>
+                  <h2 className="text-lg font-semibold text-gray-900">필터</h2>
                   <button
                     onClick={() => setIsFilterOpen(false)}
                     className="text-gray-500 hover:text-gray-700"

@@ -51,13 +51,7 @@ export function DesktopHeader({
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-48">
               <DropdownMenuItem asChild>
-                <Link href="/map" className="flex items-center w-full">
-                  <Map className="h-4 w-4 mr-2 text-[#FF5722]" />
-                  맛집 찾기
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link href="/guide" className="flex items-center w-full">
+                <Link href="/" className="flex items-center w-full">
                   <Info className="h-4 w-4 mr-2 text-[#2196F3]" />
                   이용 가이드
                 </Link>
@@ -77,7 +71,7 @@ export function DesktopHeader({
             </DropdownMenuContent>
           </DropdownMenu>
           
-          <Link href="/" className="flex items-center space-x-2">
+          <Link href="/map" className="flex items-center space-x-2">
             <div className="bg-gradient-to-br from-orange-500 to-red-500 rounded-lg p-2">
               <svg
                 className="w-6 h-6 text-white"
@@ -101,7 +95,7 @@ export function DesktopHeader({
         </div>
 
         {/* 검색 영역 */}
-        <div className="flex-1 max-w-2xl mx-8 flex items-center space-x-6">
+        <div className="flex-1 max-w-2xl xl:max-w-4xl 2xl:max-w-6xl mx-8 flex items-center space-x-6">
           {/* 필터 버튼 */}
           <Button variant="outline" size="sm" onClick={onFilterClick}>
             <Filter className="h-4 w-4 text-[#FF5722]" />
@@ -134,7 +128,7 @@ export function DesktopHeader({
         </div>
 
         {/* 우측 버튼들 */}
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center space-x-2 mr-3">
           <Button asChild className="bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white">
             <Link href="/map" className="flex items-center">
               <Map className="h-4 w-4 mr-2" />

@@ -61,13 +61,7 @@ export function MobileHeader({
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-48">
               <DropdownMenuItem asChild>
-                <Link href="/map" className="flex items-center w-full">
-                  <Map className="h-4 w-4 mr-2 text-[#FF5722]" />
-                  맛집 찾기
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link href="/guide" className="flex items-center w-full">
+                <Link href="/" className="flex items-center w-full">
                   <Info className="h-4 w-4 mr-2 text-[#2196F3]" />
                   이용 가이드
                 </Link>
@@ -87,7 +81,7 @@ export function MobileHeader({
             </DropdownMenuContent>
           </DropdownMenu>
           
-          <Link href="/" className="flex items-center space-x-2">
+          <Link href="/map" className="flex items-center space-x-2">
             <div className="bg-gradient-to-br from-orange-500 to-red-500 rounded-lg p-1.5">
               <svg
                 className="w-5 h-5 text-white"

@@ -460,8 +460,7 @@ export default function LocationTermsPage() {
               <div className="text-gray-700 leading-relaxed space-y-2">
                 <p>1. 상 호 : Refill-spot</p>
                 <p>2. 주 소 : **</p>
-                <p>3. 대표전화 : 010-6441-8374</p>
-                <p>4. 위치정보 관리책임자 : 이동휘</p>
+                <p>3. 위치정보 관리책임자 : 이동휘</p>
               </div>
             </section>
 

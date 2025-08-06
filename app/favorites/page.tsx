@@ -48,6 +48,17 @@ export default function FavoritesPage() {
     useStoreStore();
   const [storeToRemove, setStoreToRemove] = useState<number | null>(null);
 
+  // 뒤로가기 핸들러
+  const handleGoBack = () => {
+    // 브라우저 히스토리를 확인하여 이전 페이지로 돌아가기
+    if (window.history.length > 1) {
+      router.back();
+    } else {
+      // 히스토리가 없으면 지도 페이지로 이동
+      router.push("/map");
+    }
+  };
+
   // 첫 로딩시 및 사용자 변경시 즐겨찾기 목록 불러오기
   useEffect(() => {
     if (!loading && user) {
@@ -114,7 +125,7 @@ return;
         <Button
           variant="ghost"
           size="icon"
-          onClick={() => router.push("/")}
+          onClick={handleGoBack}
           className="mr-2"
         >
           <ChevronLeft className="h-5 w-5" />
@@ -300,7 +311,7 @@ return;
           </p>
           <Button
             className="mt-6 bg-[#FF5722] hover:bg-[#E64A19]"
-            onClick={() => router.push("/")}
+            onClick={() => router.push("/map")}
           >
             가게 찾아보기
           </Button>

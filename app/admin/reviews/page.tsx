@@ -28,9 +28,9 @@ interface Review {
   created_at: string;
   updated_at: string;
   image_urls?: string[];
-  is_reported: boolean;
-  report_count: number;
   store_id: string;
+  is_reported?: boolean;
+  report_count?: number;
   stores: {
     id: string;
     name: string;
@@ -39,8 +39,13 @@ interface Review {
   profiles: {
     id: string;
     username: string;
-    email: string;
   };
+  review_reports?: {
+    id: string;
+    reason: string;
+    status: string;
+    created_at: string;
+  }[];
 }
 
 interface ReviewsResponse {

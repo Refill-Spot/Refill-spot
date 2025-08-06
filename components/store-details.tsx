@@ -52,13 +52,7 @@ export default function StoreDetails({ storeId }: StoreDetailsProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isFavorite, setIsFavorite] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [liveRating, setLiveRating] = useState<{
-    naver: number;
-    kakao: number;
-    average: number;
-  } | null>(null);
-  const [liveRatingLoading, setLiveRatingLoading] = useState(false);
-  const [liveRatingError, setLiveRatingError] = useState<string | null>(null);
+  // liveRating 관련 상태들 제거 - 자체 리뷰 시스템 사용
   const [showAllHours, setShowAllHours] = useState(false);
 
   // 디버깅 로그 추가
@@ -147,38 +141,7 @@ return;
     }
   }, [reviews, user]);
 
-  // 실시간 평점 조회
-  useEffect(() => {
-    if (!currentStore) {
-return;
-}
-    const fetchLiveRating = async () => {
-      setLiveRatingLoading(true);
-      setLiveRatingError(null);
-      try {
-        const res = await fetch(
-          `/api/stores/ratings?name=${encodeURIComponent(
-            currentStore.name,
-          )}&address=${encodeURIComponent(currentStore.address)}`,
-        );
-        const data = await res.json();
-        if (res.ok && data.success && data.data) {
-          setLiveRating({
-            naver: data.data.naverRating,
-            kakao: data.data.kakaoRating,
-            average: data.data.averageRating,
-          });
-        } else {
-          setLiveRatingError("실시간 평점 정보를 불러오지 못했습니다.");
-        }
-      } catch (err) {
-        setLiveRatingError("실시간 평점 정보를 불러오지 못했습니다.");
-      } finally {
-        setLiveRatingLoading(false);
-      }
-    };
-    fetchLiveRating();
-  }, [currentStore]);
+  // 실시간 평점 조회 제거 - 자체 리뷰 시스템 사용
 
   // 즐겨찾기 토글
   const handleToggleFavorite = async () => {
@@ -623,32 +586,11 @@ return "오늘은 휴무일입니다.";
                   </h3>
                   <div className="flex items-center gap-2 mt-1">
                     <div className="flex items-center">
-                      {renderStars(
-                        liveRating ? liveRating.naver : storeData.rating.naver,
-                      )}
+                      {renderStars(avgRating)}
                       <span className="ml-2 text-sm text-gray-500">
-                        (네이버)
+                        {avgRating > 0 ? avgRating.toFixed(1) : "평점 없음"} ({reviews.length}개 리뷰)
                       </span>
                     </div>
-                    <span className="mx-1">|</span>
-                    <div className="flex items-center">
-                      {renderStars(
-                        liveRating ? liveRating.kakao : storeData.rating.kakao,
-                      )}
-                      <span className="ml-2 text-sm text-gray-500">
-                        (카카오)
-                      </span>
-                    </div>
-                    {liveRatingLoading && (
-                      <span className="ml-2 text-xs text-gray-400">
-                        (실시간 평점 불러오는 중...)
-                      </span>
-                    )}
-                    {liveRatingError && (
-                      <span className="ml-2 text-xs text-red-400">
-                        {liveRatingError}
-                      </span>
-                    )}
                   </div>
                 </div>
 

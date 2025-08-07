@@ -89,16 +89,15 @@ export default function StoreDetails({ storeId }: StoreDetailsProps) {
 return;
 }
 
-    const { lat, lng } = currentStore.position;
     const storeName = encodeURIComponent(currentStore.name);
 
-    // 네이버 지도 앱 딥링크
-    const naverMapUrl = `nmap://place?lat=${lat}&lng=${lng}&name=${storeName}&appname=com.example.refillspot`;
+    // 네이버 지도 앱 딥링크 (먼저 시도)
+    const naverMapUrl = `nmap://place?name=${storeName}&appname=com.refillspot.app`;
     window.location.href = naverMapUrl;
 
-    // 앱이 실행되지 않으면 웹으로 리다이렉트 (1초 후)
+    // 앱이 실행되지 않으면 최신 웹 URL로 리다이렉트 (1초 후)
     setTimeout(() => {
-      window.location.href = `https://map.naver.com/v5/search/${storeName}?c=${lng},${lat},15,0,0,0,dh`;
+      window.location.href = `https://map.naver.com/p/search/${storeName}?c=15.00,0,0,0,dh&isCorrectAnswer=true&locale=ko`;
     }, 1000);
   };
 

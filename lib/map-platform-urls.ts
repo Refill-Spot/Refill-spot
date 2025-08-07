@@ -16,9 +16,9 @@ export function generateMapPlatformUrls(store: Store): MapPlatformUrls {
   const encodedName = encodeURIComponent(name);
   const encodedAddress = encodeURIComponent(address);
 
-  // 네이버지도 URL 생성
-  // 검색결과로 이동하는 URL 사용 (더 안정적)
-  const naverUrl = `https://map.naver.com/v5/search/${encodedName}?c=${lng},${lat},15,0,0,0,dh`;
+  // 네이버지도 URL 생성 (최신 형식)
+  // 새로운 /p/search 경로와 간소화된 파라미터 사용
+  const naverUrl = `https://map.naver.com/p/search/${encodedName}?c=15.00,0,0,0,dh&isCorrectAnswer=true&locale=ko`;
 
   // 카카오맵 URL 생성
   // 검색결과로 이동하는 URL 사용
@@ -31,15 +31,14 @@ export function generateMapPlatformUrls(store: Store): MapPlatformUrls {
 }
 
 /**
- * 네이버지도 검색 URL을 생성합니다 (더 정확한 위치 지정)
+ * 네이버지도 검색 URL을 생성합니다 (최신 형식)
  */
 export function generateNaverMapUrl(store: Store): string {
-  const { name, position } = store;
-  const { lat, lng } = position;
+  const { name } = store;
   const encodedName = encodeURIComponent(name);
   
-  // 좌표를 포함한 네이버지도 URL
-  return `https://map.naver.com/v5/search/${encodedName}?c=${lng},${lat},15,0,0,0,dh`;
+  // 최신 네이버지도 URL 형식
+  return `https://map.naver.com/p/search/${encodedName}?c=15.00,0,0,0,dh&isCorrectAnswer=true&locale=ko`;
 }
 
 /**

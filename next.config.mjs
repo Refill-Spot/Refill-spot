@@ -34,6 +34,9 @@ const nextConfig = {
     return config;
   },
   images: {
+    // Increase cache TTL to 31 days to reduce Vercel Image Transformations usage
+    // Store images rarely change, so longer cache is beneficial
+    minimumCacheTTL: 2678400, // 31 days in seconds (31 * 24 * 60 * 60)
     remotePatterns: [
       {
         protocol: "https",

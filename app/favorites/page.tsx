@@ -24,6 +24,7 @@ import {
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePWADetection } from "@/hooks/use-pwa-detection";
+import { shouldBeUnoptimized } from "@/lib/image-utils";
 import { useStoreStore } from "@/lib/store";
 import { Store } from "@/types/store";
 import {
@@ -141,11 +142,18 @@ return;
               <div className="flex flex-col md:flex-row">
                 <div className="h-48 md:h-auto md:w-48 relative flex-shrink-0">
                   <Image
-                    src={store.imageUrls && store.imageUrls.length > 0 ? store.imageUrls[0] : "/placeholder.svg"}
+                    src={store.imageUrls && store.imageUrls.length > 0 
+                      ? store.imageUrls[0]
+                      : "/placeholder.svg"
+                    }
                     alt={`${store.name} 이미지`}
                     fill
                     sizes="(max-width: 768px) 100vw, 192px"
                     style={{ objectFit: "cover" }}
+                    unoptimized={store.imageUrls && store.imageUrls.length > 0 
+                      ? shouldBeUnoptimized(192, undefined, store.imageUrls[0])
+                      : shouldBeUnoptimized(undefined, undefined, "/placeholder.svg")
+                    }
                   />
                 </div>
                 <CardContent className="flex-1 p-4">

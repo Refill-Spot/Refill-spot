@@ -9,6 +9,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useTranslation } from "@/hooks/use-translation";
 import { useReviews } from "@/hooks/use-reviews";
 import { ReviewReportDialog } from "@/components/review-report-dialog";
+import { shouldBeUnoptimized } from "@/lib/image-utils";
 import { FormattedReview } from "@/types/store";
 import { formatDistanceToNow } from "date-fns";
 import { enUS, ko } from "date-fns/locale";
@@ -581,6 +582,7 @@ return "text-orange-600";
                             width={80}
                             height={80}
                             className="object-cover rounded-lg border border-gray-200"
+                            unoptimized={shouldBeUnoptimized(80, 80, url)}
                           />
                           <button
                             type="button"
@@ -1151,6 +1153,7 @@ return { high: 0, medium: 0, low: 0 };
                                 alt={`리뷰 이미지 ${imageIndex + 1}`}
                                 fill
                                 className="object-cover"
+                                unoptimized={shouldBeUnoptimized(200, 200, imageUrl)}
                                 onError={(e) => {
                                   (e.target as HTMLImageElement).style.display = "none";
                                 }}
@@ -1412,6 +1415,7 @@ return { high: 0, medium: 0, low: 0 };
                 width={1200}
                 height={800}
                 className="max-w-full max-h-full object-contain rounded-lg"
+                unoptimized={false}
                 onError={(e) => {
                   (e.target as HTMLImageElement).src = "/placeholder-image.png";
                 }}
@@ -1441,6 +1445,7 @@ return { high: 0, medium: 0, low: 0 };
                         width={48}
                         height={48}
                         className="object-cover w-full h-full"
+                        unoptimized={shouldBeUnoptimized(48, 48, imageUrl)}
                       />
                     </button>
                   ))}

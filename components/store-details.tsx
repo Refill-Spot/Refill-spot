@@ -12,6 +12,7 @@ import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "@/components/ui/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
+import { shouldBeUnoptimized } from "@/lib/image-utils";
 import { useStoreStore } from "@/lib/store";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { MenuItem } from "@/types/menu";
@@ -553,6 +554,7 @@ return "오늘은 휴무일입니다.";
                     sizes="(max-width: 768px) 100vw, 768px"
                     style={{ objectFit: "cover" }}
                     priority={idx === 0}
+                    unoptimized={false}
                   />
                 </CarouselItem>
               ))}
@@ -566,6 +568,7 @@ return "오늘은 휴무일입니다.";
             sizes="(max-width: 768px) 100vw, 768px"
             style={{ objectFit: "cover" }}
             priority
+            unoptimized={shouldBeUnoptimized(undefined, undefined, "/placeholder.svg")}
           />
         )}
       </figure>

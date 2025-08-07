@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTranslation } from "@/hooks/use-translation";
+import { shouldBeUnoptimized } from "@/lib/image-utils";
 import { Star, Upload, X, ImageIcon, Plus, Minus } from "lucide-react";
 import Image from "next/image";
 import { useState, useRef, useEffect } from "react";
@@ -949,6 +950,7 @@ return "text-orange-600";
                       width={100}
                       height={100}
                       className="object-cover rounded-lg border border-gray-200"
+                      unoptimized={shouldBeUnoptimized(100, 100, url)}
                     />
                     <button
                       type="button"
@@ -1006,6 +1008,7 @@ return "text-orange-600";
                       width={100}
                       height={100}
                       className="object-cover rounded-lg border border-gray-200"
+                      unoptimized={shouldBeUnoptimized(100, 100, url)}
                     />
                     <button
                       type="button"

@@ -9,9 +9,13 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Store } from "@/types/store";
-import { generateNaverMapUrl, generateKakaoMapUrl } from "@/lib/map-platform-urls";
+import {
+  generateNaverMapUrl,
+  generateKakaoMapUrl,
+} from "@/lib/map-platform-urls";
+import { externalRatingLabel } from "@/lib/external-ratings";
 import { useState } from "react";
-import { ExternalLink, Loader2, MapPin, Star } from "lucide-react";
+import { ExternalLink, Loader2, MapPin } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
 interface PlatformViewDialogProps {
@@ -21,14 +25,14 @@ interface PlatformViewDialogProps {
   platform: "naver" | "kakao";
 }
 
-export function PlatformViewDialog({ 
-  open, 
-  onOpenChange, 
+export function PlatformViewDialog({
+  open,
+  onOpenChange,
   store,
   platform,
 }: PlatformViewDialogProps) {
   const [loading, setLoading] = useState(true);
-  
+
   const platformConfig = {
     naver: {
       name: "네이버지도",
@@ -45,6 +49,7 @@ export function PlatformViewDialog({
   };
 
   const config = platformConfig[platform];
+  const ratingLabel = externalRatingLabel(config.rating);
 
   const handleOpenExternal = () => {
     window.open(config.url, "_blank", "noopener,noreferrer");
@@ -55,7 +60,7 @@ export function PlatformViewDialog({
       <DialogContent className="max-w-[95vw] w-[95vw] h-[95vh] flex flex-col p-0">
         <DialogHeader className="px-6 py-4 border-b">
           <DialogTitle className="flex items-center gap-3 text-xl">
-            <div 
+            <div
               className="p-2 rounded-lg"
               style={{ backgroundColor: config.color }}
             >
@@ -73,32 +78,26 @@ export function PlatformViewDialog({
               <MapPin className="w-4 h-4" />
               {store.address}
             </div>
-            {config.rating > 0 && (
-              <Badge 
-                variant="outline" 
-                className="flex items-center gap-1"
-              >
-                <Star className="w-3 h-3 text-yellow-500 fill-current" />
-                {config.name} {config.rating}
-              </Badge>
-            )}
+            <Badge variant="outline" className="flex items-center gap-1">
+              {config.name} · {ratingLabel}
+            </Badge>
           </div>
         </DialogHeader>
-        
+
         <div className="flex-1 overflow-hidden">
           <div className="h-full flex flex-col">
             <div className="flex items-center justify-between px-4 py-3 border-b bg-gray-50">
               <div className="flex items-center gap-2">
-                <div 
+                <div
                   className="w-4 h-4 rounded"
                   style={{ backgroundColor: config.color }}
                 ></div>
-                <span className="font-semibold text-gray-800">{config.name}</span>
-                {config.rating > 0 && (
-                  <Badge variant="secondary" className="text-xs">
-                    평점 {config.rating}
-                  </Badge>
-                )}
+                <span className="font-semibold text-gray-800">
+                  {config.name}
+                </span>
+                <Badge variant="secondary" className="text-xs">
+                  {ratingLabel}
+                </Badge>
               </div>
               <div className="flex gap-2">
                 <Button
@@ -120,16 +119,18 @@ export function PlatformViewDialog({
                 </Button>
               </div>
             </div>
-            
+
             <div className="flex-1 relative">
               {loading && (
                 <div className="absolute inset-0 flex items-center justify-center bg-gray-100 z-10">
                   <div className="text-center">
-                    <Loader2 
+                    <Loader2
                       className="w-8 h-8 animate-spin mx-auto mb-2"
                       style={{ color: config.color }}
                     />
-                    <p className="text-sm text-gray-600">{config.name} 로딩 중...</p>
+                    <p className="text-sm text-gray-600">
+                      {config.name} 로딩 중...
+                    </p>
                   </div>
                 </div>
               )}
@@ -142,11 +143,12 @@ export function PlatformViewDialog({
             </div>
           </div>
         </div>
-        
+
         {/* 하단 도움말 */}
         <div className="px-6 py-3 border-t bg-gray-50">
           <p className="text-xs text-gray-600 text-center">
-            💡 {config.name}에서 가게의 상세 평점, 리뷰, 사진 등을 확인하실 수 있습니다
+            외부 사이트 연결은 평점 자동 연동과 별개입니다. 평점과 리뷰의 표시
+            여부는 {config.name} 정책에 따라 다릅니다.
           </p>
         </div>
       </DialogContent>

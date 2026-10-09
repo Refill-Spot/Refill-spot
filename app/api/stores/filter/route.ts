@@ -20,15 +20,37 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Zod 스키마로 요청 데이터 검증
+    const parsedFilters = storeFilterSchema.safeParse(requestBody);
+    if (!parsedFilters.success) {
+      return errorResponse(
+        {
+          code: "validation_error",
+          message: "요청 데이터가 유효하지 않습니다.",
+          details: parsedFilters.error.errors,
+        },
+        400,
+      );
+    }
+
+    const { categories, maxDistance, minRating, latitude, longitude, query } =
+      parsedFilters.data;
+    const sort = requestBody.sort || "default";
+
+    if ((minRating && minRating > 0) || sort === "rating") {
+      return errorResponse(
+        {
+          code: "EXTERNAL_RATINGS_UNAVAILABLE",
+          message:
+            "외부 평점 검증 전에는 평점 필터와 정렬을 사용할 수 없습니다.",
+        },
+        503,
+      );
+    }
+
     const supabase = await createServerSupabaseClient();
 
-    // Zod 스키마로 요청 데이터 검증
     try {
-      const { categories, maxDistance, minRating, latitude, longitude, query } =
-        storeFilterSchema.parse(requestBody);
-
-      const sort = requestBody.sort || "default";
-
       // 기본 쿼리 빌더
       let queryBuilder = supabase.from("stores").select(`
         *,
@@ -36,11 +58,6 @@ export async function POST(request: NextRequest) {
           category:categories(name)
         )
       `);
-
-      // 평점 필터링
-      if (minRating && minRating > 0) {
-        queryBuilder = queryBuilder.gte("naver_rating", minRating);
-      }
 
       // 검색어 필터링
       if (query && typeof query === "string" && query.trim()) {
@@ -72,10 +89,14 @@ export async function POST(request: NextRequest) {
           if (Array.isArray(store.categories) && store.categories.length > 0) {
             if (typeof store.categories[0] === "string") {
               storeCategories = store.categories as string[];
-            } else if (typeof store.categories[0] === "object" && store.categories[0] !== null && "category" in store.categories[0]) {
-              storeCategories = (store.categories as Array<{ category: { name: string } }>).map(
-                (item) => item.category.name,
-              );
+            } else if (
+              typeof store.categories[0] === "object" &&
+              store.categories[0] !== null &&
+              "category" in store.categories[0]
+            ) {
+              storeCategories = (
+                store.categories as Array<{ category: { name: string } }>
+              ).map((item) => item.category.name);
             }
           }
           return categories.some((cat) => storeCategories.includes(cat));
@@ -104,13 +125,7 @@ export async function POST(request: NextRequest) {
       }
 
       // 정렬
-      if (sort === "rating") {
-        filteredStores.sort((a, b) => {
-          const avgA = ((a.naver_rating || 0) + (a.kakao_rating || 0)) / 2;
-          const avgB = ((b.naver_rating || 0) + (b.kakao_rating || 0)) / 2;
-          return avgB - avgA;
-        });
-      } else if (sort === "distance" && latitude && longitude) {
+      if (sort === "distance" && latitude && longitude) {
         filteredStores.sort((a, b) => {
           const distA = (a as any).distance || 0;
           const distB = (b as any).distance || 0;

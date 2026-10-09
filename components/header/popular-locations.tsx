@@ -1,11 +1,11 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { POPULAR_LOCATIONS } from "@/lib/geocoding";
+import { POPULAR_LOCATIONS, type PopularLocation } from "@/lib/geocoding";
 import { MapPin } from "lucide-react";
 
 interface PopularLocationsProps {
-  onLocationSelect: (location: { name: string; address: string }) => void;
+  onLocationSelect: (location: PopularLocation) => void;
 }
 
 export function PopularLocations({ onLocationSelect }: PopularLocationsProps) {

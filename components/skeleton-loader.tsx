@@ -1,28 +1,31 @@
-import { Card, CardContent } from "@/components/ui/card";
-
 export function StoreListSkeleton() {
   return (
-    <div className="h-full bg-[#F5F5F5] p-4">
-      <div className="space-y-4 pr-2">
+    <div className="h-full bg-card" role="status" aria-busy="true">
+      <span className="sr-only">가게 목록을 불러오는 중입니다.</span>
+      <div aria-hidden="true">
         {Array.from({ length: 6 }).map((_, index) => (
-          <Card key={index} className="animate-pulse">
-            <div className="flex md:flex-row flex-col">
-              <div className="md:w-32 w-full h-32 bg-gray-200 flex-shrink-0"></div>
-              <CardContent className="flex-1 p-4">
-                <div className="flex justify-between items-start mb-2">
-                  <div className="h-6 bg-gray-200 rounded w-32"></div>
-                  <div className="h-6 bg-gray-200 rounded w-16"></div>
-                </div>
-                <div className="h-4 bg-gray-200 rounded w-24 mb-2"></div>
-                <div className="h-4 bg-gray-200 rounded w-full mb-2"></div>
-                <div className="h-4 bg-gray-200 rounded w-20 mb-3"></div>
-                <div className="flex gap-2">
-                  <div className="h-6 bg-gray-200 rounded w-16"></div>
-                  <div className="h-6 bg-gray-200 rounded w-20"></div>
-                </div>
-              </CardContent>
+          <div
+            key={index}
+            className="flex gap-3 border-b border-border px-4 py-4 motion-safe:animate-pulse"
+          >
+            <div className="order-2 mt-10 h-16 w-16 flex-shrink-0 rounded-sm bg-muted" />
+            <div className="min-w-0 flex-1">
+              <div className="flex h-5 items-center justify-between gap-3">
+                <div className="h-4 w-3/4 rounded-sm bg-muted" />
+                <div className="h-4 w-4 flex-shrink-0 rounded-sm bg-muted" />
+              </div>
+              <div className="mt-2 flex flex-col gap-1">
+                <div className="h-3 w-1/2 rounded-sm bg-muted" />
+                <div className="h-6 w-1/2 rounded-sm bg-muted" />
+              </div>
+              <div className="mt-1.5 flex h-4 items-center gap-3">
+                <div className="h-3 w-2/5 rounded-sm bg-muted" />
+                <div className="h-3 w-1/5 rounded-sm bg-muted" />
+              </div>
+              <div className="mt-1.5 h-4 w-5/6 rounded-sm bg-muted" />
+              <div className="mt-2 h-9 w-1/3 rounded-sm bg-muted" />
             </div>
-          </Card>
+          </div>
         ))}
       </div>
     </div>

@@ -1,5 +1,5 @@
 import { MetadataRoute } from "next";
- 
+
 export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "Refill-spot - 무한리필 가게 찾기",
@@ -10,7 +10,7 @@ export default function manifest(): MetadataRoute.Manifest {
     display: "standalone",
     orientation: "portrait-primary",
     background_color: "#ffffff",
-    theme_color: "#f97316",
+    theme_color: "#FF5722",
     icons: [
       {
         src: "/icon",
@@ -32,7 +32,7 @@ export default function manifest(): MetadataRoute.Manifest {
         label: "모바일 화면 - 가게 목록 및 지도",
       },
       {
-        src: "/placeholder.jpg", 
+        src: "/placeholder.jpg",
         sizes: "1280x800",
         type: "image/jpeg",
         form_factor: "wide",

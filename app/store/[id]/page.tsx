@@ -4,6 +4,13 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+  CarouselNext,
+  CarouselPrevious,
+} from "@/components/ui/carousel";
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -23,7 +30,9 @@ import { SearchInput } from "@/components/header/search-input";
 import { StoreReviews } from "@/components/store-reviews";
 import { ReviewWriteDialog } from "@/components/review-write-dialog";
 import { PlatformViewDialog } from "@/components/platform-view-dialog";
+import { ExternalRatings } from "@/components/external-ratings";
 import { getUserLocation, isLocationValid } from "@/lib/location-storage";
+import type { LocationResult } from "@/lib/location-search";
 import { Store } from "@/types/store";
 import { MenuItem } from "@/types/menu";
 import { useAuth } from "@/contexts/AuthContext";
@@ -33,7 +42,7 @@ import {
   ChevronDown,
   ChevronUp,
   Clock,
-  ExternalLink,
+  Expand,
   Heart,
   LogOut,
   Map,
@@ -44,10 +53,10 @@ import {
   Star,
   Utensils,
   User,
-  X,
 } from "lucide-react";
+import Image from "next/image";
 import { useParams, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 export default function StorePage() {
   const params = useParams();
@@ -64,14 +73,27 @@ export default function StorePage() {
   const [showNaverPlatform, setShowNaverPlatform] = useState(false);
   const [showKakaoPlatform, setShowKakaoPlatform] = useState(false);
   const [showLoginAlert, setShowLoginAlert] = useState(false);
+  const [photoIndex, setPhotoIndex] = useState<number | null>(null);
+  const [failedImages, setFailedImages] = useState<Set<string>>(new Set());
+  const photoTriggerRef = useRef<HTMLButtonElement | null>(null);
+
+  const handleReviewChanged = () => {
+    setRefreshReviews((previous) => previous + 1);
+  };
 
   useEffect(() => {
+    const controller = new AbortController();
     const fetchStore = async () => {
       try {
-        const response = await fetch(`/api/stores/${params.id}`);
+        const response = await fetch(`/api/stores/${params.id}`, {
+          cache: "no-store",
+          signal: controller.signal,
+        });
         if (response.ok) {
           const data = await response.json();
-          setStore(data.data);
+          if (!controller.signal.aborted) {
+            setStore(data.data);
+          }
         } else {
           toast({
             title: "오류",
@@ -80,6 +102,9 @@ export default function StorePage() {
           });
         }
       } catch (error) {
+        if (controller.signal.aborted) {
+          return;
+        }
         console.error("가게 정보 조회 오류:", error);
         toast({
           title: "오류",
@@ -87,19 +112,23 @@ export default function StorePage() {
           variant: "destructive",
         });
       } finally {
-        setLoading(false);
+        if (!controller.signal.aborted) {
+          setLoading(false);
+        }
       }
     };
 
     if (params.id) {
       fetchStore();
     }
-  }, [params.id, toast]);
+
+    return () => controller.abort();
+  }, [params.id, refreshReviews, toast]);
 
   const handleViewInNaverMap = () => {
     if (!store) {
-return;
-}
+      return;
+    }
 
     // 네이버 지도 앱으로 열기 시도
     const naverMapUrl = `nmap://place?lat=${store.position.lat}&lng=${
@@ -151,14 +180,14 @@ return;
   // 즐겨찾기 토글 핸들러
   const handleToggleFavorite = async () => {
     if (!store) {
-return;
-}
-    
+      return;
+    }
+
     if (!user) {
       setShowLoginAlert(true);
       return;
     }
-    
+
     await toggleFavorite(store.id, false);
   };
 
@@ -174,8 +203,8 @@ return;
   // 공유 핸들러
   const handleShare = async () => {
     if (!store) {
-return;
-}
+      return;
+    }
 
     const shareData = {
       title: `${store.name} - Refill Spot`,
@@ -185,7 +214,11 @@ return;
 
     try {
       // Web Share API 지원 확인 (주로 모바일)
-      if (navigator.share && navigator.canShare && navigator.canShare(shareData)) {
+      if (
+        navigator.share &&
+        navigator.canShare &&
+        navigator.canShare(shareData)
+      ) {
         await navigator.share(shareData);
         return;
       }
@@ -209,7 +242,7 @@ return;
       textArea.select();
       document.execCommand("copy");
       document.body.removeChild(textArea);
-      
+
       toast({
         title: "링크 복사 완료",
         description: "가게 링크가 클립보드에 복사되었습니다.",
@@ -218,70 +251,45 @@ return;
   };
 
   // 검색 핸들러
-  const handlePlaceSelect = (place: any) => {
-    if (!place?.geometry?.location) {
-return;
-}
-    
-    const lat = place.geometry.location.lat();
-    const lng = place.geometry.location.lng();
-    
-    // 검색 페이지로 이동하면서 위치 정보 전달
-    router.push(`/search?lat=${lat}&lng=${lng}&distance=5`);
-  };
-
-  const handleManualSearch = async (searchText: string) => {
-    if (!window.google?.maps) {
+  const handlePlaceSelect = (place: LocationResult) => {
+    if (
+      !place ||
+      !Number.isFinite(place.lat) ||
+      !Number.isFinite(place.lng) ||
+      place.lat < -90 ||
+      place.lat > 90 ||
+      place.lng < -180 ||
+      place.lng > 180
+    ) {
       toast({
         title: "오류",
-        description: "Google Maps API가 로드되지 않았습니다.",
+        description: "유효한 위치 정보를 찾을 수 없습니다.",
         variant: "destructive",
       });
       return;
     }
 
-    try {
-      // Geocoding을 사용하여 검색어를 위치로 변환
-      const geocoder = new window.google.maps.Geocoder();
-      
-      geocoder.geocode(
-        { 
-          address: searchText, 
-          componentRestrictions: { country: "kr" }, 
-        },
-        (results: any, status: any) => {
-          if (status === window.google.maps.GeocoderStatus.OK && results?.[0]) {
-            const lat = results[0].geometry.location.lat();
-            const lng = results[0].geometry.location.lng();
-            
-            // 검색한 위치로 검색 페이지 이동
-            router.push(`/search?lat=${lat}&lng=${lng}&distance=5&searchLocation=${encodeURIComponent(searchText)}`);
-          } else {
-            // Geocoding이 실패한 경우 검색 페이지로 fallback
-            router.push(`/search?search=${encodeURIComponent(searchText)}`);
-          }
-        },
-      );
-    } catch (error) {
-      console.error("Geocoding error:", error);
-      // 오류 발생 시 검색 페이지로 fallback
-      router.push(`/search?search=${encodeURIComponent(searchText)}`);
-    }
+    router.push(`/map?lat=${place.lat}&lng=${place.lng}&distance=5`);
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#F5F5F5] flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#FF5722]"></div>
+      <div
+        className="min-h-screen bg-background flex items-center justify-center"
+        role="status"
+        aria-busy="true"
+      >
+        <div className="motion-safe:animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+        <span className="sr-only">가게 정보를 불러오는 중입니다.</span>
       </div>
     );
   }
 
   if (!store) {
     return (
-      <div className="min-h-screen bg-[#F5F5F5] flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
-          <h2 className="text-xl font-semibold text-gray-700 mb-2">
+          <h2 className="text-xl font-semibold text-foreground mb-2">
             가게를 찾을 수 없습니다
           </h2>
           <Button onClick={handleGoBack} variant="outline">
@@ -293,25 +301,48 @@ return;
     );
   }
 
+  const photos =
+    store.imageUrls?.map((url) => url.trim()).filter(Boolean) || [];
+  const distance = store.distance?.trim();
+  const distanceLabel =
+    distance && /^\d+(?:\.\d+)?$/.test(distance) ? `${distance}km` : distance;
+  const rating =
+    typeof store.avgRating === "number" &&
+    Number.isFinite(store.avgRating) &&
+    store.avgRating > 0
+      ? store.avgRating
+      : null;
+  const saved = isFavorite(store.id);
+  const handlePhotoError = (url: string) => {
+    setFailedImages((previous) => new Set(previous).add(url));
+  };
+
   return (
-    <div className="min-h-screen bg-[#F5F5F5]">
+    <div className="min-h-screen bg-background text-foreground">
       {/* 헤더 */}
-      <div className="bg-white border-b border-gray-200 sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-2 py-3">
-          <div className="flex items-center">
-            {/* 왼쪽: 빈 공간 */}
-            <div className="w-60">
-            </div>
-            
+      <header className="bg-background border-b border-border sticky top-0 z-30">
+        <div className="max-w-6xl mx-auto px-4 py-3 md:px-6">
+          <div className="flex flex-wrap items-center gap-3 md:gap-6">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleGoBack}
+              aria-label="이전 페이지로 돌아가기"
+              className="flex-shrink-0"
+            >
+              <ArrowLeft className="h-5 w-5" aria-hidden="true" />
+            </Button>
+
             {/* 중간: 로고 + 프로젝트명 + 검색창 */}
-            <div className="flex items-center gap-12 flex-1 justify-center">
-              <button 
+            <div className="contents">
+              <button
                 onClick={() => router.push("/map")}
-                className="flex items-center space-x-2 hover:opacity-80 transition-opacity"
+                className="flex items-center space-x-2 rounded-md text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                aria-label="Refill Spot 가게 지도"
               >
-                <div className="bg-gradient-to-br from-orange-500 to-red-500 rounded-lg p-2">
+                <div className="bg-primary rounded-lg p-2">
                   <svg
-                    className="w-6 h-6 text-white"
+                    className="w-5 h-5 text-primary-foreground"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -325,29 +356,37 @@ return;
                   </svg>
                 </div>
                 <div>
-                  <h1 className="text-xl font-bold text-gray-900">Refill-spot</h1>
-                  <p className="text-xs text-gray-500">무한리필 가게 찾기</p>
+                  <span className="text-base font-semibold text-foreground md:text-lg">
+                    Refill Spot
+                  </span>
+                  <p className="hidden text-xs text-muted-foreground sm:block">
+                    우리 동네 무한리필 찾기
+                  </p>
                 </div>
               </button>
               <SearchInput
-                className="flex-1 max-w-lg"
+                className="order-last w-full md:order-none md:min-w-0 md:flex-1 md:max-w-xl"
                 onPlaceSelect={handlePlaceSelect}
-                onManualSearch={handleManualSearch}
                 placeholder="지역, 주소를 입력하세요"
               />
             </div>
-            
+
             {/* 오른쪽: 로그인/사용자 정보 */}
-            <div className="flex items-center gap-3 w-60 justify-end">
+            <div className="ml-auto flex flex-shrink-0 items-center gap-3 justify-end">
               {authLoading ? (
-                <div className="animate-pulse flex items-center space-x-2">
-                  <div className="h-8 w-8 bg-gray-300 rounded-full"></div>
-                  <div className="h-4 w-16 bg-gray-300 rounded hidden md:block"></div>
+                <div className="motion-safe:animate-pulse flex items-center space-x-2">
+                  <div className="h-8 w-8 bg-muted rounded-full"></div>
+                  <div className="h-4 w-16 bg-muted rounded hidden md:block"></div>
                 </div>
               ) : user ? (
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="sm" className="relative">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="relative"
+                      aria-label="내 계정 메뉴"
+                    >
                       <User className="h-5 w-5" />
                       {profile?.username && (
                         <span className="ml-2 hidden md:inline">
@@ -362,7 +401,7 @@ return;
                         onClick={() => router.push("/profile")}
                         className="w-full flex items-center"
                       >
-                        <Settings className="h-4 w-4 mr-2 text-[#9C27B0]" />
+                        <Settings className="h-4 w-4 mr-2 text-muted-foreground" />
                         프로필 설정
                       </button>
                     </DropdownMenuItem>
@@ -371,7 +410,7 @@ return;
                         onClick={() => router.push("/my-reviews")}
                         className="w-full flex items-center"
                       >
-                        <Star className="h-4 w-4 mr-2 text-yellow-500" />
+                        <Star className="h-4 w-4 mr-2 text-primary" />
                         내가 작성한 리뷰
                       </button>
                     </DropdownMenuItem>
@@ -380,7 +419,7 @@ return;
                         onClick={() => router.push("/favorites")}
                         className="w-full flex items-center"
                       >
-                        <Heart className="h-4 w-4 mr-2 text-[#FF5722]" />
+                        <Heart className="h-4 w-4 mr-2 text-primary" />
                         즐겨찾기한 가게 보기
                       </button>
                     </DropdownMenuItem>
@@ -398,7 +437,7 @@ return;
                         <DropdownMenuItem asChild>
                           <button
                             onClick={() => router.push("/admin/announcements")}
-                            className="w-full flex items-center text-blue-600"
+                            className="w-full flex items-center text-primary"
                           >
                             <Settings className="h-4 w-4 mr-2" />
                             공지사항 관리
@@ -407,7 +446,7 @@ return;
                         <DropdownMenuItem asChild>
                           <button
                             onClick={() => router.push("/admin/contacts")}
-                            className="w-full flex items-center text-blue-600"
+                            className="w-full flex items-center text-primary"
                           >
                             <Settings className="h-4 w-4 mr-2" />
                             문의 관리
@@ -419,7 +458,7 @@ return;
                     <DropdownMenuItem asChild>
                       <button
                         onClick={handleLogout}
-                        className="w-full flex items-center text-red-600"
+                        className="w-full flex items-center text-destructive"
                       >
                         <LogOut className="h-4 w-4 mr-2" />
                         로그아웃
@@ -430,8 +469,11 @@ return;
               ) : (
                 <Button
                   onClick={() => {
-                    const currentUrl = window.location.pathname + window.location.search;
-                    router.push(`/login?returnUrl=${encodeURIComponent(currentUrl)}`);
+                    const currentUrl =
+                      window.location.pathname + window.location.search;
+                    router.push(
+                      `/login?returnUrl=${encodeURIComponent(currentUrl)}`,
+                    );
                   }}
                   variant="outline"
                   size="sm"
@@ -442,155 +484,309 @@ return;
             </div>
           </div>
         </div>
-      </div>
+      </header>
 
       {/* 메인 콘텐츠 */}
-      <div className="w-full pt-6">
+      <main className="w-full pt-4 md:pt-6">
         <div className="space-y-6">
-          {/* 가게 메인 이미지 - 다이닝코드 스타일 */}
+          {/* 매장 사진과 방문 정보 */}
           <div className="max-w-4xl mx-auto px-4">
-            <div className="relative w-full min-h-[20rem] max-h-[32rem] bg-gray-100 overflow-hidden rounded-lg flex items-center justify-center">
-            {store.imageUrls && store.imageUrls.length > 0 ? (
-              <img
-                src={store.imageUrls[0]}
-                alt={`${store.name} 대표 사진`}
-                className="w-full h-auto max-h-full object-contain"
-                onError={(e) => {
-                  const target = e.target as HTMLImageElement;
-                  target.style.display = "none";
-                  const parent = target.parentElement;
-                  if (parent) {
-                    parent.innerHTML = `
-                      <div class="w-full h-full flex items-center justify-center text-gray-400 bg-gray-100">
-                        <div class="text-center">
-                          <svg class="w-16 h-16 mx-auto mb-2" fill="currentColor" viewBox="0 0 20 20">
-                            <path fill-rule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clip-rule="evenodd" />
-                          </svg>
-                          <p class="text-sm">이미지를 불러올 수 없습니다</p>
-                        </div>
-                      </div>
-                    `;
-                  }
-                }}
-              />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center text-gray-400 bg-gray-100">
-                <div className="text-center">
-                  <svg className="w-16 h-16 mx-auto mb-2" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd" />
-                  </svg>
-                  <p className="text-sm">이미지를 불러올 수 없습니다</p>
+            <figure>
+              {photos.length > 0 ? (
+                <Carousel
+                  className="overflow-hidden rounded-xl bg-muted"
+                  aria-label="매장 사진"
+                >
+                  <CarouselContent>
+                    {photos.map((url, index) => (
+                      <CarouselItem
+                        key={`${url}-${index}`}
+                        aria-label={`사진 ${index + 1} / ${photos.length}`}
+                      >
+                        {failedImages.has(url) ? (
+                          <div className="flex h-56 flex-col items-center justify-center gap-3 text-muted-foreground sm:h-72 md:h-96">
+                            <Utensils className="h-8 w-8" aria-hidden="true" />
+                            <p className="text-sm">
+                              사진을 불러올 수 없습니다.
+                            </p>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            className="relative block h-56 w-full focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-4px] focus-visible:outline-ring sm:h-72 md:h-96"
+                            onClick={(event) => {
+                              photoTriggerRef.current = event.currentTarget;
+                              setPhotoIndex(index);
+                            }}
+                            aria-label={`${store.name} 사진 ${index + 1} 크게 보기`}
+                          >
+                            <Image
+                              src={url}
+                              alt={`${store.name} 사진 ${index + 1}`}
+                              fill
+                              sizes="(max-width: 768px) 100vw, 864px"
+                              className="object-cover"
+                              unoptimized
+                              loading={index === 0 ? "eager" : "lazy"}
+                              onError={() => handlePhotoError(url)}
+                            />
+                            <span className="absolute bottom-3 right-3 flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-xs font-medium text-card-foreground">
+                              <Expand
+                                className="h-3.5 w-3.5"
+                                aria-hidden="true"
+                              />
+                              크게 보기
+                            </span>
+                          </button>
+                        )}
+                      </CarouselItem>
+                    ))}
+                  </CarouselContent>
+                  {photos.length > 1 && (
+                    <>
+                      <CarouselPrevious
+                        className="left-3 h-10 w-10 shadow-none"
+                        aria-label="이전 매장 사진"
+                      />
+                      <CarouselNext
+                        className="right-3 h-10 w-10 shadow-none"
+                        aria-label="다음 매장 사진"
+                      />
+                    </>
+                  )}
+                </Carousel>
+              ) : (
+                <div className="flex min-h-48 flex-col items-center justify-center gap-3 rounded-xl border border-border bg-muted px-4 py-8 text-center text-muted-foreground">
+                  <Utensils className="h-8 w-8" aria-hidden="true" />
+                  <p className="text-sm">아직 등록된 매장 사진이 없습니다.</p>
+                  <p className="text-xs">
+                    메뉴와 방문 정보를 아래에서 확인해보세요.
+                  </p>
                 </div>
-              </div>
-            )}
-            
-            {/* 오버레이 그라데이션 */}
-            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent"></div>
-            
-            {/* 상단 액션 버튼들 */}
-            <div className="absolute top-4 right-4 flex gap-2">
-              <Button
-                variant="secondary"
-                size="sm"
-                className="bg-white/90 text-gray-700 hover:bg-white"
-                onClick={handleToggleFavorite}
-              >
-                <Heart 
-                  className={`w-4 h-4 mr-1 ${
-                    store && isFavorite(store.id) 
-                      ? "fill-red-500 text-red-500" 
-                      : ""
-                  }`} 
-                />
-                {store && isFavorite(store.id) ? "저장됨" : "저장"}
-              </Button>
-              <Button
-                variant="secondary"
-                size="sm"
-                className="bg-white/90 text-gray-700 hover:bg-white"
-                onClick={handleShare}
-              >
-                <Share className="w-4 h-4 mr-1" />
-                공유
-              </Button>
-              <Button
-                variant="secondary"
-                size="sm"
-                className="bg-white/90 text-gray-700 hover:bg-white"
-                onClick={() => setShowReviewDialog(true)}
-              >
-                <Star className="w-4 h-4 mr-1" />
-                리뷰 작성
-              </Button>
-            </div>
-            
-            {/* 하단 가게 정보 오버레이 */}
-            <div className="absolute bottom-0 left-0 right-0 p-6 text-white">
-              <div className="max-w-4xl mx-auto px-4">
-                <h1 className="text-3xl font-bold mb-2">{store.name}</h1>
-                
-                {/* 평점 정보 */}
-                <div className="flex items-center gap-4 mb-3">
-                  <div className="flex items-center gap-3">
-                    {(store.rating.naver > 0 || store.rating.kakao > 0) && (
-                      <div className="flex items-center gap-2">
-                        <Star className="w-5 h-5 text-yellow-400 fill-current" />
-                        <span className="text-lg font-semibold">
-                          {store.rating.naver > 0 ? store.rating.naver : store.rating.kakao}
+              )}
+              {photos.length > 0 && (
+                <figcaption className="mt-2 text-xs text-muted-foreground">
+                  매장 사진 {photos.length}장 · 사진을 눌러 크게 볼 수 있어요
+                </figcaption>
+              )}
+            </figure>
+
+            <Card className="mt-4 border-border shadow-none">
+              <CardContent className="space-y-4 p-4 md:p-6">
+                <div className="flex flex-wrap items-start justify-between gap-4">
+                  <div className="min-w-0 flex-1 basis-48">
+                    <h1 className="break-words text-2xl font-semibold leading-snug md:text-3xl">
+                      {store.name}
+                    </h1>
+                    <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2 text-sm">
+                      {rating !== null && (
+                        <span className="inline-flex items-center gap-1.5 font-semibold">
+                          <Star
+                            className="h-4 w-4 fill-primary text-primary"
+                            aria-hidden="true"
+                          />
+                          {rating.toFixed(1)}
+                          <span className="text-xs font-normal text-muted-foreground">
+                            자체 리뷰 평점
+                          </span>
                         </span>
-                        <span className="text-white/80 text-sm">
-                          ({store.rating.naver > 0 ? "네이버" : "카카오"} 평점)
+                      )}
+                      {typeof store.reviewCount === "number" && (
+                        <a
+                          href="#reviews-section"
+                          className="rounded-sm text-muted-foreground underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        >
+                          자체 리뷰 {store.reviewCount}개
+                        </a>
+                      )}
+                      {rating === null && (
+                        <span className="text-muted-foreground">
+                          {store.reviewCount === 0
+                            ? "아직 작성된 자체 리뷰가 없습니다"
+                            : "자체 리뷰 평점 정보 없음"}
                         </span>
-                      </div>
-                    )}
-                  </div>
-                  {store.distance && (
-                    <div className="text-white/80 text-sm">
-                      현재 위치에서 {store.distance}km
+                      )}
+                      {distanceLabel && (
+                        <span className="font-medium text-muted-foreground">
+                          {distanceLabel}
+                        </span>
+                      )}
                     </div>
-                  )}
-                </div>
-                
-                {/* 주소 */}
-                <div className="flex items-center gap-2 mb-3">
-                  <MapPin className="w-4 h-4 text-white/80" />
-                  <span className="text-white/90 text-sm">{store.address}</span>
-                </div>
-                
-                {/* 카테고리 태그 */}
-                <div className="flex flex-wrap gap-2">
-                  {store.categories.map((category, index) => (
-                    <span
-                      key={index}
-                      className="px-2 py-1 bg-white/20 text-white text-xs rounded-full"
+                    <div className="mt-3">
+                      <ExternalRatings ratings={store.rating} />
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className={`h-10 gap-1.5 ${saved ? "border-primary text-primary" : ""}`}
+                      onClick={handleToggleFavorite}
+                      aria-label={`${store.name} 즐겨찾기 ${saved ? "해제" : "추가"}`}
+                      aria-pressed={saved}
                     >
-                      #{category}
-                    </span>
+                      <Heart
+                        className={`h-4 w-4 ${saved ? "fill-primary text-primary" : ""}`}
+                        aria-hidden="true"
+                      />
+                      {saved ? "저장됨" : "저장"}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-10 gap-1.5"
+                      onClick={handleShare}
+                      aria-label={`${store.name} 공유`}
+                    >
+                      <Share className="h-4 w-4" aria-hidden="true" />
+                      공유
+                    </Button>
+                    <Button
+                      size="sm"
+                      className="h-10 gap-1.5"
+                      onClick={() => setShowReviewDialog(true)}
+                    >
+                      <Star className="h-4 w-4" aria-hidden="true" />
+                      리뷰 작성
+                    </Button>
+                  </div>
+                </div>
+                <address className="flex items-start gap-2 text-sm not-italic text-muted-foreground">
+                  <MapPin
+                    className="mt-0.5 h-4 w-4 flex-shrink-0"
+                    aria-hidden="true"
+                  />
+                  <span>{store.address}</span>
+                </address>
+                <div className="flex flex-wrap items-center gap-2">
+                  {store.categories.map((category, index) => (
+                    <Badge
+                      key={index}
+                      variant="secondary"
+                      className="text-xs font-normal"
+                    >
+                      {category}
+                    </Badge>
                   ))}
-                  {store.refillItems && Array.isArray(store.refillItems) && store.refillItems.length > 0 && (
-                    <span className="px-2 py-1 bg-[#FF5722]/80 text-white text-xs rounded-full">
-                      #무한리필
-                    </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="ml-auto gap-1.5"
+                    onClick={handleViewInNaverMap}
+                  >
+                    <MapPin
+                      className="h-4 w-4 text-primary"
+                      aria-hidden="true"
+                    />
+                    네이버 길찾기
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* 메뉴와 가격 */}
+          <section
+            className="max-w-4xl mx-auto px-4"
+            aria-labelledby="menu-prices-heading"
+          >
+            <Card className="border-border shadow-none">
+              <CardHeader>
+                <CardTitle
+                  id="menu-prices-heading"
+                  className="flex items-center gap-2 text-lg"
+                >
+                  <Utensils
+                    className="h-5 w-5 text-primary"
+                    aria-hidden="true"
+                  />
+                  무한리필 메뉴와 가격
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div id="store-menu-list" className="space-y-2">
+                  {store.refillItems && store.refillItems.length > 0 ? (
+                    [...store.refillItems]
+                      .sort((a, b) => (a.order ?? 999) - (b.order ?? 999))
+                      .slice(0, showAllMenus ? store.refillItems.length : 3)
+                      .map((item: MenuItem, index: number) => (
+                        <div
+                          key={index}
+                          className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2 rounded-lg border border-border bg-muted/40 p-4"
+                        >
+                          <div className="min-w-0 flex-1 basis-40">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="break-words font-medium text-foreground">
+                                {item.name}
+                              </span>
+                              {item.is_recommended && (
+                                <Badge
+                                  variant="secondary"
+                                  className="text-xs font-normal"
+                                >
+                                  추천
+                                </Badge>
+                              )}
+                            </div>
+                            {item.type && (
+                              <p className="mt-1 text-sm text-muted-foreground">
+                                {item.type}
+                              </p>
+                            )}
+                          </div>
+                          <span className="break-words text-lg font-semibold text-primary">
+                            {item.price?.trim() || "가격 정보 없음"}
+                          </span>
+                        </div>
+                      ))
+                  ) : (
+                    <p className="rounded-lg bg-muted p-4 text-sm text-muted-foreground">
+                      등록된 메뉴·가격 정보가 없습니다.
+                    </p>
                   )}
                 </div>
-              </div>
-            </div>
-            </div>
-          </div>
+                {store.refillItems && store.refillItems.length > 3 && (
+                  <div className="mt-4 text-center">
+                    <Button
+                      variant="outline"
+                      onClick={() => setShowAllMenus(!showAllMenus)}
+                      className="gap-1.5 text-primary"
+                      aria-expanded={showAllMenus}
+                      aria-controls="store-menu-list"
+                    >
+                      {showAllMenus ? (
+                        <ChevronUp className="h-4 w-4" aria-hidden="true" />
+                      ) : (
+                        <ChevronDown className="h-4 w-4" aria-hidden="true" />
+                      )}
+                      {showAllMenus ? "메뉴 접기" : "모든 메뉴 보기"}
+                    </Button>
+                  </div>
+                )}
+                <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
+                  가격과 이용 조건은 방문 전 매장에 확인해주세요.
+                </p>
+              </CardContent>
+            </Card>
+          </section>
 
           {/* 운영 정보 */}
           <div className="max-w-4xl mx-auto px-4">
-            <Card>
+            <Card className="border-border shadow-none">
               <CardHeader>
-                <div className="flex items-start justify-between">
-                  <CardTitle className="flex items-center gap-2">
-                    <Clock className="w-5 h-5 text-[#FF5722]" />
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <CardTitle className="flex items-center gap-2 text-lg">
+                    <Clock
+                      className="w-5 h-5 text-primary"
+                      aria-hidden="true"
+                    />
                     운영 정보
                   </CardTitle>
                   <div className="flex flex-col sm:flex-row gap-2">
                     <Button
                       onClick={() => setShowNaverPlatform(true)}
-                      className="bg-[#03C75A] hover:bg-[#02B351] text-white"
+                      variant="outline"
+                      className="text-foreground"
                       size="sm"
                     >
                       <Star className="w-4 h-4 mr-2" />
@@ -599,7 +795,7 @@ return;
                     <Button
                       onClick={() => setShowKakaoPlatform(true)}
                       variant="outline"
-                      className="border-[#FEE500] bg-[#FEE500] hover:bg-[#FDD835] text-black"
+                      className="text-foreground"
                       size="sm"
                     >
                       <Star className="w-4 h-4 mr-2" />
@@ -611,32 +807,53 @@ return;
               <CardContent className="space-y-4">
                 {/* 주소 */}
                 <div className="flex items-start gap-3">
-                  <MapPin className="w-5 h-5 text-gray-500 mt-0.5 flex-shrink-0" />
+                  <MapPin
+                    className="w-5 h-5 text-muted-foreground mt-0.5 flex-shrink-0"
+                    aria-hidden="true"
+                  />
                   <div>
-                    <h4 className="font-medium text-gray-900 mb-1">주소</h4>
-                    <p className="text-gray-700 text-sm">{store.address}</p>
+                    <h4 className="font-medium text-foreground mb-1">주소</h4>
+                    <p className="text-muted-foreground text-sm">
+                      {store.address}
+                    </p>
                   </div>
                 </div>
 
                 {/* 전화번호 */}
                 {store.phoneNumber && (
                   <div className="flex items-start gap-3">
-                    <Phone className="w-5 h-5 text-gray-500 mt-0.5 flex-shrink-0" />
+                    <Phone
+                      className="w-5 h-5 text-muted-foreground mt-0.5 flex-shrink-0"
+                      aria-hidden="true"
+                    />
                     <div>
-                      <h4 className="font-medium text-gray-900 mb-1">전화번호</h4>
-                      <p className="text-gray-700 text-sm">{store.phoneNumber}</p>
+                      <h4 className="font-medium text-foreground mb-1">
+                        전화번호
+                      </h4>
+                      <p className="text-muted-foreground text-sm">
+                        {store.phoneNumber}
+                      </p>
                     </div>
                   </div>
                 )}
 
                 {/* 카테고리 */}
                 <div className="flex items-start gap-3">
-                  <Utensils className="w-5 h-5 text-gray-500 mt-0.5 flex-shrink-0" />
+                  <Utensils
+                    className="w-5 h-5 text-muted-foreground mt-0.5 flex-shrink-0"
+                    aria-hidden="true"
+                  />
                   <div>
-                    <h4 className="font-medium text-gray-900 mb-2">카테고리</h4>
+                    <h4 className="font-medium text-foreground mb-2">
+                      카테고리
+                    </h4>
                     <div className="flex flex-wrap gap-2">
                       {store.categories.map((category, index) => (
-                        <Badge key={index} variant="secondary" className="text-xs">
+                        <Badge
+                          key={index}
+                          variant="secondary"
+                          className="text-xs"
+                        >
                           {category}
                         </Badge>
                       ))}
@@ -647,15 +864,27 @@ return;
                 {/* 운영시간 */}
                 {store.openHours && (
                   <div className="flex items-start gap-3">
-                    <Clock className="w-5 h-5 text-gray-500 mt-0.5 flex-shrink-0" />
-                    <div className="flex-1">
+                    <Clock
+                      className="w-5 h-5 text-muted-foreground mt-0.5 flex-shrink-0"
+                      aria-hidden="true"
+                    />
+                    <div className="min-w-0 flex-1">
                       <div className="flex items-center justify-between">
-                        <h4 className="font-medium text-gray-900 mb-1">운영시간</h4>
+                        <h4 className="font-medium text-foreground mb-1">
+                          운영시간
+                        </h4>
                         <Button
                           variant="ghost"
                           size="sm"
                           onClick={() => setShowAllHours(!showAllHours)}
-                          className="text-gray-500 hover:text-gray-700 p-1"
+                          className="h-10 w-10 p-2 text-muted-foreground hover:text-primary"
+                          aria-label={
+                            showAllHours
+                              ? "주간 운영시간 접기"
+                              : "주간 운영시간 보기"
+                          }
+                          aria-expanded={showAllHours}
+                          aria-controls="store-business-hours"
                         >
                           {showAllHours ? (
                             <ChevronUp className="w-4 h-4" />
@@ -664,28 +893,47 @@ return;
                           )}
                         </Button>
                       </div>
-                      <div className="text-gray-700 text-sm">
+                      <div
+                        id="store-business-hours"
+                        className="text-foreground text-sm"
+                      >
                         {showAllHours ? (
                           <div className="space-y-3">
                             {(() => {
                               // 운영시간 파싱 로직
                               const parseBusinessHours = () => {
                                 if (!store.openHours) {
-return [];
-}
-                                
+                                  return [];
+                                }
+
                                 const hoursString = store.openHours;
-                                const dayPatterns = ["월", "화", "수", "목", "금", "토", "일"];
+                                const dayPatterns = [
+                                  "월",
+                                  "화",
+                                  "수",
+                                  "목",
+                                  "금",
+                                  "토",
+                                  "일",
+                                ];
                                 const parsedHours = [];
 
                                 // 라스트오더 정보 추출
-                                const lastOrderMatch = hoursString.match(/\(라스트오더:\s*([^)]+)\)/);
-                                const lastOrderTime = lastOrderMatch ? lastOrderMatch[1].trim() : null;
+                                const lastOrderMatch =
+                                  hoursString.match(
+                                    /\(라스트오더:\s*([^)]+)\)/,
+                                  );
+                                const lastOrderTime = lastOrderMatch
+                                  ? lastOrderMatch[1].trim()
+                                  : null;
 
                                 // 휴무일 정보 확인
                                 const closedDays = [];
                                 if (hoursString.includes("휴무")) {
-                                  const closedMatch = hoursString.match(/매주\s*([가-힣]+)요일\s*휴무/);
+                                  const closedMatch =
+                                    hoursString.match(
+                                      /매주\s*([가-힣]+)요일\s*휴무/,
+                                    );
                                   if (closedMatch) {
                                     const closedDayName = closedMatch[1];
                                     closedDays.push(closedDayName);
@@ -696,59 +944,95 @@ return [];
                                 for (const day of dayPatterns) {
                                   // 휴무일인지 확인
                                   if (closedDays.includes(day)) {
-                                    parsedHours.push({ day, hours: "휴무", isClosed: true, lastOrder: null });
+                                    parsedHours.push({
+                                      day,
+                                      hours: "휴무",
+                                      isClosed: true,
+                                      lastOrder: null,
+                                    });
                                     continue;
                                   }
 
                                   // "월: 11:30-23:30" 패턴 찾기
-                                  const regex = new RegExp(`${day}:\\s*([\\d:]+\\s*-\\s*[\\d:]+)`);
+                                  const regex = new RegExp(
+                                    `${day}:\\s*([\\d:]+\\s*-\\s*[\\d:]+)`,
+                                  );
                                   const match = hoursString.match(regex);
 
                                   if (match) {
                                     let hours = match[1].trim();
-                                    
+
                                     // 24시간 표기법 처리 (00:00-24:00)
                                     if (hours.includes("00:00-24:00")) {
                                       hours = "24시간 영업";
                                     }
 
-                                    parsedHours.push({ day, hours, isClosed: false, lastOrder: lastOrderTime });
+                                    parsedHours.push({
+                                      day,
+                                      hours,
+                                      isClosed: false,
+                                      lastOrder: lastOrderTime,
+                                    });
                                   } else {
                                     // 해당 요일이 없으면 정보 없음으로 처리
-                                    parsedHours.push({ day, hours: "정보 없음", isClosed: true, lastOrder: null });
+                                    parsedHours.push({
+                                      day,
+                                      hours: "정보 없음",
+                                      isClosed: false,
+                                      lastOrder: null,
+                                    });
                                   }
                                 }
 
                                 return parsedHours;
                               };
-                              
+
                               const businessHours = parseBusinessHours();
                               const today = new Date().getDay();
-                              const days = ["일", "월", "화", "수", "목", "금", "토"];
+                              const days = [
+                                "일",
+                                "월",
+                                "화",
+                                "수",
+                                "목",
+                                "금",
+                                "토",
+                              ];
                               const todayName = days[today];
-                              
+                              if (
+                                businessHours.every(
+                                  (item) => item.hours === "정보 없음",
+                                )
+                              ) {
+                                return (
+                                  <p className="whitespace-pre-line">
+                                    {store.openHours}
+                                  </p>
+                                );
+                              }
+
                               return businessHours.map((item, index) => (
                                 <div
                                   key={index}
-                                  className={`p-3 rounded-lg border-l-4 ${
+                                  className={`p-3 rounded-lg border ${
                                     item.day === todayName
-                                      ? "border-[#FF5722] bg-gradient-to-r from-orange-50 to-red-50"
-                                      : "border-gray-200 bg-gray-50"
+                                      ? "border-primary/40 bg-primary/5"
+                                      : "border-border bg-muted/40"
                                   }`}
                                 >
-                                  <div className="flex justify-between items-center">
+                                  <div className="flex flex-wrap justify-between items-start gap-2">
                                     <div className="flex items-center gap-2">
                                       <span
                                         className={`font-semibold ${
                                           item.day === todayName
-                                            ? "text-[#FF5722]"
-                                            : "text-gray-700"
+                                            ? "text-primary"
+                                            : "text-foreground"
                                         }`}
                                       >
                                         {item.day}요일
                                       </span>
                                       {item.day === todayName && (
-                                        <span className="text-xs bg-[#FF5722] text-white px-2 py-0.5 rounded-full">
+                                        <span className="text-xs bg-primary text-primary-foreground px-2 py-0.5 rounded-full">
                                           오늘
                                         </span>
                                       )}
@@ -757,14 +1041,14 @@ return [];
                                       <div
                                         className={`font-medium ${
                                           item.isClosed
-                                            ? "text-red-500"
-                                            : "text-gray-700"
+                                            ? "text-muted-foreground"
+                                            : "text-foreground"
                                         }`}
                                       >
                                         {item.hours}
                                       </div>
                                       {item.lastOrder && !item.isClosed && (
-                                        <div className="text-xs text-gray-500 mt-1">
+                                        <div className="text-xs text-muted-foreground mt-1">
                                           라스트오더: {item.lastOrder}
                                         </div>
                                       )}
@@ -778,30 +1062,53 @@ return [];
                           <div>
                             {(() => {
                               const today = new Date().getDay();
-                              const days = ["일", "월", "화", "수", "목", "금", "토"];
+                              const days = [
+                                "일",
+                                "월",
+                                "화",
+                                "수",
+                                "목",
+                                "금",
+                                "토",
+                              ];
                               const todayName = days[today];
-                              
+
                               // 오늘 요일에 해당하는 운영시간 찾기
-                              const regex = new RegExp(`${todayName}:\\s*([\\d:]+\\s*-\\s*[\\d:]+)`);
+                              const regex = new RegExp(
+                                `${todayName}:\\s*([\\d:]+\\s*-\\s*[\\d:]+)`,
+                              );
                               const match = store.openHours.match(regex);
-                              
+
                               // 라스트오더 정보 추출
-                              const lastOrderMatch = store.openHours.match(/\(라스트오더:\s*([^)]+)\)/);
-                              const lastOrderTime = lastOrderMatch ? lastOrderMatch[1].trim() : null;
-                              
+                              const lastOrderMatch =
+                                store.openHours.match(
+                                  /\(라스트오더:\s*([^)]+)\)/,
+                                );
+                              const lastOrderTime = lastOrderMatch
+                                ? lastOrderMatch[1].trim()
+                                : null;
+
                               return (
                                 <div>
-                                  <span className="font-medium text-[#FF5722]">오늘 ({todayName})</span>
+                                  <span className="font-medium text-primary">
+                                    {match
+                                      ? `오늘 (${todayName})`
+                                      : "등록된 운영시간"}
+                                  </span>
                                   <br />
                                   {match ? (
                                     <div>
                                       {match[1]}
                                       {lastOrderTime && (
-                                        <span className="text-gray-500 ml-2">(라스트오더: {lastOrderTime})</span>
+                                        <span className="text-muted-foreground ml-2">
+                                          (라스트오더: {lastOrderTime})
+                                        </span>
                                       )}
                                     </div>
                                   ) : (
-                                    "운영시간 정보를 확인해주세요"
+                                    <p className="whitespace-pre-line">
+                                      {store.openHours}
+                                    </p>
                                   )}
                                 </div>
                               );
@@ -812,101 +1119,48 @@ return [];
                     </div>
                   </div>
                 )}
-
               </CardContent>
             </Card>
           </div>
 
-          {/* 메뉴 정보 */}
-          {store.refillItems && Array.isArray(store.refillItems) && store.refillItems.length > 0 && (
-            <div className="max-w-4xl mx-auto px-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Utensils className="w-5 h-5 text-[#FF5722]" />
-                    메뉴 정보
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    {store.refillItems
-                      .sort((a, b) => {
-                        // order 필드를 기준으로 정렬
-                        const orderA = typeof a === "object" && a.order ? a.order : 999;
-                        const orderB = typeof b === "object" && b.order ? b.order : 999;
-                        return orderA - orderB;
-                      })
-                      .slice(0, showAllMenus ? store.refillItems.length : 3)
-                      .map((item: MenuItem, index: number) => (
-                        <div
-                          key={index}
-                          className="flex items-center p-3 bg-white rounded-lg hover:bg-gray-100 transition-colors"
-                        >
-                          <div className="flex items-center gap-3">
-                            <span className="font-medium text-gray-900">
-                              {typeof item === "string" ? item : item.name}
-                            </span>
-                            {typeof item === "object" && item.is_recommended && (
-                              <Badge className="bg-[#FF5722] text-white text-xs">
-                                추천
-                              </Badge>
-                            )}
-                          </div>
-                          <div className="flex-1 mx-4 border-b-2 border-dotted border-gray-400"></div>
-                          <div className="text-right">
-                            <span className="font-semibold text-[#FF5722]">
-                              {typeof item === "string" ? "" : item.price || "가격 문의"}
-                            </span>
-                          </div>
-                        </div>
-                      ))}
-                  </div>
-                  {store.refillItems.length > 3 && (
-                    <div className="mt-4 text-center">
-                      <Button
-                        variant="outline"
-                        onClick={() => setShowAllMenus(!showAllMenus)}
-                        className="text-[#FF5722] border-[#FF5722] hover:bg-[#FF5722] hover:text-white"
-                      >
-                        {showAllMenus ? (
-                          <>
-                            <ChevronUp className="w-4 h-4 mr-2" />
-                            접기
-                          </>
-                        ) : (
-                          <>
-                            <ChevronDown className="w-4 h-4 mr-2" />
-                            더보기
-                          </>
-                        )}
-                      </Button>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
-          )}
-
           {/* 이미지 갤러리 */}
-          {store.imageUrls && store.imageUrls.length > 1 && (
+          {photos.length > 1 && (
             <div className="max-w-4xl mx-auto px-4">
-              <Card>
+              <Card className="border-border shadow-none">
                 <CardHeader>
-                  <CardTitle>추가 사진</CardTitle>
+                  <CardTitle className="text-lg">추가 사진</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                    {store.imageUrls.slice(1).map((url, index) => (
-                      <div
-                        key={index}
-                        className="aspect-square relative rounded-lg overflow-hidden"
+                    {photos.slice(1).map((url, index) => (
+                      <button
+                        key={`${url}-${index}`}
+                        type="button"
+                        className="aspect-square relative rounded-lg overflow-hidden bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                        onClick={(event) => {
+                          photoTriggerRef.current = event.currentTarget;
+                          setPhotoIndex(index + 1);
+                        }}
+                        aria-label={`${store.name} 사진 ${index + 2} 크게 보기`}
+                        disabled={failedImages.has(url)}
                       >
-                        <img
-                          src={url}
-                          alt={`${store.name} 사진 ${index + 2}`}
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
+                        {failedImages.has(url) ? (
+                          <span className="flex h-full items-center justify-center px-3 text-xs text-muted-foreground">
+                            사진을 불러올 수 없습니다.
+                          </span>
+                        ) : (
+                          <Image
+                            src={url}
+                            alt={`${store.name} 사진 ${index + 2}`}
+                            fill
+                            sizes="(max-width: 768px) 50vw, 288px"
+                            className="object-cover"
+                            unoptimized
+                            loading="lazy"
+                            onError={() => handlePhotoError(url)}
+                          />
+                        )}
+                      </button>
                     ))}
                   </div>
                 </CardContent>
@@ -916,30 +1170,103 @@ return [];
 
           {/* 리뷰 섹션 */}
           <div className="max-w-4xl mx-auto px-4">
-            <div id="reviews-section">
-              <StoreReviews 
+            <div id="reviews-section" className="scroll-mt-36">
+              <StoreReviews
                 storeId={store.id}
                 storeName={store.name}
                 key={refreshReviews}
+                onReviewChanged={handleReviewChanged}
               />
             </div>
           </div>
         </div>
-      </div>
+      </main>
+
+      <Dialog
+        open={photoIndex !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setPhotoIndex(null);
+          }
+        }}
+      >
+        <DialogContent
+          className="max-h-[95dvh] w-[calc(100%_-_2rem)] max-w-5xl overflow-y-auto rounded-xl border-border bg-card p-4 shadow-none md:p-6"
+          onCloseAutoFocus={(event) => {
+            event.preventDefault();
+            photoTriggerRef.current?.focus();
+          }}
+        >
+          <DialogHeader className="pr-8 text-left">
+            <DialogTitle>{store.name} 사진</DialogTitle>
+            <DialogDescription>
+              등록된 사진 {photos.length}장입니다. 좌우 버튼 또는 방향키로
+              사진을 넘길 수 있습니다.
+            </DialogDescription>
+          </DialogHeader>
+          {photoIndex !== null && (
+            <Carousel
+              opts={{ startIndex: photoIndex }}
+              aria-label="전체 매장 사진"
+            >
+              <CarouselContent>
+                {photos.map((url, index) => (
+                  <CarouselItem
+                    key={`${url}-${index}`}
+                    aria-label={`사진 ${index + 1} / ${photos.length}`}
+                  >
+                    <div className="relative flex h-[65dvh] items-center justify-center overflow-hidden rounded-lg bg-muted md:h-[72dvh]">
+                      {failedImages.has(url) ? (
+                        <p className="text-sm text-muted-foreground">
+                          사진을 불러올 수 없습니다.
+                        </p>
+                      ) : (
+                        <Image
+                          src={url}
+                          alt={`${store.name} 전체 사진 ${index + 1}`}
+                          fill
+                          sizes="(max-width: 768px) 100vw, 1024px"
+                          className="object-contain"
+                          unoptimized
+                          loading="lazy"
+                          onError={() => handlePhotoError(url)}
+                        />
+                      )}
+                    </div>
+                  </CarouselItem>
+                ))}
+              </CarouselContent>
+              {photos.length > 1 && (
+                <div className="mt-3 flex justify-center gap-3">
+                  <CarouselPrevious
+                    className="static h-10 w-10 translate-y-0 shadow-none"
+                    aria-label="이전 전체 사진"
+                  />
+                  <CarouselNext
+                    className="static h-10 w-10 translate-y-0 shadow-none"
+                    aria-label="다음 전체 사진"
+                  />
+                </div>
+              )}
+            </Carousel>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Footer */}
-      <footer className="bg-white border-t border-gray-200 mt-12">
+      <footer className="bg-card border-t border-border mt-12">
         <div className="max-w-4xl mx-auto px-4 py-8">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {/* 로고 및 설명 */}
             <div className="space-y-4">
               <div className="flex items-center space-x-2">
-                <div className="bg-gradient-to-br from-orange-500 to-red-500 rounded-lg p-2">
+                <div className="bg-primary rounded-lg p-2">
                   <svg
-                    className="w-6 h-6 text-white"
+                    className="w-6 h-6 text-primary-foreground"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
+                    aria-hidden="true"
                   >
                     <path
                       strokeLinecap="round"
@@ -950,20 +1277,24 @@ return [];
                   </svg>
                 </div>
                 <div>
-                  <h3 className="text-lg font-bold text-gray-900">Refill-spot</h3>
-                  <p className="text-xs text-gray-500">무한리필 가게 찾기</p>
+                  <h3 className="text-lg font-semibold text-foreground">
+                    Refill Spot
+                  </h3>
+                  <p className="text-xs text-muted-foreground">
+                    우리 동네 무한리필 찾기
+                  </p>
                 </div>
               </div>
             </div>
 
             {/* 서비스 링크 */}
             <div className="space-y-4">
-              <h4 className="text-sm font-semibold text-gray-900">서비스</h4>
-              <ul className="space-y-2 text-sm text-gray-600">
+              <h4 className="text-sm font-semibold text-foreground">서비스</h4>
+              <ul className="space-y-2 text-sm text-muted-foreground">
                 <li>
                   <button
                     onClick={() => router.push("/")}
-                    className="hover:text-[#FF5722] transition-colors"
+                    className="rounded-sm hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
                     서비스 소개
                   </button>
@@ -971,7 +1302,7 @@ return [];
                 <li>
                   <button
                     onClick={() => router.push("/map")}
-                    className="hover:text-[#FF5722] transition-colors"
+                    className="rounded-sm hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
                     가게 찾기
                   </button>
@@ -979,7 +1310,7 @@ return [];
                 <li>
                   <button
                     onClick={() => router.push("/announcements")}
-                    className="hover:text-[#FF5722] transition-colors"
+                    className="rounded-sm hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
                     공지사항
                   </button>
@@ -987,7 +1318,7 @@ return [];
                 <li>
                   <button
                     onClick={() => router.push("/contact")}
-                    className="hover:text-[#FF5722] transition-colors"
+                    className="rounded-sm hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
                     문의하기
                   </button>
@@ -997,14 +1328,14 @@ return [];
 
             {/* 계정 링크 */}
             <div className="space-y-4">
-              <h4 className="text-sm font-semibold text-gray-900">계정</h4>
-              <ul className="space-y-2 text-sm text-gray-600">
+              <h4 className="text-sm font-semibold text-foreground">계정</h4>
+              <ul className="space-y-2 text-sm text-muted-foreground">
                 {user && profile ? (
                   <>
                     <li>
                       <button
                         onClick={() => router.push("/profile")}
-                        className="hover:text-[#FF5722] transition-colors"
+                        className="rounded-sm hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                       >
                         프로필
                       </button>
@@ -1012,7 +1343,7 @@ return [];
                     <li>
                       <button
                         onClick={() => router.push("/favorites")}
-                        className="hover:text-[#FF5722] transition-colors"
+                        className="rounded-sm hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                       >
                         즐겨찾기
                       </button>
@@ -1022,10 +1353,13 @@ return [];
                   <li>
                     <button
                       onClick={() => {
-                        const currentUrl = window.location.pathname + window.location.search;
-                        router.push(`/login?returnUrl=${encodeURIComponent(currentUrl)}`);
+                        const currentUrl =
+                          window.location.pathname + window.location.search;
+                        router.push(
+                          `/login?returnUrl=${encodeURIComponent(currentUrl)}`,
+                        );
                       }}
-                      className="hover:text-[#FF5722] transition-colors"
+                      className="rounded-sm hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     >
                       로그인 / 회원가입
                     </button>
@@ -1036,35 +1370,50 @@ return [];
           </div>
 
           {/* 하단 구분선 및 저작권 */}
-          <div className="border-t border-gray-200 mt-8 pt-6 space-y-4">
+          <div className="border-t border-border mt-8 pt-6 space-y-4">
             {/* 약관 링크들 */}
-            <div className="flex flex-wrap justify-center gap-4 text-sm text-gray-500">
-              <a href="/privacy" target="_blank" rel="noopener noreferrer" className="hover:text-[#FF5722] transition-colors">
+            <div className="flex flex-wrap justify-center gap-4 text-sm text-muted-foreground">
+              <a
+                href="/privacy"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:text-primary"
+              >
                 개인정보처리방침
               </a>
               <span>|</span>
-              <a href="/terms" target="_blank" rel="noopener noreferrer" className="hover:text-[#FF5722] transition-colors">
+              <a
+                href="/terms"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:text-primary"
+              >
                 이용약관
               </a>
               <span>|</span>
-              <a href="/location-terms" target="_blank" rel="noopener noreferrer" className="hover:text-[#FF5722] transition-colors">
+              <a
+                href="/location-terms"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:text-primary"
+              >
                 위치기반 서비스 이용약관
               </a>
             </div>
 
             {/* 회사 정보 */}
-            <div className="text-center space-y-2 text-sm text-gray-500">
+            <div className="text-center space-y-2 text-sm text-muted-foreground">
               <div>
-                <span className="font-medium text-gray-700">(주)리필스팟</span>
+                <span className="font-medium text-foreground">
+                  (주)리필스팟
+                </span>
               </div>
-              <div>
-                이메일 문의 : refillspot.official@gmail.com
-              </div>
+              <div>이메일 문의 : refillspot.official@gmail.com</div>
             </div>
 
             {/* 저작권 */}
             <div className="text-center pt-4">
-              <p className="text-sm text-gray-500">
+              <p className="text-sm text-muted-foreground">
                 Copyright ⓒ 2025 Refill-spot
               </p>
             </div>
@@ -1079,9 +1428,7 @@ return [];
           onOpenChange={setShowReviewDialog}
           storeId={store.id}
           storeName={store.name}
-          onReviewSubmitted={() => {
-            setRefreshReviews(prev => prev + 1);
-          }}
+          onReviewSubmitted={handleReviewChanged}
         />
       )}
 
@@ -1120,10 +1467,12 @@ return [];
             </Button>
             <Button
               onClick={() => {
-                const currentUrl = window.location.pathname + window.location.search;
-                router.push(`/login?returnUrl=${encodeURIComponent(currentUrl)}`);
+                const currentUrl =
+                  window.location.pathname + window.location.search;
+                router.push(
+                  `/login?returnUrl=${encodeURIComponent(currentUrl)}`,
+                );
               }}
-              className="bg-[#FF5722] hover:bg-[#E64A19] text-white"
             >
               로그인하기
             </Button>

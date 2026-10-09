@@ -51,6 +51,17 @@ export async function GET(request: NextRequest) {
   const minRatingStr = searchParams.get("minRating");
   const categoriesStr = searchParams.get("categories");
   const queryStr = searchParams.get("query");
+  const minRating = minRatingStr ? parseFloat(minRatingStr) : 0;
+
+  if (minRating > 0 || searchParams.get("sort") === "rating") {
+    return errorResponse(
+      {
+        code: "EXTERNAL_RATINGS_UNAVAILABLE",
+        message: "외부 평점 검증 전에는 평점 필터와 정렬을 사용할 수 없습니다.",
+      },
+      503,
+    );
+  }
 
   try {
     const supabase = await createServerSupabaseClient();
@@ -60,7 +71,6 @@ export async function GET(request: NextRequest) {
       const latitude = parseFloat(latitudeStr);
       const longitude = parseFloat(longitudeStr);
       const radiusKm = radiusStr ? parseFloat(radiusStr) : 5;
-      const minRating = minRatingStr ? parseFloat(minRatingStr) : 0;
       const selectedCategories = categoriesStr ? categoriesStr.split(",") : [];
 
       // PostGIS 공간 쿼리로 거리 기반 필터링 및 정렬 (이미 거리순 정렬됨)
@@ -74,8 +84,8 @@ export async function GET(request: NextRequest) {
       );
 
       if (storeError) {
-throw storeError;
-}
+        throw storeError;
+      }
 
       console.log(
         `PostGIS 공간 쿼리: 중심점 (${latitude}, ${longitude}), 반경 ${radiusKm}km, 총 ${stores.length}개 가게 발견`,
@@ -95,39 +105,37 @@ throw storeError;
       // 가게별 리뷰 통계 계산
       const storeReviewStats = new Map<number, ReviewStats>();
       if (reviewStats) {
-        const statsGrouped = reviewStats.reduce((acc: GroupedReviews, review: ReviewData) => {
-          if (!acc[review.store_id]) {
-            acc[review.store_id] = [];
-          }
-          acc[review.store_id].push(review.rating);
-          return acc;
-        }, {});
+        const statsGrouped = reviewStats.reduce(
+          (acc: GroupedReviews, review: ReviewData) => {
+            if (!acc[review.store_id]) {
+              acc[review.store_id] = [];
+            }
+            acc[review.store_id].push(review.rating);
+            return acc;
+          },
+          {},
+        );
 
-        Object.entries(statsGrouped).forEach(([storeId, ratings]: [string, number[]]) => {
-          const avgRating = ratings.reduce((sum: number, rating: number) => sum + rating, 0) / ratings.length;
-          storeReviewStats.set(parseInt(storeId), {
-            avgRating: Math.round(avgRating * 10) / 10, // 소수점 첫째 자리까지 반올림
-            reviewCount: ratings.length,
-          });
-        });
+        Object.entries(statsGrouped).forEach(
+          ([storeId, ratings]: [string, number[]]) => {
+            const avgRating =
+              ratings.reduce((sum: number, rating: number) => sum + rating, 0) /
+              ratings.length;
+            storeReviewStats.set(parseInt(storeId), {
+              avgRating: Math.round(avgRating * 10) / 10, // 소수점 첫째 자리까지 반올림
+              reviewCount: ratings.length,
+            });
+          },
+        );
       }
 
       // PostGIS에서 이미 거리 계산과 정렬이 완료되었으므로 추가 필터링만 수행
       const filteredStores = stores
         .filter((store: DbStore) => {
-          // 평점 필터링 (네이버 또는 카카오 평점 중 하나라도 조건 만족)
-          const naverRating = store.naver_rating || 0;
-          const kakaoRating = store.kakao_rating || 0;
-          const maxRating = Math.max(naverRating, kakaoRating);
-
-          if (minRating > 0 && maxRating < minRating) {
-            return false;
-          }
-
           // 카테고리 필터링 (PostGIS 함수에서 categories가 JSON으로 반환됨)
           if (selectedCategories.length > 0) {
             let storeCategories: string[] = [];
-            
+
             // categories가 JSON인지 배열인지 확인하고 처리
             if (store.categories) {
               if (typeof store.categories === "string") {
@@ -138,30 +146,40 @@ throw storeError;
                 }
               } else if (Array.isArray(store.categories)) {
                 // 문자열 배열인지 객체 배열인지 확인
-                if (store.categories.length > 0 && typeof store.categories[0] === "string") {
+                if (
+                  store.categories.length > 0 &&
+                  typeof store.categories[0] === "string"
+                ) {
                   storeCategories = store.categories as string[];
-                } else if (store.categories.length > 0 && typeof store.categories[0] === "object") {
+                } else if (
+                  store.categories.length > 0 &&
+                  typeof store.categories[0] === "object"
+                ) {
                   // 객체 배열인 경우 이름만 추출
-                  storeCategories = (store.categories as Array<{ category: { name: string } }>)
-                    .map(item => item.category.name);
+                  storeCategories = (
+                    store.categories as Array<{ category: { name: string } }>
+                  ).map((item) => item.category.name);
                 } else {
                   storeCategories = [];
                 }
               } else if (typeof store.categories === "object") {
                 // JSON 객체인 경우 (PostGIS에서 반환된 경우)
                 if (Array.isArray(store.categories)) {
-                  storeCategories = (store.categories as Array<{ category: { name: string } }>)
-                    .map(item => item.category.name);
+                  storeCategories = (
+                    store.categories as Array<{ category: { name: string } }>
+                  ).map((item) => item.category.name);
                 } else {
                   storeCategories = [];
                 }
               }
             }
-            
-            const hasMatchingCategory = selectedCategories.some((category) =>
-              Array.isArray(storeCategories) && storeCategories.includes(category),
+
+            const hasMatchingCategory = selectedCategories.some(
+              (category) =>
+                Array.isArray(storeCategories) &&
+                storeCategories.includes(category),
             );
-            
+
             if (!hasMatchingCategory) {
               return false;
             }
@@ -183,7 +201,7 @@ throw storeError;
           // PostGIS에서 계산된 distance_km 사용
           const reviewStat = storeReviewStats.get(store.id);
           return mapStoreFromDb(
-            store as StoreFromDb, 
+            store as StoreFromDb,
             store.distance_km.toString(),
             reviewStat?.avgRating || null,
             reviewStat?.reviewCount || null,
@@ -226,38 +244,49 @@ throw storeError;
       );
 
       if (storeError) {
-throw storeError;
-}
+        throw storeError;
+      }
 
       // 기본 추천 가게들의 리뷰 통계 계산
       const defaultStoreIds = stores.map((store: DbStore) => store.id);
-      const { data: defaultReviewStats, error: defaultReviewStatsError } = await supabase
-        .from("reviews")
-        .select("store_id, rating")
-        .in("store_id", defaultStoreIds);
+      const { data: defaultReviewStats, error: defaultReviewStatsError } =
+        await supabase
+          .from("reviews")
+          .select("store_id, rating")
+          .in("store_id", defaultStoreIds);
 
       if (defaultReviewStatsError) {
-        console.error("기본 추천 가게 리뷰 통계 조회 오류:", defaultReviewStatsError);
+        console.error(
+          "기본 추천 가게 리뷰 통계 조회 오류:",
+          defaultReviewStatsError,
+        );
       }
 
       // 기본 추천 가게별 리뷰 통계 계산
       const defaultStoreReviewStats = new Map<number, ReviewStats>();
       if (defaultReviewStats) {
-        const statsGrouped = defaultReviewStats.reduce((acc: GroupedReviews, review: ReviewData) => {
-          if (!acc[review.store_id]) {
-            acc[review.store_id] = [];
-          }
-          acc[review.store_id].push(review.rating);
-          return acc;
-        }, {});
+        const statsGrouped = defaultReviewStats.reduce(
+          (acc: GroupedReviews, review: ReviewData) => {
+            if (!acc[review.store_id]) {
+              acc[review.store_id] = [];
+            }
+            acc[review.store_id].push(review.rating);
+            return acc;
+          },
+          {},
+        );
 
-        Object.entries(statsGrouped).forEach(([storeId, ratings]: [string, number[]]) => {
-          const avgRating = ratings.reduce((sum: number, rating: number) => sum + rating, 0) / ratings.length;
-          defaultStoreReviewStats.set(parseInt(storeId), {
-            avgRating: Math.round(avgRating * 10) / 10, // 소수점 첫째 자리까지 반올림
-            reviewCount: ratings.length,
-          });
-        });
+        Object.entries(statsGrouped).forEach(
+          ([storeId, ratings]: [string, number[]]) => {
+            const avgRating =
+              ratings.reduce((sum: number, rating: number) => sum + rating, 0) /
+              ratings.length;
+            defaultStoreReviewStats.set(parseInt(storeId), {
+              avgRating: Math.round(avgRating * 10) / 10, // 소수점 첫째 자리까지 반올림
+              reviewCount: ratings.length,
+            });
+          },
+        );
       }
 
       // PostGIS에서 이미 거리 계산과 정렬이 완료된 데이터 매핑
@@ -266,7 +295,7 @@ throw storeError;
         .map((store: DbStore) => {
           const reviewStat = defaultStoreReviewStats.get(store.id);
           return mapStoreFromDb(
-            store, 
+            store,
             store.distance_km.toString(),
             reviewStat?.avgRating || null,
             reviewStat?.reviewCount || null,

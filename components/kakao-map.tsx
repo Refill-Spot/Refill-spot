@@ -1,15 +1,19 @@
 "use client";
 
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/components/ui/use-toast";
 import { useGeolocation } from "@/hooks/use-geolocation";
+import { loadKakaoMaps } from "@/lib/kakao-sdk";
 import { mapLogger } from "@/lib/logger";
+import { reconcileSelectedStore } from "@/lib/map-selection";
+import {
+  formatStoreDistance,
+  getRepresentativeMenu,
+} from "@/lib/store-presentation";
 import { Store } from "@/types/store";
-import { MapPin, Star, X, ExternalLink, Phone } from "lucide-react";
+import { MapPin, X, ExternalLink, Navigation, Phone } from "lucide-react";
 import Link from "next/link";
-import Script from "next/script";
+import type { Ref } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 declare global {
@@ -25,9 +29,27 @@ interface KakaoMapProps {
   center?: { lat: number; lng: number } | null;
   selectedStore?: Store | null;
   onStoreSelect?: (store: Store | null) => void;
+  previewTitleRef?: Ref<HTMLHeadingElement>;
   onLocationChange?: (lat: number, lng: number) => void;
   onManualSearch?: (lat: number, lng: number) => void;
   isVisible?: boolean;
+}
+
+function createStoreMarkerImage(selected: boolean) {
+  const width = selected ? 32 : 24;
+  const height = selected ? 42 : 32;
+  const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 32 42">
+      <path d="M16 2C8.3 2 2 8.3 2 16c0 10 14 24 14 24s14-14 14-24C30 8.3 23.7 2 16 2Z" fill="#D65A2E" stroke="${selected ? "#292524" : "#FFFFFF"}" stroke-width="${selected ? 3 : 2}"/>
+      ${selected ? '<path d="m10 16 4 4 8-8" fill="none" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>' : '<circle cx="16" cy="15" r="4" fill="#FFFFFF"/>'}
+    </svg>
+  `;
+
+  return new window.kakao.maps.MarkerImage(
+    `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`,
+    new window.kakao.maps.Size(width, height),
+    { offset: new window.kakao.maps.Point(width / 2, height) },
+  );
 }
 
 export default function KakaoMap({
@@ -37,6 +59,7 @@ export default function KakaoMap({
   center,
   selectedStore: propSelectedStore,
   onStoreSelect,
+  previewTitleRef,
   onLocationChange,
   onManualSearch,
   isVisible = true,
@@ -51,48 +74,126 @@ export default function KakaoMap({
   const mapRef = useRef<HTMLDivElement>(null);
   const [kakaoMapLoaded, setKakaoMapLoaded] = useState(false);
   const [map, setMap] = useState<any>(null);
-  const [markers, setMarkers] = useState<any[]>([]);
-  const [markerClusters, setMarkerClusters] = useState<any>(null);
+  const mapInstanceRef = useRef<any>(null);
+  const mapCleanupRef = useRef<(() => void) | null>(null);
+  const markersRef = useRef<any[]>([]);
+  const markerClustersRef = useRef<any>(null);
+  const markerImagesRef = useRef<{ normal: any; selected: any } | null>(null);
   const [isMapInitialized, setIsMapInitialized] = useState(false);
-  const [selectedStore, setSelectedStore] = useState<Store | null>(
-    propSelectedStore || null,
-  );
+  const [internalSelectedStore, setInternalSelectedStore] =
+    useState<Store | null>(null);
+  const selectedStore =
+    propSelectedStore === undefined ? internalSelectedStore : propSelectedStore;
+  const selectedStoreRef = useRef(selectedStore);
+  const storesRef = useRef(stores);
+  const isControlledRef = useRef(propSelectedStore !== undefined);
+  const onStoreSelectRef = useRef(onStoreSelect);
+  const onLocationChangeRef = useRef(onLocationChange);
+  const lastPannedSelectionRef = useRef<{ map: any; key: string } | null>(null);
+  const lastMapSizeRef = useRef<{
+    map: any;
+    width: number;
+    height: number;
+  } | null>(null);
+  selectedStoreRef.current = selectedStore;
+  storesRef.current = stores;
+  isControlledRef.current = propSelectedStore !== undefined;
+  onStoreSelectRef.current = onStoreSelect;
+  onLocationChangeRef.current = onLocationChange;
   const { toast } = useToast();
   const geolocation = useGeolocation();
   const [locationError, setLocationError] = useState<string | null>(null);
-  const [userLocationMarker, setUserLocationMarker] = useState<any>(null);
-  const [isMapDragging, setIsMapDragging] = useState(false);
+  const userLocationMarkerRef = useRef<any>(null);
+  const isMapDraggingRef = useRef(false);
   const [showSearchButton, setShowSearchButton] = useState(false);
-  const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isManualSearchRef = useRef(false);
   const savedZoomLevelRef = useRef<number | null>(null);
 
+  const selectStore = useCallback((store: Store | null) => {
+    const currentStore = reconcileSelectedStore(store, storesRef.current);
+    if (!isControlledRef.current) {
+      setInternalSelectedStore(currentStore);
+    }
+    onStoreSelectRef.current?.(currentStore);
+  }, []);
+
+  const updateMarkerSelection = useCallback(() => {
+    if (!window.kakao?.maps || !mapInstanceRef.current) {
+      return;
+    }
+
+    const images = (markerImagesRef.current ??= {
+      normal: createStoreMarkerImage(false),
+      selected: createStoreMarkerImage(true),
+    });
+    const selectedId = selectedStoreRef.current?.id;
+    const cluster = markerClustersRef.current;
+    cluster?.clear();
+    markersRef.current.forEach((marker) => {
+      const selected = marker.store.id === selectedId;
+      marker.setImage(selected ? images.selected : images.normal);
+      marker.setZIndex(selected ? 10 : 0);
+      marker.setMap(selected || !cluster ? mapInstanceRef.current : null);
+    });
+    cluster?.addMarkers(
+      markersRef.current.filter((marker) => marker.store.id !== selectedId),
+    );
+  }, []);
+
+  const relayoutMap = useCallback(() => {
+    const currentMap = mapInstanceRef.current;
+    const container = mapRef.current;
+    if (
+      !currentMap ||
+      !container ||
+      !container.clientWidth ||
+      !container.clientHeight
+    ) {
+      return;
+    }
+    const width = container.clientWidth;
+    const height = container.clientHeight;
+    const previousSize = lastMapSizeRef.current;
+    if (
+      previousSize !== null &&
+      previousSize.map === currentMap &&
+      previousSize.width === width &&
+      previousSize.height === height
+    ) {
+      return;
+    }
+
+    const currentCenter = currentMap.getCenter();
+    currentMap.relayout();
+    currentMap.setCenter(currentCenter);
+    lastMapSizeRef.current = { map: currentMap, width, height };
+  }, []);
+
   // API 키 확인
-  const kakaoApiKey = process.env.NEXT_PUBLIC_KAKAO_API_KEY;
+  const kakaoApiKey = process.env.NEXT_PUBLIC_KAKAO_API_KEY?.trim();
 
   useEffect(() => {
-    if (!kakaoApiKey || kakaoApiKey === "demo") {
-      console.warn("카카오 지도 API 키가 설정되지 않았습니다.");
-      setLocationError(
-        "카카오 지도 API 키가 필요합니다. .env.local 파일에 NEXT_PUBLIC_KAKAO_API_KEY를 설정해주세요.",
-      );
-    }
-  }, [kakaoApiKey]);
-
-  // 컴포넌트 마운트 시 카카오 API 상태 확인
-  useEffect(() => {
-    if (window.kakao?.maps) {
-      console.log("카카오 API가 이미 로드되어 있음 - 즉시 사용 가능");
-      setKakaoMapLoaded(true);
-    }
-  }, []); // 마운트 시에만 실행
-
-  // props로 전달된 selectedStore가 변경되면 내부 상태 업데이트
-  useEffect(() => {
-    if (propSelectedStore) {
-      setSelectedStore(propSelectedStore);
-    }
-  }, [propSelectedStore]);
+    let active = true;
+    void loadKakaoMaps().then(
+      () => {
+        if (active) {
+          setKakaoMapLoaded(true);
+        }
+      },
+      (error: unknown) => {
+        if (active) {
+          setLocationError(
+            error instanceof Error
+              ? error.message
+              : "카카오 지도 SDK 로드 실패",
+          );
+        }
+      },
+    );
+    return () => {
+      active = false;
+    };
+  }, []);
 
   // stores props 변경 감지
   useEffect(() => {
@@ -102,35 +203,18 @@ export default function KakaoMap({
     });
   }, [stores]);
 
-  // 카카오 지도 API 로드 완료 핸들러
-  const handleKakaoMapLoaded = () => {
-    console.log("카카오 지도 스크립트 로드 완료");
-    if (window.kakao?.maps) {
-      console.log("카카오 지도 API 사용 가능");
-      setKakaoMapLoaded(true);
-    } else {
-      console.error("카카오 지도 API가 로드되지 않았습니다.");
-      setLocationError("카카오 지도 API 로드 실패");
-    }
-  };
-
   // 지도 이동 시 검색 버튼 표시 (자동 검색 비활성화)
-  const handleMapMove = useCallback(
-    (lat: number, lng: number) => {
-      console.log("📍 지도 이동 감지 - 전달받은 좌표:", { 
-        lat: lat.toFixed(8), 
-        lng: lng.toFixed(8),
-        rawLat: lat,
-        rawLng: lng,
-      });
-      setShowSearchButton(true);
-      // 위치 변경은 저장하지만 자동 검색은 하지 않음
-      if (onLocationChange) {
-        onLocationChange(lat, lng);
-      }
-    },
-    [onLocationChange],
-  );
+  const handleMapMove = useCallback((lat: number, lng: number) => {
+    console.log("📍 지도 이동 감지 - 전달받은 좌표:", {
+      lat: lat.toFixed(8),
+      lng: lng.toFixed(8),
+      rawLat: lat,
+      rawLng: lng,
+    });
+    setShowSearchButton(true);
+    // 위치 변경은 저장하지만 자동 검색은 하지 않음
+    onLocationChangeRef.current?.(lat, lng);
+  }, []);
 
   // 수동 검색 실행
   const handleManualSearch = useCallback(() => {
@@ -138,27 +222,27 @@ export default function KakaoMap({
       // 현재 줌 레벨 저장
       const currentLevel = map.getLevel();
       savedZoomLevelRef.current = currentLevel;
-      
+
       // 줌 레벨 제한 정보 확인
       console.log("🔍 지도 줌 레벨 정보:", {
         현재레벨: currentLevel,
         최소레벨: map.getMinLevel ? map.getMinLevel() : "확인불가",
         최대레벨: map.getMaxLevel ? map.getMaxLevel() : "확인불가",
       });
-      
+
       // 수동 검색 모드 활성화 (ref 사용으로 re-render 방지)
       isManualSearchRef.current = true;
       console.log("🔴 수동 검색 모드 활성화:", isManualSearchRef.current);
       console.log("💾 현재 줌 레벨 저장:", currentLevel);
-      
+
       // 지도가 완전히 안정화될 때까지 잠시 대기
       setTimeout(() => {
         if (map && onManualSearch) {
           const center = map.getCenter();
           const lat = center.getLat();
           const lng = center.getLng();
-          console.log("🎯 수동 검색 실행 - 최종 지도 중심점:", { 
-            lat: lat.toFixed(8), 
+          console.log("🎯 수동 검색 실행 - 최종 지도 중심점:", {
+            lat: lat.toFixed(8),
             lng: lng.toFixed(8),
             rawLat: lat,
             rawLng: lng,
@@ -192,7 +276,8 @@ export default function KakaoMap({
           new window.kakao.maps.LatLng(coordinates.lat, coordinates.lng),
         );
         // 현재 위치 마커 추가
-        new window.kakao.maps.Marker({
+        userLocationMarkerRef.current?.setMap(null);
+        userLocationMarkerRef.current = new window.kakao.maps.Marker({
           position: new window.kakao.maps.LatLng(
             coordinates.lat,
             coordinates.lng,
@@ -220,31 +305,19 @@ export default function KakaoMap({
 
   // 지도 초기화 (한 번만 실행)
   useEffect(() => {
-    // 카카오 API가 로드되어 있는지 먼저 확인
-    if (!window.kakao?.maps) {
-      console.log("카카오 API가 아직 로드되지 않음");
-      // 카카오 API가 로드되어 있다면 강제로 로드 완료 처리
-      if (window.kakao) {
-        window.kakao.maps.load(() => {
-          console.log("카카오 지도 API 수동 초기화 완료");
-          setKakaoMapLoaded(true);
-        });
-      }
+    if (!kakaoMapLoaded || !window.kakao?.maps?.Map) {
       return;
     }
 
-    if (!mapRef.current || map) {
-return;
-}
+    if (!mapRef.current || mapInstanceRef.current) {
+      return;
+    }
 
     // 컨테이너가 보이는 상태에서만 초기화
     if (!isVisible) {
       console.log("지도 컨테이너가 보이지 않아 초기화 지연");
       return;
     }
-
-    // kakaoMapLoaded 상태와 상관없이 API가 준비되면 초기화
-    setKakaoMapLoaded(true);
 
     try {
       // window.kakao가 정의되어 있는지 확인
@@ -270,6 +343,7 @@ return;
 
       // 지도 생성
       const newMap = new window.kakao.maps.Map(mapRef.current, mapOptions);
+      mapInstanceRef.current = newMap;
       setMap(newMap);
 
       console.log("지도 초기화 완료:", newMap);
@@ -277,7 +351,10 @@ return;
       // center prop이 있으면 초기화 직후 중심점 설정
       if (center) {
         console.log("🎯 초기화 직후 지도 중심 설정:", center);
-        const centerLatLng = new window.kakao.maps.LatLng(center.lat, center.lng);
+        const centerLatLng = new window.kakao.maps.LatLng(
+          center.lat,
+          center.lng,
+        );
         newMap.setCenter(centerLatLng);
         if (newMap.getLevel() > 5) {
           newMap.setLevel(5);
@@ -285,64 +362,62 @@ return;
       }
 
       // 지도 클릭 이벤트 - 선택된 가게 초기화
-      window.kakao.maps.event.addListener(newMap, "click", () => {
-        setSelectedStore(null);
-        onStoreSelect?.(null);
-      });
+      const handleMapClick = () => selectStore(null);
+      window.kakao.maps.event.addListener(newMap, "click", handleMapClick);
 
       // 지도 드래그 시작 이벤트
-      window.kakao.maps.event.addListener(newMap, "dragstart", () => {
-        setIsMapDragging(true);
-      });
+      const handleDragStart = () => {
+        isMapDraggingRef.current = true;
+      };
+      window.kakao.maps.event.addListener(newMap, "dragstart", handleDragStart);
 
       // 지도 드래그 종료 이벤트 - 검색 버튼 표시
-      window.kakao.maps.event.addListener(newMap, "dragend", () => {
-        setIsMapDragging(false);
+      const handleDragEnd = () => {
+        isMapDraggingRef.current = false;
         const center = newMap.getCenter();
         const lat = center.getLat();
         const lng = center.getLng();
         handleMapMove(lat, lng);
-      });
+      };
+      window.kakao.maps.event.addListener(newMap, "dragend", handleDragEnd);
 
       // 지도 줌 변경 이벤트 - 검색 버튼 표시
-      window.kakao.maps.event.addListener(newMap, "zoom_changed", () => {
-        if (!isMapDragging) {
+      const handleZoomChange = () => {
+        if (!isMapDraggingRef.current) {
           // 드래그 중이 아닐 때만 위치 변경 처리 (줌만 변경된 경우)
           const center = newMap.getCenter();
           const lat = center.getLat();
           const lng = center.getLng();
           handleMapMove(lat, lng);
         }
-      });
+      };
+      window.kakao.maps.event.addListener(
+        newMap,
+        "zoom_changed",
+        handleZoomChange,
+      );
+
+      mapCleanupRef.current = () => {
+        window.kakao.maps.event.removeListener(newMap, "click", handleMapClick);
+        window.kakao.maps.event.removeListener(
+          newMap,
+          "dragstart",
+          handleDragStart,
+        );
+        window.kakao.maps.event.removeListener(
+          newMap,
+          "dragend",
+          handleDragEnd,
+        );
+        window.kakao.maps.event.removeListener(
+          newMap,
+          "zoom_changed",
+          handleZoomChange,
+        );
+      };
 
       // 지도 초기화 완료를 알리는 상태 설정
       setIsMapInitialized(true);
-
-      // 지도 초기화 완료 후 약간의 지연을 두고 기존 stores 데이터 확인
-      setTimeout(() => {
-        if (stores.length > 0) {
-          console.log(
-            "🔄 지도 초기화 완료 후 기존 가게 데이터 확인:",
-            stores.length,
-            "개",
-          );
-          // stores useEffect가 다시 실행되어 마커가 추가됨
-        }
-      }, 100);
-
-      return () => {
-        // 이벤트 리스너 제거 로직
-        if (newMap) {
-          window.kakao.maps.event.removeListener(newMap, "click");
-          window.kakao.maps.event.removeListener(newMap, "dragstart");
-          window.kakao.maps.event.removeListener(newMap, "dragend");
-          window.kakao.maps.event.removeListener(newMap, "zoom_changed");
-        }
-        // 디바운스 타이머 정리
-        if (debounceTimeoutRef.current) {
-          clearTimeout(debounceTimeoutRef.current);
-        }
-      };
     } catch (error) {
       console.error("지도 초기화 오류:", error);
       setLocationError(
@@ -354,15 +429,23 @@ return;
         variant: "destructive",
       });
     }
-  }, [
-    kakaoMapLoaded,
-    toast,
-    onStoreSelect,
-    isVisible,
-    map,
-    handleMapMove,
-    isMapDragging,
-  ]); // 새로운 의존성 추가
+  }, [kakaoMapLoaded, toast, isVisible, handleMapMove, selectStore, center]);
+
+  useEffect(
+    () => () => {
+      mapCleanupRef.current?.();
+      mapCleanupRef.current = null;
+      markerClustersRef.current?.clear();
+      markerClustersRef.current = null;
+      markersRef.current.forEach((marker) => marker.setMap(null));
+      markersRef.current = [];
+      userLocationMarkerRef.current?.setMap(null);
+      userLocationMarkerRef.current = null;
+      mapInstanceRef.current = null;
+      lastMapSizeRef.current = null;
+    },
+    [],
+  );
 
   // center props로 지도 중심 이동 (지도 초기화 완료 후)
   useEffect(() => {
@@ -371,23 +454,24 @@ return;
     }
 
     console.log("center props로 지도 중심 이동:", center);
-    
+
     // 지도가 완전히 초기화될 때까지 잠시 대기
     const timer = setTimeout(() => {
       try {
-        const centerLatLng = new window.kakao.maps.LatLng(center.lat, center.lng);
+        if (selectedStoreRef.current) {
+          return;
+        }
+        const centerLatLng = new window.kakao.maps.LatLng(
+          center.lat,
+          center.lng,
+        );
         map.setCenter(centerLatLng);
-        
+
         // 약간의 줌 레벨 조정
         if (map.getLevel() > 5) {
           map.setLevel(5);
         }
-        
-        // 지도 리사이즈 (레이아웃 재계산)
-        setTimeout(() => {
-          map.relayout();
-        }, 100);
-        
+
         console.log("✅ 지도 중심 이동 완료:", center);
       } catch (error) {
         console.error("지도 중심 이동 중 오류:", error);
@@ -414,7 +498,7 @@ return;
     );
 
     // 수동 검색 중이 아닐 때만 지도 중심 이동
-    if (!isManualSearchRef.current) {
+    if (!isManualSearchRef.current && !selectedStoreRef.current) {
       map.setCenter(userLatLng);
       console.log("✅ 지도 중심을 사용자 위치로 이동");
     } else {
@@ -422,6 +506,7 @@ return;
     }
 
     // 새로운 사용자 위치 마커 생성
+    userLocationMarkerRef.current?.setMap(null);
     const newUserMarker = new window.kakao.maps.Marker({
       position: userLatLng,
       map: map,
@@ -438,42 +523,87 @@ return;
       ),
     });
 
-    setUserLocationMarker(newUserMarker);
+    userLocationMarkerRef.current = newUserMarker;
     console.log("사용자 위치 마커 생성 완료");
+    return () => {
+      newUserMarker.setMap(null);
+      if (userLocationMarkerRef.current === newUserMarker) {
+        userLocationMarkerRef.current = null;
+      }
+    };
   }, [map, userLocation, isVisible, center]); // center 의존성 추가
 
-  // 지도 가시성 변경 시 리사이즈 처리
+  // 패널 높이와 지도 가시성 변경에도 중심점을 유지하며 크기 재계산
   useEffect(() => {
-    if (!map || !isVisible) {
+    if (!map || !mapRef.current || !isVisible) {
       return;
     }
 
-    // 지도가 보이게 될 때 리사이즈 실행
-    const timeoutId = setTimeout(() => {
-      try {
-        console.log("지도 리사이즈 실행");
-        map.relayout();
-      } catch (error) {
-        console.error("지도 리사이즈 오류:", error);
+    const container = mapRef.current;
+    let frame: number | null = null;
+    const relayout = () => {
+      if (frame !== null) {
+        cancelAnimationFrame(frame);
       }
-    }, 100);
+      frame = requestAnimationFrame(relayoutMap);
+    };
+    const observer = new ResizeObserver(relayout);
+    observer.observe(container);
+    relayout();
 
-    return () => clearTimeout(timeoutId);
-  }, [map, isVisible]);
+    return () => {
+      observer.disconnect();
+      if (frame !== null) {
+        cancelAnimationFrame(frame);
+      }
+    };
+  }, [map, isVisible, relayoutMap]);
+
+  const selectedId = selectedStore?.id;
+  const selectedLat = selectedStore?.position.lat;
+  const selectedLng = selectedStore?.position.lng;
+
+  useEffect(() => {
+    updateMarkerSelection();
+  }, [map, selectedId, updateMarkerSelection]);
+
+  // 외부 목록 선택과 마커 선택 모두 같은 경로로 한 번만 이동
+  useEffect(() => {
+    if (selectedId === undefined) {
+      lastPannedSelectionRef.current = null;
+      return;
+    }
+    if (
+      !map ||
+      !isVisible ||
+      !window.kakao?.maps ||
+      typeof selectedLat !== "number" ||
+      typeof selectedLng !== "number" ||
+      !Number.isFinite(selectedLat) ||
+      !Number.isFinite(selectedLng)
+    ) {
+      return;
+    }
+
+    const key = `${selectedId}:${selectedLat}:${selectedLng}`;
+    if (
+      lastPannedSelectionRef.current !== null &&
+      lastPannedSelectionRef.current.map === map &&
+      lastPannedSelectionRef.current.key === key
+    ) {
+      return;
+    }
+    // 패널 크기를 먼저 반영해 관찰자의 중복 재계산이 이동을 중단하지 않도록 함
+    relayoutMap();
+    lastPannedSelectionRef.current = { map, key };
+    map.panTo(new window.kakao.maps.LatLng(selectedLat, selectedLng));
+  }, [map, isVisible, selectedId, selectedLat, selectedLng, relayoutMap]);
 
   // 마커 클러스터링 설정
   const setupMarkerClustering = useCallback(
-    (map: any, markers: any[]) => {
-      if (
-        !enableClustering ||
-        !window.kakao?.maps?.MarkerClusterer
-      ) {
+    (map: any) => {
+      if (!enableClustering || !window.kakao?.maps?.MarkerClusterer) {
         return null;
-      }
-
-      // 기존 클러스터가 있으면 제거
-      if (markerClusters) {
-        markerClusters.clear();
       }
 
       // 클러스터 생성
@@ -519,12 +649,9 @@ return;
         ],
       });
 
-      // 마커 추가
-      cluster.addMarkers(markers);
-
       return cluster;
     },
-    [enableClustering, markerClusters],
+    [enableClustering],
   );
 
   // 가게 마커 추가
@@ -533,17 +660,22 @@ return;
       hasMap: !!map,
       storeCount: stores.length,
       hasKakao: !!window.kakao,
-      hasKakaoMaps: !!(window.kakao?.maps),
+      hasKakaoMaps: !!window.kakao?.maps,
       stores: stores.slice(0, 1), // 첫 번째 가게 데이터만 확인
     });
 
-    if (
-      !map ||
-      !stores.length ||
-      !window.kakao?.maps ||
-      !isVisible ||
-      !isMapInitialized
-    ) {
+    if (stores.length === 0) {
+      markerClustersRef.current?.clear();
+      markerClustersRef.current = null;
+      markersRef.current.forEach((marker) => marker.setMap(null));
+      markersRef.current = [];
+      if (!isControlledRef.current) {
+        setInternalSelectedStore(null);
+      }
+      return;
+    }
+
+    if (!map || !window.kakao?.maps || !isVisible || !isMapInitialized) {
       if (!map && stores.length > 0) {
         console.log("⏳ 지도가 아직 초기화되지 않음. 지도 초기화 대기 중...");
       } else if (!isMapInitialized && stores.length > 0) {
@@ -555,7 +687,7 @@ return;
           hasMap: !!map,
           storeCount: stores.length,
           hasKakao: !!window.kakao,
-          hasKakaoMaps: !!(window.kakao?.maps),
+          hasKakaoMaps: !!window.kakao?.maps,
           isVisible,
           isMapInitialized,
           mapObject: map,
@@ -577,7 +709,13 @@ return;
 
       try {
         // 기존 마커 제거
-        markers.forEach((marker) => marker.setMap(null));
+        markerClustersRef.current?.clear();
+        markerClustersRef.current = null;
+        markersRef.current.forEach((marker) => marker.setMap(null));
+        const images = (markerImagesRef.current ??= {
+          normal: createStoreMarkerImage(false),
+          selected: createStoreMarkerImage(true),
+        });
 
         // 새 마커 배열
         const newMarkers = [];
@@ -585,8 +723,8 @@ return;
         // 각 가게별 마커 생성
         for (const store of stores) {
           if (
-            !store?.position?.lat ||
-            !store.position.lng
+            !Number.isFinite(store?.position?.lat) ||
+            !Number.isFinite(store?.position?.lng)
           ) {
             console.warn("❌ 유효하지 않은 가게 데이터:", store);
             continue;
@@ -598,23 +736,10 @@ return;
               store.position.lng,
             );
 
-            // 커스텀 마커 이미지 생성
-            const markerImage = new window.kakao.maps.MarkerImage(
-              "data:image/svg+xml;utf8," +
-                encodeURIComponent(`
-                <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 40 40">
-                  <circle cx="20" cy="20" r="18" fill="#FF5722" stroke="white" stroke-width="3"/>
-                  <path d="M20 8c-4.4 0-8 3.6-8 8 0 5.3 8 16 8 16s8-10.7 8-16c0-4.4-3.6-8-8-8zm0 11c-1.7 0-3-1.3-3-3s1.3-3 3-3 3 1.3 3 3-1.3 3-3 3z" fill="white"/>
-                </svg>
-              `),
-              new window.kakao.maps.Size(40, 40),
-              { offset: new window.kakao.maps.Point(20, 40) },
-            );
-
             const marker = new window.kakao.maps.Marker({
               position: markerPosition,
               map: map,
-              image: markerImage,
+              image: images.normal,
               title: store.name,
             });
 
@@ -622,14 +747,10 @@ return;
             marker.store = store;
 
             // 마커 클릭 이벤트
-            window.kakao.maps.event.addListener(marker, "click", (e: any) => {
-              if (e && typeof e.stopPropagation === "function") {
-                e.stopPropagation();
-              }
+            window.kakao.maps.event.addListener(marker, "click", () => {
+              window.kakao.maps.event.preventMap();
               console.log("📍 마커 클릭됨:", store.name);
-              setSelectedStore(store);
-              onStoreSelect?.(store);
-              map.panTo(markerPosition);
+              selectStore(store);
             });
 
             newMarkers.push(marker);
@@ -642,22 +763,26 @@ return;
 
         console.log("🎯 총", newMarkers.length, "개 마커 생성됨");
 
-        setMarkers(newMarkers);
+        markersRef.current = newMarkers;
 
         // 클러스터링 적용
         if (newMarkers.length > 0 && enableClustering) {
-          const cluster = setupMarkerClustering(map, newMarkers);
-          setMarkerClusters(cluster);
+          markerClustersRef.current = setupMarkerClustering(map);
           console.log("🔗 마커 클러스터링 설정 완료");
         }
+        updateMarkerSelection();
 
         // 수동 검색이 아닐 때만 지도 범위 자동 조정
         console.log("🔍 범위 조정 체크:", {
           storeCount: stores.length,
           isManualSearch: isManualSearchRef.current,
         });
-        
-        if (stores.length > 0 && !isManualSearchRef.current) {
+
+        if (
+          newMarkers.length > 0 &&
+          !isManualSearchRef.current &&
+          !selectedStoreRef.current
+        ) {
           const bounds = new window.kakao.maps.LatLngBounds();
 
           // 사용자 위치가 있으면 포함
@@ -668,22 +793,19 @@ return;
           }
 
           // 모든 가게 위치 포함
-          stores.forEach((store) => {
-            bounds.extend(
-              new window.kakao.maps.LatLng(
-                store.position.lat,
-                store.position.lng,
-              ),
-            );
+          newMarkers.forEach((marker) => {
+            bounds.extend(marker.getPosition());
           });
 
           // 지도 범위 설정
           map.setBounds(bounds);
           console.log("🗺️ 지도 범위 조정 완료 - 자동 핏");
         } else if (isManualSearchRef.current) {
-          console.log("🔒 수동 검색 모드 - 현재 줌 레벨 유지, 범위 조정 건너뜀");
+          console.log(
+            "🔒 수동 검색 모드 - 현재 줌 레벨 유지, 범위 조정 건너뜀",
+          );
           console.log("🔍 현재 줌 레벨:", map.getLevel());
-          
+
           // 저장된 줌 레벨로 복원 (다른 모든 작업 완료 후)
           if (savedZoomLevelRef.current !== null) {
             const beforeLevel = map.getLevel();
@@ -692,15 +814,15 @@ return;
               현재레벨: beforeLevel,
               차이: savedZoomLevelRef.current - beforeLevel,
             });
-            
+
             const savedLevel = savedZoomLevelRef.current;
             savedZoomLevelRef.current = null;
-            
+
             // 모든 지도 작업이 완료된 후 줌 레벨 복원
             setTimeout(() => {
               console.log("⏰ 지연된 줌 레벨 복원 실행");
               const beforeRestoreLevel = map.getLevel();
-              
+
               // 줌 레벨 유효성 검사 (카카오 맵은 1~14 레벨)
               const validLevel = Math.max(1, Math.min(14, savedLevel));
               if (validLevel !== savedLevel) {
@@ -709,9 +831,9 @@ return;
                   조정됨: validLevel,
                 });
               }
-              
+
               map.setLevel(validLevel);
-              
+
               // 복원 후 재확인
               setTimeout(() => {
                 const afterLevel = map.getLevel();
@@ -721,12 +843,12 @@ return;
                   실제레벨: afterLevel,
                   성공여부: afterLevel === validLevel,
                 });
-                
+
                 // 만약 복원이 실패했다면 한 번 더 시도
                 if (afterLevel !== validLevel) {
                   console.log("⚠️ 줌 레벨 복원 실패, 재시도");
                   map.setLevel(validLevel);
-                  
+
                   // 최종 확인
                   setTimeout(() => {
                     const finalLevel = map.getLevel();
@@ -736,7 +858,7 @@ return;
               }, 100);
             }, 200); // 200ms 지연으로 다른 모든 작업 완료 대기
           }
-          
+
           // 수동 검색 모드 해제
           isManualSearchRef.current = false;
           console.log("🟢 수동 검색 모드 해제:", isManualSearchRef.current);
@@ -759,7 +881,19 @@ return;
     enableClustering,
     isVisible,
     isMapInitialized,
+    selectStore,
+    setupMarkerClustering,
+    updateMarkerSelection,
+    toast,
   ]);
+
+  const selectedMenu = selectedStore
+    ? getRepresentativeMenu(selectedStore)
+    : undefined;
+  const distanceLabel = formatStoreDistance(selectedStore?.distance);
+  const directionsUrl = selectedStore
+    ? `https://map.kakao.com/link/to/${encodeURIComponent(selectedStore.name)},${selectedStore.position.lat},${selectedStore.position.lng}`
+    : undefined;
 
   // API 키가 없으면 에러 화면 표시
   if (!kakaoApiKey || kakaoApiKey === "demo") {
@@ -800,7 +934,7 @@ return;
   return (
     <div className="w-full h-full bg-gray-100 relative">
       {/* 위치 에러 안내 메시지 */}
-      {locationError && !locationError.includes("API 키") && (
+      {locationError && (
         <div className="absolute top-16 left-1/2 transform -translate-x-1/2 z-50 bg-white border border-red-300 rounded shadow-lg p-4 flex flex-col items-center max-w-xs w-full">
           <div className="text-red-500 font-bold mb-2">위치 정보 오류</div>
           <div className="text-sm text-gray-700 mb-3 text-center">
@@ -812,34 +946,6 @@ return;
         </div>
       )}
 
-      {/* 카카오 지도 스크립트 */}
-      <Script
-        strategy="afterInteractive"
-        src={`//dapi.kakao.com/v2/maps/sdk.js?appkey=${kakaoApiKey}&libraries=services,clusterer&autoload=false`}
-        onLoad={() => {
-          console.log("카카오 지도 스크립트 로드됨");
-          if (window.kakao?.maps) {
-            window.kakao.maps.load(() => {
-              console.log("카카오 지도 API 초기화 완료");
-              handleKakaoMapLoaded();
-            });
-          } else {
-            console.error("window.kakao.maps가 정의되지 않음");
-            setLocationError("카카오 지도 API 초기화 실패");
-          }
-        }}
-        onError={(e) => {
-          console.error("카카오 지도 스크립트 로딩 오류:", e);
-          setLocationError("카카오 지도 스크립트 로드 실패");
-          toast({
-            title: "지도 로드 오류",
-            description:
-              "지도를 로드하는데 실패했습니다. API 키를 확인해주세요.",
-            variant: "destructive",
-          });
-        }}
-      />
-
       {/* 지도 컨테이너 */}
       <div
         ref={mapRef}
@@ -847,109 +953,97 @@ return;
         aria-label="카카오 지도"
       ></div>
 
-      {/* 선택된 가게 정보 팝업 - 크기 및 디자인 개선 */}
+      {/* 선택된 가게의 간결한 지도 미리보기 */}
       {selectedStore && (
-        <Card className="absolute bottom-4 left-1/2 transform -translate-x-1/2 md:left-auto md:right-4 md:bottom-4 md:transform-none w-96 max-w-[calc(100vw-2rem)] shadow-xl border-2 border-[#FF5722]/20 z-20 bg-white/95 backdrop-blur-sm">
-          <CardContent className="p-6">
-            {/* 헤더 - 닫기 버튼과 제목 */}
-            <div className="flex justify-between items-start mb-4">
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 bg-[#FF5722] rounded-full"></div>
-                <span className="text-sm font-medium text-[#FF5722]">가게 정보</span>
-              </div>
-              <button
-                className="text-gray-400 hover:text-gray-600 p-1 hover:bg-gray-100 rounded-full transition-colors"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setSelectedStore(null);
-                  onStoreSelect?.(null);
-                }}
-                aria-label="닫기"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
+        <section
+          aria-labelledby="map-store-preview-title"
+          className="absolute bottom-2 right-2 z-20 max-h-[calc(100%_-_1rem)] w-[calc(100%_-_4.5rem)] max-w-[16rem] overflow-y-auto rounded-md border border-border bg-card p-3 text-card-foreground shadow-sm"
+        >
+          <div className="flex items-start justify-between gap-2">
+            <h3
+              ref={previewTitleRef}
+              id="map-store-preview-title"
+              tabIndex={-1}
+              className="line-clamp-2 text-sm font-semibold leading-5"
+            >
+              {selectedStore.name}
+            </h3>
+            <button
+              type="button"
+              className="-mr-1 -mt-1 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-sm text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              onClick={() => selectStore(null)}
+              aria-label="가게 미리보기 닫기"
+            >
+              <X className="h-4 w-4" aria-hidden="true" />
+            </button>
+          </div>
 
-            {/* 메인 컨텐츠 */}
-            <div className="flex gap-4">
-              <div
-                className="w-24 h-24 rounded-lg bg-gray-200 flex-shrink-0 bg-cover bg-center shadow-sm"
-                style={{
-                  backgroundImage: selectedStore.imageUrls?.[0]
-                    ? `url(${selectedStore.imageUrls[0]})`
-                    : "url('/placeholder.svg?height=96&width=96')",
-                }}
-                role="img"
-                aria-label={`${selectedStore.name} 이미지`}
-              ></div>
-              
-              <div className="flex-1 min-w-0">
-                <h3 className="font-bold text-lg text-[#333333] mb-2 line-clamp-1">
-                  {selectedStore.name}
-                </h3>
-                
-                {/* 평점 및 리뷰 */}
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="flex items-center gap-1">
-                    <Star className="h-4 w-4 fill-[#FFA726] text-[#FFA726]" />
-                    <span className="font-medium text-[#FFA726]">
-                      {selectedStore.avgRating ? selectedStore.avgRating.toFixed(1) : "평점 없음"}
-                    </span>
-                  </div>
-                  <span className="text-gray-500 text-sm">
-                    리뷰 {selectedStore.reviewCount || 0}개
+          {selectedMenu ? (
+            <div className="mt-1.5 flex items-start justify-between gap-2 text-xs leading-5">
+              <p className="min-w-0 break-words">
+                {selectedMenu.name}
+                {selectedMenu.type && (
+                  <span className="ml-1 text-muted-foreground">
+                    ({selectedMenu.type})
                   </span>
-                </div>
-
-                {/* 거리 정보 */}
-                <div className="flex items-center gap-1 mb-2">
-                  <MapPin className="h-4 w-4 text-gray-400" />
-                  <span className="text-sm text-gray-600">
-                    {selectedStore.distance ? `${selectedStore.distance}km` : "거리 정보 없음"}
-                  </span>
-                </div>
-
-                {/* 카테고리 태그 */}
-                {selectedStore.categories && selectedStore.categories.length > 0 && (
-                  <div className="flex flex-wrap gap-1 mb-3">
-                    {selectedStore.categories.slice(0, 2).map((category, index) => (
-                      <Badge key={index} variant="secondary" className="text-xs bg-[#FF5722]/10 text-[#FF5722] border-[#FF5722]/20">
-                        {category}
-                      </Badge>
-                    ))}
-                    {selectedStore.refillItems && Array.isArray(selectedStore.refillItems) && selectedStore.refillItems.length > 0 && (
-                      <Badge className="text-xs bg-[#FF5722] text-white">무한리필</Badge>
-                    )}
-                  </div>
                 )}
-              </div>
+              </p>
+              <strong className="max-w-[45%] flex-shrink-0 break-words text-right font-semibold tabular-nums">
+                {selectedMenu.price?.trim() || "가격 미등록"}
+              </strong>
             </div>
+          ) : (
+            <p className="mt-1.5 text-xs text-muted-foreground">
+              {selectedStore.categories.slice(0, 2).join(" · ")}
+              {selectedStore.categories.length > 0 && " · "}
+              메뉴·가격 미등록
+            </p>
+          )}
 
-            {/* 액션 버튼 */}
-            <div className="flex gap-2 mt-4">
-              <Button 
-                className="flex-1 bg-[#FF5722] hover:bg-[#E64A19] text-white font-medium shadow-sm"
-                onClick={() => {
-                  window.open(`/store/${selectedStore.id}`, "_blank");
-                }}
+          <address
+            className="mt-1.5 line-clamp-2 text-xs not-italic leading-4 text-muted-foreground"
+            title={selectedStore.address}
+          >
+            {selectedStore.address}
+            {distanceLabel && <span className="ml-1">· {distanceLabel}</span>}
+          </address>
+
+          <nav
+            aria-label={`${selectedStore.name} 바로가기`}
+            className="mt-2 flex flex-wrap items-center gap-x-3 border-t border-border pt-1 text-xs font-medium"
+          >
+            <Link
+              href={`/store/${selectedStore.id}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label={`${selectedStore.name} 상세 보기 (새 탭)`}
+              className="inline-flex min-h-8 items-center gap-1 rounded-sm hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
+              상세 보기
+            </Link>
+            <a
+              href={directionsUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex min-h-8 items-center gap-1 rounded-sm hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <Navigation className="h-3.5 w-3.5" aria-hidden="true" />
+              길찾기
+              <span className="sr-only"> (카카오맵, 새 창)</span>
+            </a>
+            {selectedStore.phoneNumber?.trim() && (
+              <a
+                href={`tel:${selectedStore.phoneNumber}`}
+                className="inline-flex min-h-8 items-center gap-1 rounded-sm hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                aria-label={`${selectedStore.name} 전화 ${selectedStore.phoneNumber}`}
               >
-                <ExternalLink className="h-4 w-4 mr-2" />
-                상세 보기
-              </Button>
-              {selectedStore.phoneNumber && (
-                <Button
-                  variant="outline"
-                  className="border-[#FF5722] text-[#FF5722] hover:bg-[#FF5722] hover:text-white"
-                  onClick={() => {
-                    window.open(`tel:${selectedStore.phoneNumber}`, "_self");
-                  }}
-                >
-                  <Phone className="h-4 w-4" />
-                </Button>
-              )}
-            </div>
-          </CardContent>
-        </Card>
+                <Phone className="h-3.5 w-3.5" aria-hidden="true" />
+                전화
+              </a>
+            )}
+          </nav>
+        </section>
       )}
 
       {/* 수동 검색 버튼 */}

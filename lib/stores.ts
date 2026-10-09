@@ -1,6 +1,7 @@
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { Store, StoreFromDb } from "@/types/store";
 import { MenuItem } from "@/types/menu";
+import { mapStoredExternalRatings } from "@/lib/external-ratings";
 
 // 카테고리 아이템 타입 정의
 interface CategoryItem {
@@ -16,19 +17,24 @@ export function mapStoreFromDb(
   avgRating?: number | null,
   reviewCount?: number | null,
 ): Store {
-
   // PostGIS 함수에서 반환하는 categories는 JSON 배열 형태이고,
   // 기존 쿼리에서 반환하는 categories는 중첩된 객체 구조
   let categories: string[] = [];
-  
+
   if (store.categories) {
     if (Array.isArray(store.categories) && store.categories.length > 0) {
       if (typeof store.categories[0] === "string") {
         // PostGIS 함수에서 반환하는 경우: ["카테고리1", "카테고리2"]
         categories = store.categories as string[];
-      } else if (typeof store.categories[0] === "object" && store.categories[0] !== null && "category" in store.categories[0]) {
+      } else if (
+        typeof store.categories[0] === "object" &&
+        store.categories[0] !== null &&
+        "category" in store.categories[0]
+      ) {
         // 기존 쿼리에서 반환하는 경우: [{category: {name: "카테고리1"}}]
-        categories = (store.categories as Array<{ category: { name: string } }>).map((item) => item.category.name);
+        categories = (
+          store.categories as Array<{ category: { name: string } }>
+        ).map((item) => item.category.name);
       }
     }
   }
@@ -39,10 +45,7 @@ export function mapStoreFromDb(
     address: store.address,
     distance: distance ? String(distance) : null,
     categories,
-    rating: {
-      naver: store.naver_rating || 0,
-      kakao: store.kakao_rating || 0,
-    },
+    rating: mapStoredExternalRatings(store),
     avgRating: avgRating || undefined,
     reviewCount: reviewCount || undefined,
     position: {
@@ -53,14 +56,14 @@ export function mapStoreFromDb(
     },
     refillItems: (() => {
       if (!store.refill_items) {
-return null;
-}
-      
+        return null;
+      }
+
       // PostGIS 함수에서 오는 경우 이미 파싱된 배열
       if (Array.isArray(store.refill_items)) {
         return store.refill_items as MenuItem[];
       }
-      
+
       // 직접 DB에서 오는 경우 JSON 문자열일 수 있음
       if (typeof store.refill_items === "string") {
         try {
@@ -70,7 +73,7 @@ return null;
           return null;
         }
       }
-      
+
       return store.refill_items as MenuItem[];
     })(),
     openHours: store.open_hours,

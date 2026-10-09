@@ -18,9 +18,16 @@ import {
 } from "@/components/ui/sheet";
 import { useAuth } from "@/contexts/AuthContext";
 import { useGeolocation } from "@/hooks/use-geolocation";
-import { useGooglePlaces } from "@/hooks/use-google-places";
 import { useLocationSearch } from "@/hooks/use-location-search";
-import { Heart, LogOut, Map, Settings, Star, User, MessageSquare } from "lucide-react";
+import {
+  Heart,
+  LogOut,
+  Map,
+  Settings,
+  Star,
+  User,
+  MessageSquare,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { DesktopHeader } from "./header/desktop-header";
@@ -69,12 +76,6 @@ export default function Header({
   const locationSearch = useLocationSearch({
     onCustomLocationSet,
     onDialogClose: () => setIsLocationDialogOpen(false),
-  });
-
-  // Google Places 검색 훅
-  const googlePlaces = useGooglePlaces({
-    onPlaceSelect: locationSearch.handlePlaceSelect,
-    onManualSearch: locationSearch.handleManualSearch,
   });
 
   useEffect(() => {
@@ -172,11 +173,11 @@ export default function Header({
   };
 
   return (
-    <header className="bg-white border-b border-gray-200 sticky top-0 z-50">
-      <div className="w-full px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center h-16 w-full">
+    <header className="sticky top-0 z-40 border-b border-border bg-card">
+      <div className="w-full px-3 sm:px-6 lg:px-8">
+        <div className="relative flex min-h-20 w-full items-center py-4">
           {/* 데스크톱 헤더 */}
-          <div className="hidden lg:flex flex-1">
+          <div className="hidden min-w-0 flex-1 lg:flex">
             <DesktopHeader
               onMenuClick={handleMenuClick}
               onFilterClick={handleFilterClick}
@@ -185,13 +186,12 @@ export default function Header({
               isLocationDialogOpen={isLocationDialogOpen}
               onLocationDialogOpen={handleLocationDialogOpen}
               onLocationDialogClose={handleLocationDialogClose}
-              onPlaceSelect={googlePlaces.handlePredictionSelect}
-              onManualSearch={googlePlaces.handleSearch}
+              onPlaceSelect={locationSearch.handlePlaceSelect}
             />
           </div>
 
           {/* 모바일 헤더 */}
-          <div className="lg:hidden flex-1">
+          <div className="min-w-0 flex-1 lg:hidden">
             <MobileHeader
               onMenuClick={handleMenuClick}
               onFilterClick={handleFilterClick}
@@ -200,39 +200,41 @@ export default function Header({
               isLocationDialogOpen={isLocationDialogOpen}
               onLocationDialogOpen={handleLocationDialogOpen}
               onLocationDialogClose={handleLocationDialogClose}
-              onPlaceSelect={googlePlaces.handlePredictionSelect}
-              onManualSearch={googlePlaces.handleSearch}
+              onPlaceSelect={locationSearch.handlePlaceSelect}
             />
           </div>
 
           {/* 사용자 메뉴 (공통) - 오른쪽 끝 */}
-          <div className="flex items-center space-x-4 ml-4">
+          <div className="absolute right-0 top-4 flex h-11 shrink-0 items-center gap-2 lg:static lg:ml-4">
             {loading ? (
               <div className="flex items-center space-x-2">
                 <div className="relative">
-                  <div className="h-8 w-8 bg-gray-300 rounded-full animate-pulse"></div>
+                  <div className="h-8 w-8 bg-muted rounded-full animate-pulse"></div>
                   <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="h-4 w-4 border-2 border-orange-500 border-t-transparent rounded-full animate-spin"></div>
+                    <div className="h-4 w-4 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
                   </div>
                 </div>
-                <div className="hidden md:flex flex-col">
-                  <div className="h-3 w-16 bg-gray-300 rounded animate-pulse mb-1"></div>
-                  <div className="h-2 w-12 bg-gray-200 rounded animate-pulse"></div>
+                <div className="hidden lg:flex flex-col">
+                  <div className="h-3 w-16 bg-muted rounded animate-pulse mb-1"></div>
+                  <div className="h-2 w-12 bg-muted rounded animate-pulse"></div>
                 </div>
               </div>
             ) : user ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="sm" className="relative">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="relative h-11 max-w-36"
+                    aria-label="내 계정 메뉴"
+                  >
                     <User className="h-5 w-5" />
                     {profile?.username ? (
-                      <span className="ml-2 hidden md:inline">
+                      <span className="ml-2 hidden truncate lg:inline">
                         {profile.username}
                       </span>
                     ) : (
-                      <span className="ml-2 hidden md:inline">
-                        사용자
-                      </span>
+                      <span className="ml-2 hidden lg:inline">사용자</span>
                     )}
                   </Button>
                 </DropdownMenuTrigger>
@@ -319,8 +321,11 @@ export default function Header({
             ) : (
               <Button
                 onClick={() => {
-                  const currentUrl = window.location.pathname + window.location.search;
-                  router.push(`/login?returnUrl=${encodeURIComponent(currentUrl)}`);
+                  const currentUrl =
+                    window.location.pathname + window.location.search;
+                  router.push(
+                    `/login?returnUrl=${encodeURIComponent(currentUrl)}`,
+                  );
                 }}
                 variant="outline"
                 size="sm"

@@ -160,30 +160,3 @@ export function filtersToURLParams(filters: StoreFilters): URLSearchParams {
 
   return params;
 }
-
-/**
- * 가게의 별점 정보를 가져오는 함수
- * @param storeName 가게 이름
- * @param address 가게 주소 (선택)
- * @returns 별점 정보 (네이버, 카카오)
- */
-export const fetchStoreRating = async (storeName: string, address?: string) => {
-  let url = `/api/stores/ratings?name=${encodeURIComponent(storeName)}`;
-  if (address) {
-    url += `&address=${encodeURIComponent(address)}`;
-  }
-
-  const response = await fetchWithTimeout(url);
-
-  if (!response.ok) {
-    throw new Error(`HTTP error! status: ${response.status}`);
-  }
-
-  const data = await response.json();
-
-  if (!data.success) {
-    throw new Error(data.error || "별점 정보를 가져오는데 실패했습니다.");
-  }
-
-  return data.data;
-};

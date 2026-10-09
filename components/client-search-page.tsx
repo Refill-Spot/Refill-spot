@@ -126,7 +126,11 @@ export default function ClientSearchPage() {
                   </div>
                 </div>
               ) : (
-                <StoreList stores={stores} />
+                <StoreList
+                  stores={stores}
+                  selectedStore={selectedStore}
+                  onStoreSelect={setSelectedStore}
+                />
               )}
             </div>
           </div>

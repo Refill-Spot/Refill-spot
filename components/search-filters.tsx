@@ -6,39 +6,31 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Slider } from "@/components/ui/slider";
-import { useToast } from "@/components/ui/use-toast";
 import { useGeolocation } from "@/hooks/use-geolocation";
 import { StoreFilters } from "@/hooks/use-stores";
-import { useTranslation } from "@/hooks/use-translation";
 import { filtersToURLParams } from "@/lib/api-utils";
 import { useStoreStore } from "@/lib/store";
-import {
-  Beef,
-  Coffee,
-  Fish,
-  MapPin,
-  Pizza,
-  Star,
-  Utensils,
-} from "lucide-react";
+import ko from "@/public/locales/ko.json";
+import { Loader2, MapPin, Star } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useId, useState } from "react";
 
 interface SearchFiltersProps {
   onApplyFilters?: (filters: StoreFilters) => void;
   initialFilters?: StoreFilters;
   userLocation?: { lat: number; lng: number } | null;
+  showHeading?: boolean;
 }
 
 export default function SearchFilters({
   onApplyFilters,
   initialFilters,
   userLocation,
+  showHeading = true,
 }: SearchFiltersProps) {
-  const { t } = useTranslation();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { toast } = useToast();
+  const filterId = useId();
   const {
     filters: storeFilters,
     updateFilters,
@@ -50,9 +42,6 @@ export default function SearchFilters({
   const [radius, setRadius] = useState([
     initialFilters?.maxDistance || storeFilters.maxDistance || 3,
   ]);
-  const [minRating, setMinRating] = useState(
-    initialFilters?.minRating || storeFilters.minRating || 0,
-  );
   const [searchQuery, setSearchQuery] = useState(
     initialFilters?.query || storeFilters.query || "",
   );
@@ -94,20 +83,19 @@ export default function SearchFilters({
   // URL 파라미터에서 필터 설정 가져오기
   useEffect(() => {
     const categoryParam = searchParams.get("categories");
-    const distanceParam = searchParams.get("distance") || searchParams.get("radius");
-    const ratingParam = searchParams.get("rating") || searchParams.get("minRating");
+    const distanceParam =
+      searchParams.get("distance") || searchParams.get("radius");
     const queryParam = searchParams.get("q") || searchParams.get("query");
 
     let shouldUpdate = false;
     let newCategoryState = { ...categories };
     let newRadius = radius[0];
-    let newMinRating = minRating;
     let newSearchQuery = searchQuery;
 
     // 카테고리 업데이트
     if (categoryParam) {
       const categoryList = categoryParam.split(",");
-      
+
       Object.keys(newCategoryState).forEach((key) => {
         const shouldCheck = categoryList.includes(key);
         if (newCategoryState[key] !== shouldCheck) {
@@ -117,7 +105,9 @@ export default function SearchFilters({
       });
     } else {
       // 카테고리 파라미터가 없으면 모든 카테고리 해제
-      const hasSelectedCategories = Object.values(newCategoryState).some(val => val);
+      const hasSelectedCategories = Object.values(newCategoryState).some(
+        (val) => val,
+      );
       if (hasSelectedCategories) {
         newCategoryState = {
           고기: false,
@@ -145,18 +135,6 @@ export default function SearchFilters({
       shouldUpdate = true;
     }
 
-    // 평점 업데이트
-    if (ratingParam) {
-      const ratingValue = Number(ratingParam);
-      if (!isNaN(ratingValue) && newMinRating !== ratingValue) {
-        newMinRating = ratingValue;
-        shouldUpdate = true;
-      }
-    } else if (newMinRating !== 0) {
-      newMinRating = 0; // 기본값으로 리셋
-      shouldUpdate = true;
-    }
-
     // 검색어 업데이트
     if (queryParam && newSearchQuery !== queryParam) {
       newSearchQuery = queryParam;
@@ -170,7 +148,6 @@ export default function SearchFilters({
     if (shouldUpdate) {
       setCategories(newCategoryState);
       setRadius([newRadius]);
-      setMinRating(newMinRating);
       setSearchQuery(newSearchQuery);
     }
   }, [searchParams]);
@@ -186,8 +163,7 @@ export default function SearchFilters({
     try {
       const coordinates = await geolocation.getCurrentPosition({
         showToast: true,
-        customSuccessMessage:
-          t("location_filter_applied") || "위치 기반 필터가 적용되었습니다.",
+        customSuccessMessage: ko.location_filter_applied,
       });
 
       // 위치 정보를 필터에 포함시켜 적용
@@ -209,19 +185,16 @@ export default function SearchFilters({
 
       // 기본 필터 생성
       const baseFilters: StoreFilters = {};
-      
+
       if (selectedCategories.length > 0) {
         baseFilters.categories = selectedCategories;
       }
-      
-      if (radius[0] !== 3) { // 기본값이 3이 아닐 때만 추가
+
+      if (radius[0] !== 3) {
+        // 기본값이 3이 아닐 때만 추가
         baseFilters.maxDistance = radius[0];
       }
-      
-      if (minRating > 0) {
-        baseFilters.minRating = minRating;
-      }
-      
+
       if (searchQuery.trim()) {
         baseFilters.query = searchQuery.trim();
       }
@@ -232,8 +205,12 @@ export default function SearchFilters({
         baseFilters.longitude = userLocation.lng;
       }
 
-      // 추가 필터 병합
-      const finalFilters = { ...baseFilters, ...additionalFilters };
+      // 추가 필터 병합 및 글로벌 스토어의 기존 평점 조건 해제
+      const finalFilters = {
+        ...baseFilters,
+        ...additionalFilters,
+        minRating: 0,
+      };
 
       // 글로벌 스토어 업데이트
       updateFilters(finalFilters);
@@ -242,7 +219,7 @@ export default function SearchFilters({
       const params = filtersToURLParams(finalFilters);
       const currentPath = window.location.pathname;
       const currentParams = new URLSearchParams(window.location.search);
-      
+
       // 위치 정보는 URL에서 유지
       const lat = currentParams.get("lat");
       const lng = currentParams.get("lng");
@@ -250,8 +227,10 @@ export default function SearchFilters({
         params.set("lat", lat);
         params.set("lng", lng);
       }
-      
-      const newUrl = params.toString() ? `${currentPath}?${params.toString()}` : currentPath;
+
+      const newUrl = params.toString()
+        ? `${currentPath}?${params.toString()}`
+        : currentPath;
       router.replace(newUrl);
 
       // 필터 적용 (상위 컴포넌트 콜백)
@@ -262,7 +241,6 @@ export default function SearchFilters({
     [
       categories,
       radius,
-      minRating,
       searchQuery,
       userLocation,
       router,
@@ -273,7 +251,6 @@ export default function SearchFilters({
 
   const handleResetFilters = useCallback(() => {
     setRadius([3]);
-    setMinRating(0);
     setSearchQuery("");
     setCategories({
       고기: false,
@@ -298,7 +275,7 @@ export default function SearchFilters({
     const lat = searchParams.get("lat");
     const lng = searchParams.get("lng");
     const currentPath = window.location.pathname;
-    
+
     if (lat && lng) {
       router.replace(`${currentPath}?lat=${lat}&lng=${lng}`);
     } else {
@@ -307,38 +284,44 @@ export default function SearchFilters({
   }, [router, searchParams, onApplyFilters, resetStoreFilters]);
 
   return (
-    <div className="p-4 h-full bg-white">
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-bold text-[#333333]">{t("filter")}</h2>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={handleResetFilters}
-          className="text-[#2196F3] hover:text-[#1976d2] hover:bg-[#2196F3]/10"
-        >
-          {t("reset")}
-        </Button>
-      </div>
+    <form
+      className="flex h-full min-h-0 flex-col bg-card text-foreground"
+      data-vaul-no-drag=""
+      onSubmit={(event) => {
+        event.preventDefault();
+        handleApplyFilters();
+      }}
+    >
+      {showHeading && (
+        <div className="shrink-0 border-b border-border px-5 py-4">
+          <h2 className="text-lg font-semibold">{ko.filter}</h2>
+        </div>
+      )}
 
-      <div className="space-y-6">
+      <div className="min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain p-5">
         {/* 검색어 필터 */}
         <div>
-          <h3 className="font-medium mb-3 text-[#333333]">
-            {t("search_keyword")}
-          </h3>
+          <Label
+            htmlFor={`${filterId}-query`}
+            className="mb-2 block text-sm font-semibold"
+          >
+            {ko.search_keyword}
+          </Label>
           <div className="relative">
             <Input
+              id={`${filterId}-query`}
               type="text"
-              placeholder={t("search_placeholder")}
+              placeholder={ko.search_placeholder}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pr-10"
+              className="h-11 bg-background pr-11"
             />
             {searchQuery && (
               <button
-                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                type="button"
+                className="absolute right-1 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 onClick={() => setSearchQuery("")}
-                aria-label={t("clear")}
+                aria-label={ko.clear}
               >
                 &times;
               </button>
@@ -348,149 +331,52 @@ export default function SearchFilters({
 
         <Separator />
 
-        {/* 현재 위치 버튼 */}
-        <div>
-          <Button
-            onClick={handleCurrentLocation}
-            variant="outline"
-            className="w-full gap-2"
-          >
-            <MapPin className="h-4 w-4 text-[#2196F3]" />
-            {t("use_current_location")}
-          </Button>
-        </div>
-
-        <Separator />
-
         {/* 카테고리 필터 */}
-        <div>
-          <h3 className="font-medium mb-3 text-[#333333]">{t("category")}</h3>
-          <div className="grid grid-cols-2 gap-2">
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="meat"
-                checked={categories.고기}
-                onCheckedChange={() => handleCategoryChange("고기")}
-              />
-              <Label
-                htmlFor="meat"
-                className="flex items-center gap-2 cursor-pointer"
-              >
-                <Beef className="h-4 w-4 text-[#FF5722]" />
-                <span>{t("meat")}</span>
-              </Label>
-            </div>
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="seafood"
-                checked={categories.해산물}
-                onCheckedChange={() => handleCategoryChange("해산물")}
-              />
-              <Label
-                htmlFor="seafood"
-                className="flex items-center gap-2 cursor-pointer"
-              >
-                <Fish className="h-4 w-4 text-[#2196F3]" />
-                <span>{t("seafood")}</span>
-              </Label>
-            </div>
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="western"
-                checked={categories.양식}
-                onCheckedChange={() => handleCategoryChange("양식")}
-              />
-              <Label
-                htmlFor="western"
-                className="flex items-center gap-2 cursor-pointer"
-              >
-                <Pizza className="h-4 w-4 text-[#FFC107]" />
-                <span>{t("western")}</span>
-              </Label>
-            </div>
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="korean"
-                checked={categories.한식}
-                onCheckedChange={() => handleCategoryChange("한식")}
-              />
-              <Label
-                htmlFor="korean"
-                className="flex items-center gap-2 cursor-pointer"
-              >
-                <Utensils className="h-4 w-4 text-[#4CAF50]" />
-                <span>{t("korean")}</span>
-              </Label>
-            </div>
-            {/* 추가 카테고리 */}
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="chinese"
-                checked={categories.중식}
-                onCheckedChange={() => handleCategoryChange("중식")}
-              />
-              <Label
-                htmlFor="chinese"
-                className="flex items-center gap-2 cursor-pointer"
-              >
-                <Utensils className="h-4 w-4 text-[#F44336]" />
-                <span>{t("chinese")}</span>
-              </Label>
-            </div>
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="japanese"
-                checked={categories.일식}
-                onCheckedChange={() => handleCategoryChange("일식")}
-              />
-              <Label
-                htmlFor="japanese"
-                className="flex items-center gap-2 cursor-pointer"
-              >
-                <Utensils className="h-4 w-4 text-[#9C27B0]" />
-                <span>{t("japanese")}</span>
-              </Label>
-            </div>
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="cafe"
-                checked={categories.카페}
-                onCheckedChange={() => handleCategoryChange("카페")}
-              />
-              <Label
-                htmlFor="cafe"
-                className="flex items-center gap-2 cursor-pointer"
-              >
-                <Coffee className="h-4 w-4 text-[#795548]" />
-                <span>{t("cafe")}</span>
-              </Label>
-            </div>
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="dessert"
-                checked={categories.디저트}
-                onCheckedChange={() => handleCategoryChange("디저트")}
-              />
-              <Label
-                htmlFor="dessert"
-                className="flex items-center gap-2 cursor-pointer"
-              >
-                <Coffee className="h-4 w-4 text-[#E91E63]" />
-                <span>{t("dessert")}</span>
-              </Label>
-            </div>
+        <fieldset>
+          <legend className="mb-2 text-sm font-semibold">{ko.category}</legend>
+          <div className="grid grid-cols-2 gap-x-4">
+            {[
+              { value: "고기", label: "meat" },
+              { value: "해산물", label: "seafood" },
+              { value: "양식", label: "western" },
+              { value: "한식", label: "korean" },
+              { value: "중식", label: "chinese" },
+              { value: "일식", label: "japanese" },
+              { value: "카페", label: "cafe" },
+              { value: "디저트", label: "dessert" },
+            ].map(({ value, label }) => (
+              <div key={value} className="flex items-center gap-2">
+                <Checkbox
+                  id={`${filterId}-${label}`}
+                  checked={categories[value]}
+                  onCheckedChange={() => handleCategoryChange(value)}
+                />
+                <Label
+                  htmlFor={`${filterId}-${label}`}
+                  className={`flex min-h-11 flex-1 cursor-pointer items-center ${categories[value] ? "font-semibold text-foreground" : "font-normal"}`}
+                >
+                  {value}
+                </Label>
+              </div>
+            ))}
           </div>
-        </div>
+        </fieldset>
 
         <Separator />
 
         {/* 반경 필터 */}
-        <div>
-          <div className="flex justify-between mb-3">
-            <h3 className="font-medium text-[#333333]">{t("radius")}</h3>
-            <span className="text-sm font-medium">{radius[0]}km</span>
+        <div role="group" aria-labelledby={`${filterId}-radius`}>
+          <div className="mb-3 flex items-center justify-between gap-2">
+            <h3 id={`${filterId}-radius`} className="text-sm font-semibold">
+              {ko.radius}
+            </h3>
+            <span className="text-sm font-semibold tabular-nums">
+              {radius[0]}km
+            </span>
           </div>
           <Slider
+            aria-labelledby={`${filterId}-radius`}
+            aria-valuetext={`${radius[0]}km`}
             defaultValue={[3]}
             max={5}
             min={1}
@@ -499,40 +385,91 @@ export default function SearchFilters({
             onValueChange={setRadius}
             className="py-2"
           />
-          <div className="flex justify-between text-xs text-gray-500 mt-1">
+          <div className="flex justify-between text-xs text-muted-foreground mt-1">
             <span>1km</span>
             <span>3km</span>
             <span>5km</span>
           </div>
+          <Button
+            type="button"
+            onClick={handleCurrentLocation}
+            variant="outline"
+            disabled={geolocation.isLoading}
+            aria-busy={geolocation.isLoading}
+            className="mt-4 h-11 w-full gap-2 bg-background"
+          >
+            {geolocation.isLoading ? (
+              <Loader2
+                className="h-4 w-4 motion-safe:animate-spin"
+                aria-hidden="true"
+              />
+            ) : (
+              <MapPin className="h-4 w-4" aria-hidden="true" />
+            )}
+            {ko.use_current_location}
+          </Button>
         </div>
 
         <Separator />
 
         {/* 평점 필터 */}
-        <div>
-          <h3 className="font-medium mb-3 text-[#333333]">{t("min_rating")}</h3>
-          <div className="flex items-center gap-1">
-            {[1, 2, 3, 4, 5].map((rating) => (
-              <button
+        <fieldset disabled aria-describedby={`${filterId}-rating-unavailable`}>
+          <legend className="mb-2 text-sm font-semibold">
+            {ko.min_rating}
+          </legend>
+          <p
+            id={`${filterId}-rating-unavailable`}
+            className="mb-2 text-xs text-muted-foreground"
+          >
+            외부 평점 검증 전에는 평점 필터를 사용할 수 없습니다.
+          </p>
+          <div className="grid grid-cols-2 gap-x-4">
+            {[0, 1, 2, 3, 4, 5].map((rating) => (
+              <Label
                 key={rating}
-                className={`p-1 rounded-md transition-colors ${
-                  minRating >= rating ? "text-[#FFA726]" : "text-gray-300"
-                }`}
-                onClick={() => setMinRating(rating)}
+                htmlFor={`${filterId}-rating-${rating}`}
+                className={`flex min-h-11 cursor-not-allowed items-center gap-2 text-muted-foreground ${rating === 0 ? "font-semibold" : "font-normal"}`}
               >
-                <Star className="h-5 w-5 fill-current" />
-              </button>
+                <input
+                  id={`${filterId}-rating-${rating}`}
+                  type="radio"
+                  name={`${filterId}-rating`}
+                  value={rating}
+                  checked={rating === 0}
+                  readOnly
+                  aria-label={rating === 0 ? ko.all_stores : `${rating}점 이상`}
+                  className="h-4 w-4 shrink-0 accent-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                />
+                {rating === 0 ? (
+                  ko.all_stores
+                ) : (
+                  <span className="inline-flex items-center gap-1.5 tabular-nums">
+                    <Star
+                      className="h-3.5 w-3.5 text-muted-foreground"
+                      aria-hidden="true"
+                    />
+                    {rating}점 이상
+                  </span>
+                )}
+              </Label>
             ))}
           </div>
-        </div>
+        </fieldset>
+      </div>
 
+      <div className="flex shrink-0 gap-3 border-t border-border bg-card p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
         <Button
-          onClick={() => handleApplyFilters()}
-          className="w-full bg-[#FF5722] hover:bg-[#E64A19] mt-4"
+          type="button"
+          variant="outline"
+          onClick={handleResetFilters}
+          className="h-11 bg-background"
         >
-          {t("apply_filter")}
+          {ko.reset}
+        </Button>
+        <Button type="submit" className="h-11 flex-1">
+          {ko.apply_filter}
         </Button>
       </div>
-    </div>
+    </form>
   );
 }

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { ChevronUp } from "lucide-react";
+import { ExternalRatings } from "@/components/external-ratings";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Store } from "@/types/store"; // Store 타입 가져오기
@@ -50,7 +51,8 @@ export default function MobileBottomSheet({
                   <div
                     className="w-16 h-16 rounded-md bg-gray-200 flex-shrink-0"
                     style={{
-                      backgroundImage: "url('/placeholder.svg?height=64&width=64')",
+                      backgroundImage:
+                        "url('/placeholder.svg?height=64&width=64')",
                       backgroundSize: "cover",
                     }}
                   ></div>
@@ -62,11 +64,7 @@ export default function MobileBottomSheet({
                         {store.price}
                       </span> */}
                     </div>
-                    <div className="flex items-center gap-1 text-sm">
-                      <span className="text-[#FFA726]">★</span>
-                      <span>{store.rating.naver}</span>
-                      <span className="text-gray-400">(Naver)</span>
-                    </div>
+                    <ExternalRatings ratings={store.rating} />
                     <div className="flex items-center gap-2 mt-1 text-sm text-gray-600 flex-wrap">
                       <span>{store.distance || "거리 정보 없음"}</span>
                       <span>|</span>

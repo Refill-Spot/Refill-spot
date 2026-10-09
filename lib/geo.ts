@@ -2,6 +2,7 @@
 
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { FormattedStore } from "@/types/store";
+import { mapStoredExternalRatings } from "@/lib/external-ratings";
 
 /**
  * @deprecated 이 함수는 더 이상 사용되지 않습니다.
@@ -36,6 +37,9 @@ export const findNearbyStores = async (
     minRating?: number;
   },
 ): Promise<FormattedStore[]> => {
+  if (filters?.minRating && filters.minRating > 0) {
+    throw new Error("외부 평점 검증 전에는 평점 필터를 사용할 수 없습니다.");
+  }
   const supabase = supabaseBrowser;
 
   try {
@@ -44,7 +48,7 @@ export const findNearbyStores = async (
       lat: latitude,
       lng: longitude,
       max_distance: radius,
-      min_rating: filters?.minRating || 0,
+      min_rating: 0,
       categories_filter: filters?.categories || null,
     }).select(`
       *,
@@ -72,10 +76,7 @@ export const findNearbyStores = async (
         address: store.address,
         distance: store.distance ? `${Math.round(store.distance)}` : null,
         categories,
-        rating: {
-          naver: store.naver_rating || 0,
-          kakao: store.kakao_rating || 0,
-        },
+        rating: mapStoredExternalRatings(store),
         position: {
           lat: store.position_lat,
           lng: store.position_lng,

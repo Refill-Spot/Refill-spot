@@ -1,14 +1,21 @@
 "use client";
 
-import { Badge } from "@/components/ui/badge";
+import { ExternalRatings } from "@/components/external-ratings";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import {
   Carousel,
   CarouselContent,
   CarouselItem,
+  CarouselNext,
+  CarouselPrevious,
 } from "@/components/ui/carousel";
-import { Separator } from "@/components/ui/separator";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "@/components/ui/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
@@ -22,6 +29,9 @@ import {
   ChevronDown,
   ChevronUp,
   Clock,
+  Expand,
+  Heart,
+  MapPin,
   Navigation,
   Phone,
   Star,
@@ -29,7 +39,7 @@ import {
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 interface StoreDetailsProps {
   storeId: number;
@@ -41,7 +51,6 @@ export default function StoreDetails({ storeId }: StoreDetailsProps) {
   const {
     currentStore,
     storeLoading,
-    storeError,
     reviews,
     fetchStoreById,
     fetchReviews,
@@ -55,39 +64,23 @@ export default function StoreDetails({ storeId }: StoreDetailsProps) {
   const [uploading, setUploading] = useState(false);
   // liveRating 관련 상태들 제거 - 자체 리뷰 시스템 사용
   const [showAllHours, setShowAllHours] = useState(false);
-
-  // 디버깅 로그 추가
-  console.log("🔍 [StoreDetails] Component rendered", {
-    storeId,
-    currentStore: currentStore
-      ? {
-          id: currentStore.id,
-          name: currentStore.name,
-          openHours: currentStore.openHours,
-          hasOpenHours: !!currentStore.openHours,
-          openHoursType: typeof currentStore.openHours,
-          openHoursLength: currentStore.openHours?.length,
-        }
-      : null,
-    storeLoading,
-    storeError,
-    showAllHours,
-  });
+  const [photoIndex, setPhotoIndex] = useState<number | null>(null);
+  const [failedImages, setFailedImages] = useState<Set<string>>(new Set());
+  const photoTriggerRef = useRef<HTMLButtonElement | null>(null);
 
   // 관리자 여부 (user_metadata.role 기반)
   const isAdmin = user && user.user_metadata?.role === "admin";
 
   // 가게 정보 및 리뷰 로드
   useEffect(() => {
-    console.log("🔍 [StoreDetails] fetchStoreById called", { storeId });
     fetchStoreById(storeId);
   }, [storeId, fetchStoreById]);
 
   // 네이버 지도로 이동
   const handleViewInNaverMap = () => {
     if (!currentStore) {
-return;
-}
+      return;
+    }
 
     const storeName = encodeURIComponent(currentStore.name);
 
@@ -105,8 +98,8 @@ return;
   useEffect(() => {
     const checkFavoriteStatus = async () => {
       if (!user || !currentStore) {
-return;
-}
+        return;
+      }
 
       const { data, error } = await supabaseBrowser
         .from("favorites")
@@ -273,8 +266,8 @@ return;
   // 이미지 업로드 핸들러
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0 || !currentStore) {
-return;
-}
+      return;
+    }
     const file = e.target.files[0];
     setUploading(true);
     try {
@@ -328,11 +321,11 @@ return;
   // 리뷰 삭제 핸들러
   const handleDeleteReview = async (reviewId: number) => {
     if (!user || !currentStore) {
-return;
-}
+      return;
+    }
     if (!window.confirm("정말로 이 리뷰를 삭제하시겠습니까?")) {
-return;
-}
+      return;
+    }
     try {
       const res = await fetch(
         `/api/stores/${currentStore.id}/reviews?reviewId=${reviewId}`,
@@ -368,7 +361,7 @@ return;
         aria-busy="true"
       >
         <div
-          className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#FF5722]"
+          className="motion-safe:animate-spin rounded-full h-12 w-12 border-b-2 border-primary"
           role="status"
         >
           <span className="sr-only">로딩 중...</span>
@@ -401,17 +394,26 @@ return;
         key={i}
         className={`h-5 w-5 ${
           i < Math.floor(rating)
-            ? "fill-[#FFA726] text-[#FFA726]"
+            ? "fill-primary text-primary"
             : i < rating
-              ? "fill-[#FFA726]/50 text-[#FFA726]"
-              : "fill-none text-gray-300"
+              ? "fill-primary/50 text-primary"
+              : "fill-none text-muted-foreground/40"
         }`}
+        aria-hidden="true"
       />
     ));
   };
 
   // store는 여기서 확실히 null이 아님
   const storeData = currentStore;
+  const photos =
+    storeData.imageUrls?.map((url) => url.trim()).filter(Boolean) || [];
+  const distance = storeData.distance?.trim();
+  const distanceLabel =
+    distance && /^\d+(?:\.\d+)?$/.test(distance) ? `${distance}km` : distance;
+  const handlePhotoError = (url: string) => {
+    setFailedImages((previous) => new Set(previous).add(url));
+  };
 
   // 요일 배열 (Date 객체의 getDay() 순서와 맞춤: 일요일=0)
   const DAYS_OF_WEEK = ["일", "월", "화", "수", "목", "금", "토"];
@@ -423,8 +425,8 @@ return;
   // openHours 문자열을 파싱하여 요일별 시간 정보로 변환
   const parseBusinessHours = () => {
     if (!storeData.openHours) {
-return [];
-}
+      return [];
+    }
 
     const hoursString = storeData.openHours;
     const dayPatterns = ["월", "화", "수", "목", "금", "토", "일"];
@@ -481,13 +483,15 @@ return [];
         parsedHours.push({
           day,
           hours: "정보 없음",
-          isClosed: true,
+          isClosed: false,
           lastOrder: null,
         });
       }
     }
 
-    return parsedHours;
+    return parsedHours.every((item) => item.hours === "정보 없음")
+      ? []
+      : parsedHours;
   };
 
   const businessHours = parseBusinessHours();
@@ -496,133 +500,224 @@ return [];
   const getTodayHours = () => {
     const todayInfo = businessHours.find((h) => h.day === todayDayOfWeek);
     if (!todayInfo) {
-return "영업시간 정보가 없습니다.";
-}
+      return storeData.openHours || "영업시간 정보가 없습니다.";
+    }
 
     if (todayInfo.isClosed) {
-return "오늘은 휴무일입니다.";
-}
+      return "오늘은 휴무일입니다.";
+    }
     return todayInfo.hours;
   };
 
   return (
-    <article className="bg-white min-h-screen">
-      <header className="sticky top-0 z-10 bg-white p-4 flex items-center gap-2 border-b">
+    <article className="bg-background text-foreground min-h-screen">
+      <header className="sticky top-0 z-30 bg-background p-3 md:p-4 flex items-center gap-2 border-b border-border">
         <Button variant="ghost" size="icon" onClick={handleBack}>
           <ArrowLeft className="h-5 w-5" />
           <span className="sr-only">뒤로 가기</span>
         </Button>
-        <h1 className="text-lg font-bold">{storeData.name}</h1>
+        <h1 className="min-w-0 text-base font-semibold leading-snug md:text-lg">
+          {storeData.name}
+        </h1>
       </header>
 
-      {/* 관리자만 이미지 업로드 */}
-      {isAdmin && (
-        <div className="p-4 flex items-center gap-4 bg-gray-50 border-b">
-          <label className="block">
-            <span className="text-sm font-medium">
-              가게 사진 업로드 (최대 3장)
-            </span>
-            <input
-              type="file"
-              accept="image/*"
-              className="block mt-1"
-              onChange={handleImageUpload}
-              disabled={uploading || (storeData.imageUrls?.length || 0) >= 3}
-            />
-          </label>
-          {uploading && (
-            <span className="text-sm text-gray-500">업로드 중...</span>
-          )}
-        </div>
-      )}
-
-      {/* 가게 이미지 (캐러셀) */}
-      <figure className="w-full h-48 md:h-64 relative">
-        {storeData.imageUrls && storeData.imageUrls.length > 0 ? (
-          <Carousel className="w-full h-full">
-            <CarouselContent>
-              {storeData.imageUrls.map((url, idx) => (
-                <CarouselItem
-                  key={idx}
-                  className="w-full h-48 md:h-64 relative"
-                >
-                  <Image
-                    src={url}
-                    alt={`${storeData.name} 사진 ${idx + 1}`}
-                    fill
-                    sizes="(max-width: 768px) 100vw, 768px"
-                    style={{ objectFit: "cover" }}
-                    priority={idx === 0}
-                    unoptimized={false}
-                  />
-                </CarouselItem>
-              ))}
-            </CarouselContent>
-          </Carousel>
-        ) : (
-          <Image
-            src="/placeholder.svg"
-            alt={`${storeData.name} 이미지`}
-            fill
-            sizes="(max-width: 768px) 100vw, 768px"
-            style={{ objectFit: "cover" }}
-            priority
-            unoptimized={shouldBeUnoptimized(undefined, undefined, "/placeholder.svg")}
-          />
-        )}
-      </figure>
-
-      <main className="p-4 md:p-6 max-w-4xl mx-auto">
-
-        {/* 가게 정보 */}
-        <section aria-labelledby="store-info">
-          <h2 id="store-info" className="sr-only">
-            가게 정보
-          </h2>
-          <Card>
-            <CardContent className="p-4 md:p-6 space-y-4">
-              <div className="flex justify-between items-start gap-2">
-                <div>
-                  <h3 className="text-xl md:text-2xl font-bold text-[#333333]">
-                    {storeData.name}
-                  </h3>
-                  <div className="flex items-center gap-2 mt-1">
-                    <div className="flex items-center">
-                      {renderStars(avgRating)}
-                      <span className="ml-2 text-sm text-gray-500">
-                        {avgRating > 0 ? avgRating.toFixed(1) : "평점 없음"} ({reviews.length}개 리뷰)
-                      </span>
+      <Dialog
+        open={photoIndex !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setPhotoIndex(null);
+          }
+        }}
+      >
+        <DialogContent
+          className="max-h-[95dvh] w-[calc(100%_-_2rem)] max-w-5xl overflow-y-auto rounded-lg border-border bg-card p-4 shadow-none md:p-6"
+          onCloseAutoFocus={(event) => {
+            event.preventDefault();
+            photoTriggerRef.current?.focus();
+          }}
+        >
+          <DialogHeader className="pr-8 text-left">
+            <DialogTitle>{storeData.name} 사진</DialogTitle>
+            <DialogDescription>
+              등록된 사진 {photos.length}장입니다. 좌우 버튼 또는 방향키로
+              사진을 넘길 수 있습니다.
+            </DialogDescription>
+          </DialogHeader>
+          {photoIndex !== null && (
+            <Carousel
+              opts={{ startIndex: photoIndex }}
+              aria-label="전체 매장 사진"
+            >
+              <CarouselContent>
+                {photos.map((url, idx) => (
+                  <CarouselItem
+                    key={`${url}-${idx}`}
+                    aria-label={`사진 ${idx + 1} / ${photos.length}`}
+                  >
+                    <div className="relative flex h-[65dvh] items-center justify-center overflow-hidden rounded-lg bg-muted md:h-[72dvh]">
+                      {failedImages.has(url) ? (
+                        <p className="text-sm text-muted-foreground">
+                          사진을 불러올 수 없습니다.
+                        </p>
+                      ) : (
+                        <Image
+                          src={url}
+                          alt={`${storeData.name} 전체 사진 ${idx + 1}`}
+                          fill
+                          sizes="(max-width: 768px) 100vw, 1024px"
+                          className="object-contain"
+                          unoptimized={shouldBeUnoptimized(
+                            undefined,
+                            undefined,
+                            url,
+                          )}
+                          onError={() => handlePhotoError(url)}
+                        />
+                      )}
                     </div>
-                  </div>
+                  </CarouselItem>
+                ))}
+              </CarouselContent>
+              {photos.length > 1 && (
+                <div className="mt-3 flex justify-center gap-3">
+                  <CarouselPrevious
+                    className="static h-10 w-10 translate-y-0 shadow-none"
+                    aria-label="이전 전체 사진"
+                  />
+                  <CarouselNext
+                    className="static h-10 w-10 translate-y-0 shadow-none"
+                    aria-label="다음 전체 사진"
+                  />
                 </div>
+              )}
+            </Carousel>
+          )}
+        </DialogContent>
+      </Dialog>
 
-                <Button
-                  variant={isFavorite ? "destructive" : "outline"}
-                  size="sm"
-                  onClick={handleToggleFavorite}
+      <main className="mx-auto max-w-4xl px-4 py-6 md:px-6 md:py-8">
+        <section aria-labelledby="store-info" className="pb-6">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="min-w-0 flex-1 basis-48">
+              <h2
+                id="store-info"
+                className="break-words text-2xl font-semibold leading-snug md:text-3xl"
+              >
+                {storeData.name}
+              </h2>
+              {storeData.categories.length > 0 && (
+                <p
+                  className="mt-2 text-sm text-muted-foreground"
+                  aria-label="카테고리"
                 >
-                  {isFavorite ? "즐겨찾기 해제" : "즐겨찾기"}
-                </Button>
+                  {storeData.categories.join(" · ")}
+                </p>
+              )}
+              <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
+                <span className="inline-flex items-center gap-1.5">
+                  <Star className="h-3.5 w-3.5" aria-hidden="true" />
+                  자체 리뷰 평점 {avgRating > 0 ? avgRating.toFixed(1) : "없음"}
+                </span>
+                <span>자체 리뷰 {reviews.length}개</span>
+                {distanceLabel && <span>{distanceLabel}</span>}
               </div>
+              <section className="mt-3" aria-label="플랫폼별 평점 비교">
+                <ExternalRatings ratings={storeData.rating} />
+              </section>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              className={`h-10 gap-1.5 ${isFavorite ? "border-primary text-primary" : ""}`}
+              onClick={handleToggleFavorite}
+              aria-label={`${storeData.name} 즐겨찾기 ${isFavorite ? "해제" : "추가"}`}
+              aria-pressed={isFavorite}
+            >
+              <Heart
+                className={`h-4 w-4 ${isFavorite ? "fill-primary" : ""}`}
+                aria-hidden="true"
+              />
+              {isFavorite ? "즐겨찾기 해제" : "즐겨찾기"}
+            </Button>
+          </div>
+        </section>
 
-              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
-                <address className="text-sm md:text-base text-gray-600 not-italic">
+        <section
+          aria-labelledby="refill-menu-heading"
+          className="border-t border-border py-6"
+        >
+          <h3 id="refill-menu-heading" className="mb-3 text-lg font-semibold">
+            무한리필 메뉴와 가격
+          </h3>
+          {storeData.refillItems &&
+          Array.isArray(storeData.refillItems) &&
+          storeData.refillItems.length > 0 ? (
+            <dl className="divide-y divide-border">
+              {storeData.refillItems.map((item: MenuItem, index: number) => (
+                <div
+                  key={index}
+                  className="flex flex-wrap items-start justify-between gap-x-6 gap-y-2 py-3"
+                >
+                  <dt className="min-w-0 flex-1 basis-40">
+                    <span className="break-words font-medium">{item.name}</span>
+                    {item.is_recommended && (
+                      <span className="ml-2 text-xs text-muted-foreground">
+                        추천
+                      </span>
+                    )}
+                    {item.type && (
+                      <span className="mt-1 block whitespace-pre-line break-words text-sm leading-relaxed text-muted-foreground">
+                        {item.type}
+                      </span>
+                    )}
+                  </dt>
+                  <dd className="max-w-full whitespace-pre-line break-words text-right text-lg font-semibold tabular-nums">
+                    {item.price?.trim() || "가격 정보 없음"}
+                  </dd>
+                </div>
+              ))}
+            </dl>
+          ) : (
+            <p className="py-3 text-sm text-muted-foreground">
+              등록된 메뉴·가격 정보가 없습니다.
+            </p>
+          )}
+          <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
+            가격과 이용 조건은 방문 전 매장에 확인해주세요.
+          </p>
+        </section>
+
+        <section
+          aria-labelledby="visit-info-heading"
+          className="border-t border-border py-6"
+        >
+          <h3 id="visit-info-heading" className="mb-4 text-lg font-semibold">
+            위치와 방문 정보
+          </h3>
+          <dl className="space-y-5 text-sm">
+            <div className="grid gap-2 sm:grid-cols-[6rem_minmax(0,1fr)] sm:gap-4">
+              <dt className="flex items-center gap-2 text-muted-foreground">
+                <MapPin className="h-4 w-4" aria-hidden="true" />
+                주소
+              </dt>
+              <dd className="min-w-0">
+                <address className="break-words not-italic leading-relaxed">
                   {storeData.address}
                 </address>
-                <div className="flex gap-2">
+                <div className="mt-3 flex flex-wrap gap-2">
                   <Button
                     size="sm"
                     variant="outline"
-                    className="gap-1"
+                    className="h-10 gap-1.5"
                     onClick={handleViewInNaverMap}
                   >
-                    <Navigation className="h-4 w-4 text-[#2196F3]" />
-                    <span>네이버 길찾기</span>
+                    <Navigation className="h-4 w-4" aria-hidden="true" />
+                    네이버 길찾기
                   </Button>
                   <Button
                     size="sm"
                     variant="outline"
-                    className="gap-1"
+                    className="h-10 gap-1.5"
                     onClick={() => {
                       // 카카오 지도 앱으로 연결
                       const kakaoMapUrl = `kakaomap://look?p=${storeData.position.lat},${storeData.position.lng}`;
@@ -636,221 +731,257 @@ return "오늘은 휴무일입니다.";
                       }, 1000);
                     }}
                   >
-                    <Navigation className="h-4 w-4 text-[#FFA726]" />
-                    <span>카카오 길찾기</span>
+                    <Navigation className="h-4 w-4" aria-hidden="true" />
+                    카카오 길찾기
                   </Button>
                 </div>
-              </div>
-
-              <Separator />
-
-              <div>
-                <h4 className="font-medium mb-2">카테고리</h4>
-                <div className="flex flex-wrap gap-2">
-                  {storeData.categories.map(
-                    (category: string, index: number) => (
-                      <Badge
-                        key={index}
-                        variant="secondary"
-                        className="px-2 py-1"
-                      >
-                        {category}
-                      </Badge>
-                    ),
-                  )}
-                </div>
-              </div>
-
-              <Separator />
-
-              <div className="space-y-4">
-                {/* 영업 정보 섹션 */}
-                <div>
-                  <div className="flex items-center gap-2 mb-3">
-                    <Clock className="h-5 w-5 text-[#FF5722]" />
-                    <h4 className="font-semibold text-lg">영업 정보</h4>
-                  </div>
-
-                  {/* 영업시간 표시 */}
-                  <div className="bg-gradient-to-r from-orange-50 to-red-50 border-l-4 border-[#FF5722] p-4 rounded-r-lg mb-3">
-                    {!showAllHours ? (
-                      /* 접힌 상태: 오늘 요일만 표시 */
-                      <>
-                        <h5 className="font-semibold text-[#FF5722] mb-2 flex items-center gap-2">
-                          <span className="w-2 h-2 bg-[#FF5722] rounded-full"></span>
-                          오늘({todayDayOfWeek})의 영업시간
-                        </h5>
-                        <time className="text-sm font-medium text-gray-700">
-                          {getTodayHours()}
-                        </time>
-                      </>
-                    ) : (
-                      /* 펼친 상태: 전체 요일 표시 */
-                      <>
-                        <h5 className="font-semibold text-[#FF5722] mb-3 flex items-center gap-2">
-                          <span className="w-2 h-2 bg-[#FF5722] rounded-full"></span>
-                          주간 영업시간
-                        </h5>
-                        <div className="space-y-3">
-                          {businessHours.map((item, index) => (
-                            <div
-                              key={index}
-                              className={`p-3 rounded-lg border-l-4 ${
-                                item.day === todayDayOfWeek
-                                  ? "border-[#FF5722] bg-gradient-to-r from-orange-50 to-red-50"
-                                  : "border-gray-200 bg-gray-50"
-                              }`}
-                            >
-                              <div className="flex justify-between items-center">
-                                <div className="flex items-center gap-2">
-                                  <span
-                                    className={`font-semibold ${
-                                      item.day === todayDayOfWeek
-                                        ? "text-[#FF5722]"
-                                        : "text-gray-700"
-                                    }`}
-                                  >
-                                    {item.day}요일
-                                  </span>
-                                  {item.day === todayDayOfWeek && (
-                                    <span className="text-xs bg-[#FF5722] text-white px-2 py-0.5 rounded-full">
-                                      오늘
-                                    </span>
-                                  )}
-                                </div>
-                                <div className="text-right">
-                                  <div
-                                    className={`font-medium ${
-                                      item.isClosed
-                                        ? "text-red-500"
-                                        : "text-gray-700"
-                                    }`}
-                                  >
-                                    {item.hours}
-                                  </div>
-                                  {item.lastOrder && !item.isClosed && (
-                                    <div className="text-xs text-gray-500 mt-1">
-                                      라스트오더: {item.lastOrder}
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                        <p className="text-xs text-gray-500 mt-3">
-                          * 실제 영업시간은 매장 사정에 따라 변경될 수 있습니다.
-                        </p>
-                      </>
-                    )}
-                  </div>
-
-                  {/* 토글 버튼 */}
-                  <button
-                    onClick={() => setShowAllHours(!showAllHours)}
-                    className="flex items-center gap-2 text-sm text-gray-600 hover:text-[#FF5722] transition-colors"
-                  >
-                    <span>
-                      {showAllHours ? "간단히 보기" : "전체 영업시간 보기"}
-                    </span>
-                    {showAllHours ? (
-                      <ChevronUp className="h-4 w-4" />
-                    ) : (
-                      <ChevronDown className="h-4 w-4" />
-                    )}
-                  </button>
-                </div>
-
-                {/* 전화번호 섹션 */}
-                <div className="flex items-center gap-3">
-                  <Phone className="h-5 w-5 text-[#2196F3]" />
-                  <div className="flex-1">
-                    <h4 className="font-medium">전화번호</h4>
-                    <p className="text-sm text-gray-600">
-                      {storeData.phoneNumber || "전화번호 정보가 없습니다."}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <Separator />
-
-              <div>
-                <h4 className="font-medium mb-2">무한리필 메뉴</h4>
-                <div className="space-y-3">
-                  {storeData.refillItems &&
-                  Array.isArray(storeData.refillItems) &&
-                  storeData.refillItems.length > 0 ? (
-                    storeData.refillItems.map(
-                      (item: MenuItem, index: number) => (
-                        <div
-                          key={index}
-                          className="flex justify-between items-center p-3 bg-gray-50 rounded-lg"
-                        >
-                          <div className="flex-1">
-                            <h5 className="font-medium text-gray-900">
-                              {item.name}
-                            </h5>
-                            {item.type && (
-                              <span className="text-xs text-gray-500 bg-gray-200 px-2 py-1 rounded-full">
-                                {item.type}
-                              </span>
-                            )}
-                          </div>
-                          <div className="text-right">
-                            <div className="text-lg font-bold text-primary">
-                              {item.price}
-                            </div>
-                            {item.is_recommended && (
-                              <Badge variant="secondary" className="text-xs">
-                                추천
-                              </Badge>
-                            )}
-                          </div>
-                        </div>
-                      ),
-                    )
+              </dd>
+            </div>
+            <div className="grid gap-2 sm:grid-cols-[6rem_minmax(0,1fr)] sm:gap-4">
+              <dt className="flex items-center gap-2 text-muted-foreground">
+                <Phone className="h-4 w-4" aria-hidden="true" />
+                전화번호
+              </dt>
+              <dd className="break-words">
+                {storeData.phoneNumber || "전화번호 정보가 없습니다."}
+              </dd>
+            </div>
+            <div className="grid gap-2 sm:grid-cols-[6rem_minmax(0,1fr)] sm:gap-4">
+              <dt className="flex items-start gap-2 text-muted-foreground">
+                <Clock className="mt-0.5 h-4 w-4" aria-hidden="true" />
+                영업시간
+              </dt>
+              <dd className="min-w-0">
+                <div id="store-business-hours">
+                  {!showAllHours || businessHours.length === 0 ? (
+                    <>
+                      <h4 className="mb-1 font-medium">
+                        {businessHours.length > 0
+                          ? `오늘(${todayDayOfWeek})의 영업시간`
+                          : "등록된 영업시간"}
+                      </h4>
+                      <p className="whitespace-pre-line leading-relaxed">
+                        {getTodayHours()}
+                      </p>
+                    </>
                   ) : (
-                    <div className="text-sm text-gray-500 p-3 bg-gray-50 rounded-lg">
-                      메뉴 정보가 없습니다.
-                    </div>
+                    <>
+                      <h4 className="mb-2 font-medium">주간 영업시간</h4>
+                      <div className="divide-y divide-border">
+                        {businessHours.map((item, index) => (
+                          <div
+                            key={index}
+                            className="flex flex-wrap items-start justify-between gap-2 py-2"
+                          >
+                            <div className="flex items-center gap-2">
+                              <span
+                                className={
+                                  item.day === todayDayOfWeek
+                                    ? "font-semibold"
+                                    : ""
+                                }
+                              >
+                                {item.day}요일
+                              </span>
+                              {item.day === todayDayOfWeek && (
+                                <span className="text-xs text-muted-foreground">
+                                  오늘
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-right tabular-nums">
+                              <p
+                                className={
+                                  item.isClosed ? "text-muted-foreground" : ""
+                                }
+                              >
+                                {item.hours}
+                              </p>
+                              {item.lastOrder && !item.isClosed && (
+                                <p className="mt-1 text-xs text-muted-foreground">
+                                  라스트오더: {item.lastOrder}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      <p className="mt-3 text-xs text-muted-foreground">
+                        * 실제 영업시간은 매장 사정에 따라 변경될 수 있습니다.
+                      </p>
+                    </>
                   )}
                 </div>
-              </div>
-            </CardContent>
-          </Card>
+                {businessHours.length > 0 && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowAllHours(!showAllHours)}
+                    className="mt-2 h-10 gap-2 px-0 text-muted-foreground hover:bg-transparent hover:text-foreground"
+                    aria-expanded={showAllHours}
+                    aria-controls="store-business-hours"
+                  >
+                    {showAllHours ? "간단히 보기" : "전체 영업시간 보기"}
+                    {showAllHours ? (
+                      <ChevronUp className="h-4 w-4" aria-hidden="true" />
+                    ) : (
+                      <ChevronDown className="h-4 w-4" aria-hidden="true" />
+                    )}
+                  </Button>
+                )}
+              </dd>
+            </div>
+          </dl>
+        </section>
+
+        <section
+          aria-labelledby="store-photos-heading"
+          className="border-t border-border py-6"
+        >
+          <h3 id="store-photos-heading" className="mb-4 text-lg font-semibold">
+            매장 사진
+          </h3>
+          {isAdmin && (
+            <div className="mb-4 flex flex-wrap items-center gap-4 text-sm">
+              <label className="block">
+                <span className="font-medium">가게 사진 업로드 (최대 3장)</span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="mt-2 block max-w-full"
+                  onChange={handleImageUpload}
+                  disabled={
+                    uploading || (storeData.imageUrls?.length || 0) >= 3
+                  }
+                />
+              </label>
+              {uploading && (
+                <span className="text-muted-foreground">업로드 중...</span>
+              )}
+            </div>
+          )}
+          <figure>
+            {photos.length > 0 ? (
+              <Carousel
+                className="overflow-hidden bg-muted"
+                aria-label="매장 사진"
+              >
+                <CarouselContent>
+                  {photos.map((url, idx) => (
+                    <CarouselItem
+                      key={`${url}-${idx}`}
+                      aria-label={`사진 ${idx + 1} / ${photos.length}`}
+                    >
+                      {failedImages.has(url) ? (
+                        <div className="flex h-48 items-center justify-center text-sm text-muted-foreground sm:h-64">
+                          사진을 불러올 수 없습니다.
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          className="relative block h-48 w-full focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-4px] focus-visible:outline-ring sm:h-64"
+                          onClick={(event) => {
+                            photoTriggerRef.current = event.currentTarget;
+                            setPhotoIndex(idx);
+                          }}
+                          aria-label={`${storeData.name} 사진 ${idx + 1} 크게 보기`}
+                        >
+                          <Image
+                            src={url}
+                            alt={`${storeData.name} 사진 ${idx + 1}`}
+                            fill
+                            sizes="(max-width: 768px) 100vw, 848px"
+                            className="object-cover"
+                            unoptimized={shouldBeUnoptimized(
+                              undefined,
+                              undefined,
+                              url,
+                            )}
+                            onError={() => handlePhotoError(url)}
+                          />
+                          <span className="absolute bottom-3 right-3 flex items-center gap-1.5 rounded-sm bg-card px-2 py-1.5 text-xs font-medium text-card-foreground">
+                            <Expand
+                              className="h-3.5 w-3.5"
+                              aria-hidden="true"
+                            />
+                            크게 보기
+                          </span>
+                        </button>
+                      )}
+                    </CarouselItem>
+                  ))}
+                </CarouselContent>
+                {photos.length > 1 && (
+                  <>
+                    <CarouselPrevious
+                      className="left-3 h-10 w-10 shadow-none"
+                      aria-label="이전 매장 사진"
+                    />
+                    <CarouselNext
+                      className="right-3 h-10 w-10 shadow-none"
+                      aria-label="다음 매장 사진"
+                    />
+                  </>
+                )}
+              </Carousel>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                아직 등록된 매장 사진이 없습니다.
+              </p>
+            )}
+            {photos.length > 0 && (
+              <figcaption className="pt-2 text-xs text-muted-foreground">
+                매장 사진 {photos.length}장 · 사진을 눌러 크게 볼 수 있어요
+              </figcaption>
+            )}
+          </figure>
         </section>
 
         {/* 리뷰 섹션 */}
-        <section className="mt-8" aria-labelledby="reviews-heading">
-          <h3 id="reviews-heading" className="text-xl font-bold mb-4">
-            리뷰
+        <section
+          className="border-t border-border py-6"
+          aria-labelledby="reviews-heading"
+        >
+          <h3 id="reviews-heading" className="mb-4 text-lg font-semibold">
+            자체 리뷰
           </h3>
 
           <Tabs defaultValue="all" className="w-full">
-            <TabsList className="w-full grid grid-cols-2 mb-4">
-              <TabsTrigger value="all">
+            <TabsList className="mb-4 grid h-11 w-full grid-cols-2 rounded-none border-b border-border bg-transparent p-0">
+              <TabsTrigger
+                value="all"
+                className="h-full rounded-none border-b-2 border-transparent data-[state=active]:border-foreground data-[state=active]:bg-transparent data-[state=active]:shadow-none"
+              >
                 모든 리뷰 ({reviews.length})
               </TabsTrigger>
-              <TabsTrigger value="write">리뷰 작성</TabsTrigger>
+              <TabsTrigger
+                value="write"
+                className="h-full rounded-none border-b-2 border-transparent data-[state=active]:border-foreground data-[state=active]:bg-transparent data-[state=active]:shadow-none"
+              >
+                리뷰 작성
+              </TabsTrigger>
             </TabsList>
 
             <TabsContent value="all">
               {reviews.length > 0 ? (
-                <div className="space-y-4">
+                <div className="divide-y divide-border">
                   {reviews.map((review: FormattedReview) => (
-                    <article
-                      key={review.id}
-                      className="border rounded-lg p-4 shadow-sm"
-                    >
-                      <header className="flex justify-between items-center mb-2">
+                    <article key={review.id} className="py-4 first:pt-0">
+                      <header className="flex flex-wrap justify-between items-center gap-2 mb-3">
                         <span className="font-semibold">
                           {review.user.username}
                         </span>
-                        <div className="flex items-center gap-2">
-                          {renderStars(review.rating)}
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span
+                            className="inline-flex"
+                            role="img"
+                            aria-label={`평점 ${review.rating}점`}
+                          >
+                            {renderStars(review.rating)}
+                          </span>
                           <time
-                            className="ml-2 text-sm text-gray-500"
+                            className="text-xs text-muted-foreground"
                             dateTime={review.createdAt}
                           >
                             {new Date(review.createdAt).toLocaleDateString()}
@@ -867,17 +998,23 @@ return "오늘은 휴무일입니다.";
                           )}
                         </div>
                       </header>
-                      <p className="text-gray-700">{review.content}</p>
+                      <p className="whitespace-pre-line break-words text-sm leading-relaxed text-foreground">
+                        {review.content}
+                      </p>
                     </article>
                   ))}
                 </div>
               ) : (
                 <div className="text-center py-8">
-                  <p className="text-gray-500">아직 작성된 리뷰가 없습니다.</p>
+                  <p className="text-muted-foreground">
+                    아직 작성된 리뷰가 없습니다.
+                  </p>
                   {/* 평균 평점 표시 */}
                   {avgRating > 0 && (
                     <div className="mt-2 flex justify-center items-center gap-2">
-                      <span className="text-sm text-gray-600">평균 평점:</span>
+                      <span className="text-sm text-muted-foreground">
+                        자체 리뷰 평균 평점:
+                      </span>
                       <div className="flex">{renderStars(avgRating)}</div>
                       <span className="text-sm font-medium">
                         ({avgRating.toFixed(1)})
@@ -901,15 +1038,17 @@ return "오늘은 휴무일입니다.";
                           onClick={() =>
                             setUserReview({ ...userReview, rating: star })
                           }
-                          className="focus:outline-none"
+                          className="rounded-md p-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                           aria-label={`${star}점`}
+                          aria-pressed={star === userReview.rating}
                         >
                           <Star
                             className={`h-8 w-8 ${
                               star <= userReview.rating
-                                ? "fill-[#FFA726] text-[#FFA726]"
-                                : "fill-none text-gray-300"
+                                ? "fill-primary text-primary"
+                                : "fill-none text-muted-foreground/40"
                             }`}
+                            aria-hidden="true"
                           />
                         </button>
                       ))}
@@ -925,7 +1064,7 @@ return "오늘은 휴무일입니다.";
                     </label>
                     <textarea
                       id="review-content"
-                      className="w-full p-3 border rounded-md focus:ring-2 focus:ring-[#FF5722] focus:border-transparent min-h-[150px]"
+                      className="w-full bg-card p-3 border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring min-h-[150px]"
                       placeholder="이 가게에 대한 리뷰를 작성해주세요."
                       value={userReview.content}
                       onChange={(e) =>
@@ -941,7 +1080,7 @@ return "오늘은 휴무일입니다.";
 
                   <Button
                     type="submit"
-                    className="w-full bg-[#FF5722] hover:bg-[#E64A19]"
+                    className="w-full"
                     disabled={isSubmitting}
                     aria-busy={isSubmitting}
                   >
@@ -950,12 +1089,12 @@ return "오늘은 휴무일입니다.";
                 </form>
               ) : (
                 <div className="text-center py-8">
-                  <p className="text-gray-500 mb-4">
+                  <p className="text-muted-foreground mb-4">
                     리뷰를 작성하려면 로그인이 필요합니다.
                   </p>
-                  <Link href="/login">
-                    <Button variant="outline">로그인하러 가기</Button>
-                  </Link>
+                  <Button variant="outline" asChild>
+                    <Link href="/login">로그인하러 가기</Link>
+                  </Button>
                 </div>
               )}
             </TabsContent>
@@ -963,11 +1102,14 @@ return "오늘은 휴무일입니다.";
         </section>
 
         {/* 외부 링크 */}
-        <section className="mt-8" aria-label="외부 검색 링크">
-          <div className="grid grid-cols-2 gap-4">
+        <section
+          className="border-t border-border pt-4"
+          aria-label="외부 검색 링크"
+        >
+          <div className="flex flex-wrap gap-2">
             <Button
-              variant="outline"
-              className="gap-2"
+              variant="ghost"
+              className="h-10 gap-2 text-muted-foreground"
               onClick={() =>
                 window.open(
                   `https://search.naver.com/search.naver?query=${encodeURIComponent(
@@ -977,12 +1119,11 @@ return "오늘은 휴무일입니다.";
                 )
               }
             >
-              <span className="text-[#03C75A] font-bold">N</span>
               <span>네이버 검색</span>
             </Button>
             <Button
-              variant="outline"
-              className="gap-2"
+              variant="ghost"
+              className="h-10 gap-2 text-muted-foreground"
               onClick={() =>
                 window.open(
                   `https://search.daum.net/search?q=${encodeURIComponent(
@@ -992,9 +1133,6 @@ return "오늘은 휴무일입니다.";
                 )
               }
             >
-              <span className="text-[#FFDE00] bg-[#371D1E] rounded-full h-5 w-5 flex items-center justify-center text-xs font-bold">
-                K
-              </span>
               <span>카카오 검색</span>
             </Button>
           </div>

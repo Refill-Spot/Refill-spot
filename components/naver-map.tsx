@@ -1,12 +1,13 @@
 "use client";
 
+import { ExternalRatings } from "@/components/external-ratings";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/components/ui/use-toast";
 import { useTranslation } from "@/hooks/use-translation";
 import { Store } from "@/types/store";
-import { MapPin, Star } from "lucide-react";
+import { MapPin } from "lucide-react";
 import Link from "next/link";
 import Script from "next/script";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -101,8 +102,8 @@ export default function NaverMap({
   // 지도 초기화
   useEffect(() => {
     if (!naverMapLoaded || !mapRef.current) {
-return;
-}
+      return;
+    }
 
     try {
       // window.naver가 정의되어 있는지 확인
@@ -185,10 +186,7 @@ return;
   // 마커 클러스터링 설정
   const setupMarkerClustering = useCallback(
     (map: any, markers: any[]) => {
-      if (
-        !enableClustering ||
-        !window.naver?.maps?.MarkerClustering
-      ) {
+      if (!enableClustering || !window.naver?.maps?.MarkerClustering) {
         return null;
       }
 
@@ -248,8 +246,8 @@ return;
   // 가게 마커 추가
   useEffect(() => {
     if (!map || !stores.length || !window.naver?.maps) {
-return;
-}
+      return;
+    }
 
     try {
       // 기존 마커 제거
@@ -260,10 +258,7 @@ return;
 
       // 각 가게별 마커 생성
       for (const store of stores) {
-        if (
-          !store?.position?.lat ||
-          !store.position.lng
-        ) {
+        if (!store?.position?.lat || !store.position.lng) {
           console.warn("유효하지 않은 가게 데이터:", store);
           continue; // 유효하지 않은 가게 데이터 건너뛰기
         }
@@ -388,7 +383,10 @@ return;
         // 모든 가게 위치 포함
         stores.forEach((store) => {
           bounds.extend(
-            new window.naver.maps.LatLng(store.position.lat, store.position.lng),
+            new window.naver.maps.LatLng(
+              store.position.lat,
+              store.position.lng,
+            ),
           );
         });
 
@@ -534,15 +532,7 @@ return;
                     ✕
                   </button>
                 </div>
-                <div className="flex items-center gap-1 text-sm">
-                  <Star className="h-4 w-4 fill-[#FFA726] text-[#FFA726]" />
-                  <span>{selectedStore.rating.naver}</span>
-                  <span className="text-gray-400">{t("naver")}</span>
-                  <span className="mx-1">|</span>
-                  <Star className="h-4 w-4 fill-[#FFA726] text-[#FFA726]" />
-                  <span>{selectedStore.rating.kakao}</span>
-                  <span className="text-gray-400">{t("kakao")}</span>
-                </div>
+                <ExternalRatings ratings={selectedStore.rating} />
                 <div className="flex items-center gap-2 mt-1 text-sm text-gray-600">
                   <span>
                     {selectedStore.distance

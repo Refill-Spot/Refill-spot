@@ -43,3 +43,4 @@ logs/
 # md
 CLAUDE.md
 GEMINI.md
+.gjc/

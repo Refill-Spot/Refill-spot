@@ -2,11 +2,28 @@ import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 export async function middleware(request: NextRequest) {
-  let response = NextResponse.next({
+  const response = NextResponse.next({
     request: {
       headers: request.headers,
     },
   });
+
+  const pathname = request.nextUrl.pathname;
+  const authRequiredPaths = ["/profile", "/favorites"];
+  const adminRequiredPaths = ["/admin"];
+  const publicOnlyPaths = ["/login", "/register", "/forgot-password"];
+  const matchesPath = (path: string) =>
+    pathname === path || pathname.startsWith(`${path}/`);
+
+  // 공개 탐색 화면은 인증 서버의 가용성과 관계없이 렌더링한다.
+  // 보호된 경로는 아래에서 기존과 동일하게 사용자와 권한을 검증한다.
+  if (
+    ![...authRequiredPaths, ...adminRequiredPaths, ...publicOnlyPaths].some(
+      matchesPath,
+    )
+  ) {
+    return response;
+  }
 
   const supabase = createServerClient(
     process.env.SUPABASE_URL!,
@@ -25,7 +42,7 @@ export async function middleware(request: NextRequest) {
           response.cookies.set({ name, value: "", ...options });
         },
       },
-    }
+    },
   );
 
   // 사용자 인증 확인
@@ -35,27 +52,14 @@ export async function middleware(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   // 보호된 경로 확인 및 처리
-  const pathname = request.nextUrl.pathname;
-
-  // OAuth 콜백 경로는 특별 처리 (미들웨어에서 리다이렉트하지 않음)
-  if (pathname.startsWith("/auth/callback")) {
-    return response;
-  }
-
-  // 인증이 필요한 경로 (예: 프로필, 즐겨찾기)
-  const authRequiredPaths = ["/profile", "/favorites"];
-
-  // 관리자 권한이 필요한 경로
-  const adminRequiredPaths = ["/admin"];
-
-  // 로그인 상태에서 접근 불가능한 경로 (로그인, 회원가입)
-  const publicOnlyPaths = ["/login", "/register", "/forgot-password"];
-
   // 관리자 경로 접근 제어
-  if (adminRequiredPaths.some((path) => pathname.startsWith(path))) {
+  if (adminRequiredPaths.some(matchesPath)) {
     if (authError || !user) {
       const redirectUrl = new URL("/login", request.url);
-      redirectUrl.searchParams.set("returnUrl", pathname + request.nextUrl.search);
+      redirectUrl.searchParams.set(
+        "returnUrl",
+        pathname + request.nextUrl.search,
+      );
       return NextResponse.redirect(redirectUrl);
     }
 
@@ -68,7 +72,7 @@ export async function middleware(request: NextRequest) {
         .single();
 
       const isAdmin = profile?.is_admin === true || profile?.role === "admin";
-      
+
       if (!isAdmin) {
         return NextResponse.redirect(new URL("/unauthorized", request.url));
       }
@@ -79,14 +83,17 @@ export async function middleware(request: NextRequest) {
   }
 
   // 인증이 필요한 경로이나 로그인하지 않은 경우
-  if (authRequiredPaths.some((path) => pathname.startsWith(path)) && (authError || !user)) {
+  if (authRequiredPaths.some(matchesPath) && (authError || !user)) {
     const redirectUrl = new URL("/login", request.url);
-    redirectUrl.searchParams.set("returnUrl", pathname + request.nextUrl.search);
+    redirectUrl.searchParams.set(
+      "returnUrl",
+      pathname + request.nextUrl.search,
+    );
     return NextResponse.redirect(redirectUrl);
   }
 
   // 로그인 상태에서 접근 불가능한 경로인데 로그인한 경우
-  if (publicOnlyPaths.some((path) => pathname.startsWith(path)) && user && !authError) {
+  if (publicOnlyPaths.some(matchesPath) && user && !authError) {
     return NextResponse.redirect(new URL("/", request.url));
   }
 

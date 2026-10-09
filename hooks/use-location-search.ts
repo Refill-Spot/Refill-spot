@@ -1,23 +1,21 @@
 "use client";
 
 import { useToast } from "@/components/ui/use-toast";
+import type { PopularLocation } from "@/lib/geocoding";
+import { searchLocations, type LocationResult } from "@/lib/location-search";
 import { useRouter } from "next/navigation";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 export interface LocationSearchState {
-  selectedPlace: any;
+  selectedPlace: LocationResult | null;
   radiusInput: number;
   isLoading: boolean;
 }
 
 export interface LocationSearchHandlers {
-  handlePlaceSelect: (place: any) => Promise<void>;
-  handlePopularLocationSelect: (location: {
-    name: string;
-    address: string;
-  }) => void;
-  handleManualSearch: (searchText: string) => Promise<void>;
-  setSelectedPlace: (place: any) => void;
+  handlePlaceSelect: (place: LocationResult) => void;
+  handlePopularLocationSelect: (location: PopularLocation) => Promise<void>;
+  setSelectedPlace: (place: LocationResult | null) => void;
   setRadiusInput: (radius: number) => void;
   setIsLoading: (loading: boolean) => void;
 }
@@ -31,231 +29,152 @@ export function useLocationSearch({
   onCustomLocationSet,
   onDialogClose,
 }: UseLocationSearchProps = {}) {
-  const [selectedPlace, setSelectedPlace] = useState<any>(null);
-  const [radiusInput, setRadiusInput] = useState(5);
+  const [selectedPlace, setSelectedPlaceState] =
+    useState<LocationResult | null>(null);
+  const [radiusInput, setRadiusInputState] = useState(5);
   const [isLoading, setIsLoading] = useState(false);
+  const radiusRef = useRef(5);
+  const popularRequestRef = useRef<AbortController | null>(null);
   const { toast } = useToast();
   const router = useRouter();
 
-  // 장소 선택 핸들러
+  const cancelPopularSearch = useCallback(() => {
+    popularRequestRef.current?.abort();
+    popularRequestRef.current = null;
+  }, []);
+
+  useEffect(() => cancelPopularSearch, [cancelPopularSearch]);
+
+  const setSelectedPlace = useCallback(
+    (place: LocationResult | null) => {
+      cancelPopularSearch();
+      setIsLoading(false);
+      setSelectedPlaceState(place);
+    },
+    [cancelPopularSearch],
+  );
+
+  const setRadiusInput = useCallback((radius: number) => {
+    const nextRadius = Number.isFinite(radius)
+      ? Math.min(50, Math.max(1, radius))
+      : 5;
+    radiusRef.current = nextRadius;
+    setRadiusInputState(nextRadius);
+  }, []);
+
   const handlePlaceSelect = useCallback(
-    async (place: any) => {
-      if (!place || !place.place_id) return;
-      if (!window.google || !window.google.maps) {
+    (place: LocationResult) => {
+      cancelPopularSearch();
+      setIsLoading(false);
+
+      if (
+        !place ||
+        !Number.isFinite(place.lat) ||
+        !Number.isFinite(place.lng) ||
+        place.lat < -90 ||
+        place.lat > 90 ||
+        place.lng < -180 ||
+        place.lng > 180
+      ) {
         toast({
           title: "오류",
-          description: "Google Maps API가 로드되지 않았습니다.",
+          description: "유효한 위치 정보를 찾을 수 없습니다.",
           variant: "destructive",
         });
         return;
       }
 
+      const radius = radiusRef.current;
+      setSelectedPlaceState(place);
       setIsLoading(true);
       try {
-        const service = new window.google.maps.places.PlacesService(
-          document.createElement("div")
-        );
+        if (onCustomLocationSet) {
+          onCustomLocationSet(place.lat, place.lng, radius);
+        } else {
+          router.push(
+            `/map?lat=${place.lat}&lng=${place.lng}&distance=${radius}`,
+          );
+        }
 
-        service.getDetails(
-          {
-            placeId: place.place_id,
-            fields: ["geometry", "formatted_address", "name"],
-          },
-          (result: any, status: any) => {
-            if (
-              status === window.google.maps.places.PlacesServiceStatus.OK &&
-              result
-            ) {
-              const lat = result.geometry?.location?.lat();
-              const lng = result.geometry?.location?.lng();
-
-              if (lat && lng) {
-                if (onCustomLocationSet) {
-                  onCustomLocationSet(lat, lng, radiusInput);
-                } else {
-                  router.push(
-                    `/?lat=${lat}&lng=${lng}&distance=${radiusInput}`
-                  );
-                }
-
-                toast({
-                  title: "위치 설정 완료",
-                  description: `${
-                    result.name || place.description
-                  } 주변 ${radiusInput}km로 설정되었습니다.`,
-                });
-
-                onDialogClose?.();
-              }
-            } else {
-              toast({
-                title: "오류",
-                description: "장소 정보를 가져오는 중 오류가 발생했습니다.",
-                variant: "destructive",
-              });
-            }
-            setIsLoading(false);
-          }
-        );
+        toast({
+          title: "위치 설정 완료",
+          description: `${place.name || place.address} 주변 ${radius}km로 설정되었습니다.`,
+        });
+        onDialogClose?.();
       } catch (error) {
         console.error("장소 선택 오류:", error);
         toast({
           title: "오류",
-          description: "장소 정보를 가져오는 중 오류가 발생했습니다.",
+          description: "위치를 설정하는 중 오류가 발생했습니다.",
           variant: "destructive",
         });
+      } finally {
         setIsLoading(false);
       }
     },
-    [radiusInput, onCustomLocationSet, router, toast, onDialogClose]
+    [cancelPopularSearch, onCustomLocationSet, router, toast, onDialogClose],
   );
 
-  // 인기 지역 선택
   const handlePopularLocationSelect = useCallback(
-    (location: { name: string; address: string }) => {
-      if (!window.google || !window.google.maps) {
-        toast({
-          title: "오류",
-          description: "Google Maps API가 로드되지 않았습니다.",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      setSelectedPlace({
-        description: location.address,
-        place_id: null,
-      });
-
-      const geocoder = new window.google.maps.Geocoder();
-      geocoder.geocode(
-        { address: location.address },
-        (results: any, status: any) => {
-          if (status === window.google.maps.GeocoderStatus.OK && results?.[0]) {
-            const lat = results[0].geometry.location.lat();
-            const lng = results[0].geometry.location.lng();
-
-            if (onCustomLocationSet) {
-              onCustomLocationSet(lat, lng, radiusInput);
-            } else {
-              router.push(`/?lat=${lat}&lng=${lng}&distance=${radiusInput}`);
-            }
-
-            toast({
-              title: "위치 설정 완료",
-              description: `${location.name} 주변 ${radiusInput}km로 설정되었습니다.`,
-            });
-
-            onDialogClose?.();
-          } else {
-            toast({
-              title: "오류",
-              description: "주소를 찾을 수 없습니다.",
-              variant: "destructive",
-            });
-          }
-        }
-      );
-    },
-    [radiusInput, onCustomLocationSet, router, toast, onDialogClose]
-  );
-
-  // 수동 검색 핸들러
-  const handleManualSearch = useCallback(
-    async (searchText: string) => {
-      if (!window.google || !window.google.maps) {
-        toast({
-          title: "오류",
-          description: "Google Maps API가 로드되지 않았습니다.",
-          variant: "destructive",
-        });
-        return;
-      }
-
+    async (location: PopularLocation) => {
+      cancelPopularSearch();
+      const controller = new AbortController();
+      popularRequestRef.current = controller;
+      setSelectedPlaceState(null);
       setIsLoading(true);
 
       try {
-        const service = new window.google.maps.places.AutocompleteService();
-        
-        service.getPlacePredictions(
-          {
-            input: searchText,
-            types: ['establishment'],
-            componentRestrictions: { country: 'kr' },
-            location: new window.google.maps.LatLng(37.5665, 126.9780),
-            radius: 100000,
-          },
-          (predictions: any, status: any) => {
-            if (status === window.google.maps.places.PlacesServiceStatus.OK && predictions && predictions.length > 0) {
-              const firstPrediction = predictions[0];
-              const convertedResult = {
-                place_id: firstPrediction.place_id,
-                description: firstPrediction.description,
-                structured_formatting: firstPrediction.structured_formatting,
-              };
-              setSelectedPlace(convertedResult);
-              handlePlaceSelect(convertedResult);
-            } else {
-              handleDirectGeocoding(searchText);
-            }
-            setIsLoading(false);
-          }
-        );
+        const results = await searchLocations(location.address, {
+          mode: "address",
+          signal: controller.signal,
+        });
+        if (
+          controller.signal.aborted ||
+          popularRequestRef.current !== controller
+        ) {
+          return;
+        }
+
+        const place = results[0];
+        if (!place) {
+          toast({
+            title: "오류",
+            description: "주소를 찾을 수 없습니다.",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        handlePlaceSelect({ ...place, name: location.name });
       } catch (error) {
-        console.error("수동 검색 오류:", error);
-        handleDirectGeocoding(searchText);
-      }
-    },
-    [handlePlaceSelect, toast]
-  );
-
-  // 직접 지오코딩 처리
-  const handleDirectGeocoding = useCallback(
-    (searchText: string) => {
-      const geocoder = new window.google.maps.Geocoder();
-      geocoder.geocode(
-        { address: searchText, componentRestrictions: { country: "KR" } },
-        (results: any, status: any) => {
-          if (status === window.google.maps.GeocoderStatus.OK && results?.[0]) {
-            const lat = results[0].geometry.location.lat();
-            const lng = results[0].geometry.location.lng();
-
-            if (onCustomLocationSet) {
-              onCustomLocationSet(lat, lng, radiusInput);
-            } else {
-              router.push(`/?lat=${lat}&lng=${lng}&distance=${radiusInput}`);
-            }
-
-            toast({
-              title: "위치 설정 완료",
-              description: `${searchText} 주변 ${radiusInput}km로 설정되었습니다.`,
-            });
-
-            onDialogClose?.();
-          } else {
-            toast({
-              title: "오류",
-              description: "주소를 찾을 수 없습니다.",
-              variant: "destructive",
-            });
-          }
+        if (
+          controller.signal.aborted ||
+          popularRequestRef.current !== controller
+        ) {
+          return;
+        }
+        console.error("인기 지역 검색 오류:", error);
+        toast({
+          title: "오류",
+          description: "주소를 검색하는 중 오류가 발생했습니다.",
+          variant: "destructive",
+        });
+      } finally {
+        if (popularRequestRef.current === controller) {
+          popularRequestRef.current = null;
           setIsLoading(false);
         }
-      );
+      }
     },
-    [radiusInput, onCustomLocationSet, router, toast, onDialogClose]
+    [cancelPopularSearch, handlePlaceSelect, toast],
   );
 
   return {
-    // 상태
     selectedPlace,
     radiusInput,
     isLoading,
-
-    // 핸들러
     handlePlaceSelect,
     handlePopularLocationSelect,
-    handleManualSearch,
     setSelectedPlace,
     setRadiusInput,
     setIsLoading,

@@ -1,5 +1,6 @@
 "use client";
 
+import { ExternalRatings } from "@/components/external-ratings";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -32,7 +33,6 @@ import {
   Heart,
   MapPin,
   Navigation,
-  Star,
   Trash2,
   Utensils,
 } from "lucide-react";
@@ -76,8 +76,8 @@ export default function FavoritesPage() {
   // 즐겨찾기 삭제 처리
   const handleRemoveFavorite = async (storeId: number) => {
     if (!user) {
-return;
-}
+      return;
+    }
 
     try {
       await toggleFavorite(storeId, user.id);
@@ -96,20 +96,6 @@ return;
     } finally {
       setStoreToRemove(null);
     }
-  };
-
-  // 별점 렌더링 도우미 함수
-  const renderStars = (rating: number) => {
-    return (
-      <div className="flex items-center">
-        <Star
-          className={`h-4 w-4 ${
-            rating > 0 ? "fill-[#FFA726] text-[#FFA726]" : "text-gray-300"
-          }`}
-        />
-        <span className="ml-1">{rating.toFixed(1)}</span>
-      </div>
-    );
   };
 
   if (loading || favoritesLoading) {
@@ -142,17 +128,27 @@ return;
               <div className="flex flex-col md:flex-row">
                 <div className="h-48 md:h-auto md:w-48 relative flex-shrink-0">
                   <Image
-                    src={store.imageUrls && store.imageUrls.length > 0 
-                      ? store.imageUrls[0]
-                      : "/placeholder.svg"
+                    src={
+                      store.imageUrls && store.imageUrls.length > 0
+                        ? store.imageUrls[0]
+                        : "/placeholder.svg"
                     }
                     alt={`${store.name} 이미지`}
                     fill
                     sizes="(max-width: 768px) 100vw, 192px"
                     style={{ objectFit: "cover" }}
-                    unoptimized={store.imageUrls && store.imageUrls.length > 0 
-                      ? shouldBeUnoptimized(192, undefined, store.imageUrls[0])
-                      : shouldBeUnoptimized(undefined, undefined, "/placeholder.svg")
+                    unoptimized={
+                      store.imageUrls && store.imageUrls.length > 0
+                        ? shouldBeUnoptimized(
+                            192,
+                            undefined,
+                            store.imageUrls[0],
+                          )
+                        : shouldBeUnoptimized(
+                            undefined,
+                            undefined,
+                            "/placeholder.svg",
+                          )
                     }
                   />
                 </div>
@@ -163,11 +159,7 @@ return;
                         {store.name}
                       </h2>
                       <div className="flex items-center gap-3 mt-1">
-                        {renderStars(store.rating.naver)}
-                        <span className="text-xs text-gray-500">네이버</span>
-                        <span className="mx-1">|</span>
-                        {renderStars(store.rating.kakao)}
-                        <span className="text-xs text-gray-500">카카오</span>
+                        <ExternalRatings ratings={store.rating} />
                       </div>
                     </div>
                     <TooltipProvider>
@@ -246,35 +238,39 @@ return;
                     ))}
                   </div>
 
-                  {store.refillItems && Array.isArray(store.refillItems) && store.refillItems.length > 0 && (
-                    <div className="mt-3">
-                      <div className="flex items-center gap-1 text-sm text-[#FF5722]">
-                        <Utensils className="h-4 w-4" />
-                        <span className="font-medium">무한리필 메뉴</span>
-                      </div>
-                      <ul className="mt-1 text-sm text-gray-600 pl-5 grid grid-cols-2 gap-x-2">
-                        {store.refillItems
-                          .slice(0, 4)
-                          .map((item: any, index: number) => (
-                            <li key={index} className="line-clamp-1">
-                              • {typeof item === "string" ? item : item.name}
+                  {store.refillItems &&
+                    Array.isArray(store.refillItems) &&
+                    store.refillItems.length > 0 && (
+                      <div className="mt-3">
+                        <div className="flex items-center gap-1 text-sm text-[#FF5722]">
+                          <Utensils className="h-4 w-4" />
+                          <span className="font-medium">무한리필 메뉴</span>
+                        </div>
+                        <ul className="mt-1 text-sm text-gray-600 pl-5 grid grid-cols-2 gap-x-2">
+                          {store.refillItems
+                            .slice(0, 4)
+                            .map((item: any, index: number) => (
+                              <li key={index} className="line-clamp-1">
+                                • {typeof item === "string" ? item : item.name}
+                              </li>
+                            ))}
+                          {store.refillItems.length > 4 && (
+                            <li className="text-gray-500">
+                              외 {store.refillItems.length - 4}개...
                             </li>
-                          ))}
-                        {store.refillItems.length > 4 && (
-                          <li className="text-gray-500">
-                            외 {store.refillItems.length - 4}개...
-                          </li>
-                        )}
-                      </ul>
-                    </div>
-                  )}
+                          )}
+                        </ul>
+                      </div>
+                    )}
 
                   <Separator className="my-4" />
 
                   <div className="flex gap-2">
                     <Button
                       className="flex-1 bg-[#FF5722] hover:bg-[#E64A19]"
-                      onClick={() => navigateConditionally(`/store/${store.id}`)}
+                      onClick={() =>
+                        navigateConditionally(`/store/${store.id}`)
+                      }
                     >
                       상세 보기
                     </Button>

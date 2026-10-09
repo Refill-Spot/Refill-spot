@@ -1,4 +1,3 @@
-import GoogleMapsLoader from "@/components/GoogleMapsLoader";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/toaster";
 import { AuthProvider } from "@/contexts/AuthContext";
@@ -13,10 +12,6 @@ export const metadata = {
   title: "Refill-spot - 무한리필 가게 찾기",
   description: "주변의 무한리필 가게를 쉽게 찾아보세요",
   generator: "v0.dev",
-  icons: {
-    icon: "/icon",
-    apple: "/apple-icon",
-  },
 };
 
 interface RootLayoutProps {
@@ -45,10 +40,8 @@ export default function RootLayout({ children }: RootLayoutProps) {
           disableTransitionOnChange
         >
           <AuthProvider>
-            <GoogleMapsLoader>
-              {children}
-              <Toaster />
-            </GoogleMapsLoader>
+            {children}
+            <Toaster />
           </AuthProvider>
         </ThemeProvider>
       </body>

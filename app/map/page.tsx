@@ -7,15 +7,33 @@ import SearchFilters from "@/components/search-filters";
 import { StoreListSkeleton } from "@/components/skeleton-loader";
 import StoreList from "@/components/store-list";
 import { Button } from "@/components/ui/button";
+import {
+  Drawer,
+  DrawerClose,
+  DrawerContent,
+  DrawerDescription,
+  DrawerHeader,
+  DrawerTitle,
+} from "@/components/ui/drawer";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { useToast } from "@/components/ui/use-toast";
 import { useGeolocation } from "@/hooks/use-geolocation";
+import { useMediaQuery } from "@/hooks/use-media-query";
 import {
   getUserLocation,
   isLocationValid,
   saveUserLocation,
 } from "@/lib/location-storage";
 import { apiLogger, geolocationLogger } from "@/lib/logger";
+import { reconcileSelectedStore } from "@/lib/map-selection";
 import { Store } from "@/types/store";
+import { List, Loader2, Map, SlidersHorizontal, X } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   memo,
@@ -23,11 +41,23 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 
 // 메모이제이션된 StoreList 컴포넌트
 const MemoizedStoreList = memo(StoreList);
+
+const categories = [
+  "고기",
+  "해산물",
+  "한식",
+  "양식",
+  "중식",
+  "일식",
+  "카페",
+  "디저트",
+];
 
 function HomeContent() {
   const searchParams = useSearchParams();
@@ -40,7 +70,6 @@ function HomeContent() {
     lat: number;
     lng: number;
   } | null>(null);
-  const [isCheckingOnboarding, setIsCheckingOnboarding] = useState(true);
 
   // 지도 및 페이지네이션 관련 상태
   const [selectedStore, setSelectedStore] = useState<Store | null>(null);
@@ -49,8 +78,152 @@ function HomeContent() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [allStores, setAllStores] = useState<Store[]>([]);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [filterUsesSheet, setFilterUsesSheet] = useState(false);
+  const [isResultsExpanded, setIsResultsExpanded] = useState(false);
+  const [isMapExpanded, setIsMapExpanded] = useState(false);
+  const isDesktop = useMediaQuery("(min-width: 1024px)");
+  const filterTriggerRef = useRef<HTMLElement | null>(null);
+  const resultsToggleRef = useRef<HTMLButtonElement | null>(null);
+  const mobileResultsRef = useRef<HTMLDivElement | null>(null);
+  const previewTitleRef = useRef<HTMLHeadingElement | null>(null);
+  const selectionOriginRef = useRef<{
+    element: HTMLElement;
+    storeId: number;
+    resultsExpanded: boolean;
+  } | null>(null);
+  const pendingSelectionFocusRef = useRef<"preview" | "results" | null>(null);
 
   const { toast } = useToast();
+  const activeCategories =
+    searchParams.get("categories")?.split(",").filter(Boolean) || [];
+  const activeConditions = [
+    {
+      key: "q",
+      label: searchParams.get("q") ? `검색: ${searchParams.get("q")}` : null,
+    },
+    {
+      key: "distance",
+      label: searchParams.get("distance")
+        ? `반경 ${searchParams.get("distance")}km`
+        : null,
+    },
+    {
+      key: "rating",
+      label:
+        Number(searchParams.get("rating")) > 0
+          ? `평점 ${searchParams.get("rating")} 이상`
+          : null,
+    },
+  ].filter((condition) => condition.label);
+
+  const removeCondition = (key: string) => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete(key);
+    const queryString = params.toString();
+    router.replace(
+      queryString
+        ? `${window.location.pathname}?${queryString}`
+        : window.location.pathname,
+      { scroll: false },
+    );
+  };
+
+  const handleCategorySelect = (category: string | null) => {
+    const params = new URLSearchParams(searchParams.toString());
+    const nextCategories = category
+      ? activeCategories.includes(category)
+        ? activeCategories.filter((value) => value !== category)
+        : [...activeCategories, category]
+      : [];
+
+    if (nextCategories.length > 0) {
+      params.set("categories", nextCategories.join(","));
+    } else {
+      params.delete("categories");
+    }
+
+    const queryString = params.toString();
+    const currentPath = window.location.pathname;
+    router.replace(
+      queryString ? `${currentPath}?${queryString}` : currentPath,
+      {
+        scroll: false,
+      },
+    );
+  };
+
+  const handleStoreSelect = useCallback(
+    (store: Store | null) => {
+      const focusedElement = document.activeElement;
+      const focusedResult =
+        !isDesktop &&
+        focusedElement instanceof HTMLElement &&
+        mobileResultsRef.current?.contains(focusedElement)
+          ? focusedElement
+          : null;
+      const restoreResultsFocus =
+        !store &&
+        !isDesktop &&
+        previewTitleRef.current?.closest("section")?.contains(focusedElement);
+
+      if (store) {
+        selectionOriginRef.current = focusedResult
+          ? {
+              element: focusedResult,
+              storeId: store.id,
+              resultsExpanded: isResultsExpanded,
+            }
+          : null;
+        pendingSelectionFocusRef.current = focusedResult ? "preview" : null;
+      } else {
+        pendingSelectionFocusRef.current = restoreResultsFocus
+          ? "results"
+          : null;
+      }
+
+      setSelectedStore(store);
+      setIsResultsExpanded(
+        restoreResultsFocus
+          ? (selectionOriginRef.current?.resultsExpanded ?? false)
+          : false,
+      );
+      setIsMapExpanded(Boolean(store));
+    },
+    [isDesktop, isResultsExpanded],
+  );
+
+  useEffect(() => {
+    const pendingFocus = pendingSelectionFocusRef.current;
+    if (!pendingFocus) {
+      return;
+    }
+    pendingSelectionFocusRef.current = null;
+    if (isDesktop) {
+      return;
+    }
+
+    if (pendingFocus === "preview") {
+      const target = selectedStore ? previewTitleRef.current : null;
+      (target ?? resultsToggleRef.current)?.focus({ preventScroll: true });
+      return;
+    }
+
+    const origin = selectionOriginRef.current;
+    const result = origin?.element.isConnected
+      ? origin.element
+      : origin
+        ? mobileResultsRef.current?.querySelector<HTMLElement>(
+            `[data-store-select-id="${origin.storeId}"]`,
+          )
+        : null;
+    if (result && result.getClientRects().length > 0) {
+      result.focus({ preventScroll: true });
+      result.scrollIntoView({ block: "nearest" });
+    } else {
+      resultsToggleRef.current?.focus({ preventScroll: true });
+    }
+    selectionOriginRef.current = null;
+  }, [selectedStore, isMapExpanded, isResultsExpanded, isDesktop]);
 
   // 가게 목록 가져오기 (페이지네이션 지원)
   const fetchStores = useCallback(
@@ -78,9 +251,13 @@ function HomeContent() {
       if (!append) {
         setLoading(true);
         setError(null);
+        setSelectedStore(null);
       } else {
         setLoadingMore(true);
       }
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
 
       try {
         let url = "/api/stores";
@@ -120,18 +297,12 @@ function HomeContent() {
           query,
         });
 
-        // 타임아웃 설정 (10초)
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 10000);
-
         const response = await fetch(url, {
           signal: controller.signal,
           headers: {
             "Cache-Control": "no-cache",
           },
         });
-
-        clearTimeout(timeoutId);
 
         apiLogger.debug("API 응답 상태", { status: response.status });
 
@@ -163,6 +334,9 @@ function HomeContent() {
         } else {
           setStores(storeData);
           setAllStores(storeData);
+          setSelectedStore((current) =>
+            reconcileSelectedStore(current, storeData),
+          );
         }
 
         setHasMore(pagination.hasMore || false);
@@ -176,6 +350,12 @@ function HomeContent() {
         }
       } catch (err) {
         apiLogger.error("fetchStores 오류:", err);
+        if (!append) {
+          setStores([]);
+          setAllStores([]);
+          setHasMore(false);
+        }
+        setSelectedStore(null);
         if (err instanceof Error && err.name === "AbortError") {
           setError("요청 시간이 초과되었습니다. 다시 시도해주세요.");
           toast({
@@ -186,9 +366,7 @@ function HomeContent() {
           });
         } else {
           const errorMessage =
-            err instanceof Error
-              ? err.message
-              : "알 수 없는 오류가 발생했습니다.";
+            "가게 정보를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.";
           setError(errorMessage);
           toast({
             title: "오류",
@@ -197,6 +375,7 @@ function HomeContent() {
           });
         }
       } finally {
+        clearTimeout(timeoutId);
         setLoading(false);
         setLoadingMore(false);
       }
@@ -230,42 +409,9 @@ function HomeContent() {
     );
   }, [userLocation, loadingMore, hasMore, currentPage, searchParams]);
 
-  // 온보딩 체크 (첫 방문자용으로만 동작)
-  useEffect(() => {
-    // 온보딩 체크를 비활성화하고 바로 메인 페이지 진행
-    const checkOnboarding = () => {
-      try {
-        // 로그인한 사용자는 온보딩을 건너뛰고 바로 메인 페이지로
-        setIsCheckingOnboarding(false);
-      } catch (error) {
-        apiLogger.error("온보딩 체크 중 오류:", error);
-        setIsCheckingOnboarding(false);
-      }
-    };
-
-    // 클라이언트 사이드에서만 실행
-    if (typeof window !== "undefined") {
-      // 약간의 지연을 두어 렌더링 완료 후 실행
-      setTimeout(checkOnboarding, 100);
-    }
-  }, [router]);
-
   // 초기 로드
   useEffect(() => {
-    // 온보딩 체크가 완료되지 않았으면 대기
-    if (isCheckingOnboarding) {
-      return;
-    }
-
     const loadInitialData = async () => {
-      // URL 파라미터에서 검색어 확인
-      const searchQuery = searchParams.get("search");
-      let hasSearchQuery = false;
-
-      if (searchQuery) {
-        hasSearchQuery = true;
-      }
-
       // URL 파라미터에서 위치 정보 및 필터 정보 확인
       const urlLat = searchParams.get("lat");
       const urlLng = searchParams.get("lng");
@@ -279,6 +425,12 @@ function HomeContent() {
         | "default"
         | null;
       const searchLocation = searchParams.get("searchLocation");
+      const radius = urlDistance ? parseFloat(urlDistance) : undefined;
+      const minRating = urlRating ? parseFloat(urlRating) : undefined;
+      const selectedCategories = urlCategories
+        ? urlCategories.split(",")
+        : undefined;
+      const query = urlQuery || undefined;
 
       if (urlLat && urlLng) {
         // URL 파라미터에 위치 정보가 있으면 사용
@@ -290,20 +442,12 @@ function HomeContent() {
           setCurrentPage(1);
           setHasMore(false);
 
-          // URL 파라미터에서 필터 정보 추출
-          const radius = urlDistance ? parseFloat(urlDistance) : 5;
-          const minRating = urlRating ? parseFloat(urlRating) : undefined;
-          const categories = urlCategories
-            ? urlCategories.split(",")
-            : undefined;
-          const query = urlQuery || undefined;
-
           await fetchStores(
             lat,
             lng,
-            radius,
+            radius ?? 5,
             minRating,
-            categories,
+            selectedCategories,
             1,
             false,
             query,
@@ -326,14 +470,14 @@ function HomeContent() {
 
           // 필터 적용 메시지 생성
           const filterDesc = [];
-          if (radius !== 5) {
+          if (radius !== undefined && radius !== 5) {
             filterDesc.push(`반경 ${radius}km`);
           }
           if (minRating && minRating > 0) {
             filterDesc.push(`평점 ${minRating}점 이상`);
           }
-          if (categories && categories.length > 0) {
-            filterDesc.push(`카테고리: ${categories.join(", ")}`);
+          if (selectedCategories && selectedCategories.length > 0) {
+            filterDesc.push(`카테고리: ${selectedCategories.join(", ")}`);
           }
           if (query) {
             filterDesc.push(`검색어: "${query}"`);
@@ -356,7 +500,16 @@ function HomeContent() {
       if (savedLocation && isLocationValid(savedLocation)) {
         // 저장된 위치 정보가 있으면 사용
         setUserLocation({ lat: savedLocation.lat, lng: savedLocation.lng });
-        await fetchStores(savedLocation.lat, savedLocation.lng, 5);
+        await fetchStores(
+          savedLocation.lat,
+          savedLocation.lng,
+          radius ?? 5,
+          minRating,
+          selectedCategories,
+          1,
+          false,
+          query,
+        );
 
         const sourceText =
           savedLocation.source === "gps"
@@ -381,7 +534,16 @@ function HomeContent() {
           defaultLocation,
         );
         setUserLocation(defaultLocation);
-        await fetchStores(defaultLocation.lat, defaultLocation.lng, 10);
+        await fetchStores(
+          defaultLocation.lat,
+          defaultLocation.lng,
+          radius ?? 10,
+          minRating,
+          selectedCategories,
+          1,
+          false,
+          query,
+        );
 
         // 기본 위치 저장
         saveUserLocation({
@@ -399,7 +561,7 @@ function HomeContent() {
     };
 
     loadInitialData();
-  }, [searchParams, toast, isCheckingOnboarding]);
+  }, [searchParams, toast, fetchStores]);
 
   // 검색어 파라미터 처리 (별도 useEffect)
   useEffect(() => {
@@ -596,168 +758,118 @@ function HomeContent() {
 
   // 필터 토글 핸들러
   const handleFilterToggle = useCallback(() => {
+    if (!isFilterOpen) {
+      setFilterUsesSheet(isDesktop);
+      if (document.activeElement instanceof HTMLElement) {
+        filterTriggerRef.current = document.activeElement;
+      }
+    }
     setIsFilterOpen(!isFilterOpen);
-  }, [isFilterOpen]);
+  }, [isFilterOpen, isDesktop]);
 
-  // 사이드바 콘텐츠 컴포넌트 (가게 목록만)
-  const SidebarContent = useMemo(() => {
+  // 데스크톱 목록과 모바일 결과 패널에서 같은 상태와 페이지네이션 사용
+  const ResultsContent = useMemo(() => {
     return (
-      <div className="h-full flex flex-col">
-        {/* 가게 목록 헤더 */}
-        <div className="p-4 border-b border-gray-200 bg-gray-50">
-          <h3 className="font-semibold text-gray-900">가게 목록</h3>
-          {stores.length > 0 && (
-            <p className="text-sm text-gray-600 mt-1">
-              총{" "}
-              <span className="font-semibold text-[#FF5722]">
-                {stores.length}
-              </span>
-              개의 가게
-            </p>
-          )}
-        </div>
-
-        {/* 가게 목록 */}
-        <div className="flex-1 overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-          {loading ? (
-            <StoreListSkeleton />
-          ) : error ? (
-            <div className="flex items-center justify-center h-full p-4">
-              <div className="text-center">
-                <p className="text-red-500 mb-4">{error}</p>
-                <button
-                  onClick={() =>
-                    fetchStores(userLocation?.lat, userLocation?.lng, 5)
-                  }
-                  className="px-4 py-2 bg-[#FF5722] text-white rounded-md hover:bg-[#E64A19] transition-colors"
-                >
-                  다시 시도
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div className="pb-4">
-              <MemoizedStoreList stores={stores} />
-
-              {/* 더보기 버튼 */}
-              {hasMore && !loading && !error && (
-                <div className="p-4">
-                  <Button
-                    onClick={loadMoreStores}
-                    disabled={loadingMore}
-                    className="w-full bg-[#FF5722] hover:bg-[#E64A19]"
-                  >
-                    {loadingMore ? (
-                      <>
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                        로딩 중...
-                      </>
-                    ) : (
-                      `더보기 (${stores.length}개 표시됨)`
-                    )}
-                  </Button>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  }, [
-    loading,
-    error,
-    stores,
-    hasMore,
-    loadingMore,
-    loadMoreStores,
-    fetchStores,
-  ]);
-
-  // 뷰 모드별 컴포넌트 메모이제이션
-  const MapView = useMemo(() => {
-    return (
-      <div className="w-full h-full">
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-card">
         {loading ? (
-          <div className="w-full h-full bg-gray-200 flex items-center justify-center">
-            <div className="text-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#FF5722] mx-auto mb-4"></div>
-              <p className="text-gray-600">지도 로딩 중...</p>
-            </div>
-          </div>
+          <StoreListSkeleton />
         ) : error ? (
-          <div className="w-full h-full bg-gray-100 flex items-center justify-center">
+          <div className="flex h-full items-center justify-center p-5">
             <div className="text-center">
-              <p className="text-red-500 mb-4">지도를 불러올 수 없습니다</p>
-              <button
+              <p className="mb-4 text-sm text-destructive" role="alert">
+                {error}
+              </p>
+              <Button
                 onClick={() =>
                   fetchStores(userLocation?.lat, userLocation?.lng, 5)
                 }
-                className="px-4 py-2 bg-[#FF5722] text-white rounded-md hover:bg-[#E64A19] transition-colors"
               >
                 다시 시도
-              </button>
+              </Button>
             </div>
           </div>
         ) : (
-          <KakaoMap
-            key={
-              userLocation
-                ? `map-${userLocation.lat.toFixed(6)}-${userLocation.lng.toFixed(6)}`
-                : "map-default"
-            }
-            stores={allStores}
-            userLocation={userLocation}
-            enableClustering={true}
-            selectedStore={selectedStore}
-            onStoreSelect={setSelectedStore}
-            onLocationChange={() => {}} // 위치 변경 시 아무 작업 안함 (자동 검색 비활성화)
-            onManualSearch={setCustomLocation} // 수동 검색 시 위치 업데이트 및 데이터 로드
-            isVisible={true}
-          />
+          <div className="pb-3">
+            <MemoizedStoreList
+              stores={stores}
+              selectedStore={selectedStore}
+              onStoreSelect={handleStoreSelect}
+            />
+
+            {/* 더보기 버튼 */}
+            {hasMore && !loading && !error && (
+              <div className="px-3 pt-3">
+                <Button
+                  onClick={loadMoreStores}
+                  disabled={loadingMore}
+                  variant="outline"
+                  className="h-9 w-full rounded-sm bg-card text-xs"
+                >
+                  {loadingMore ? (
+                    <>
+                      <Loader2
+                        className="mr-2 h-4 w-4 animate-spin"
+                        aria-hidden="true"
+                      />
+                      로딩 중...
+                    </>
+                  ) : (
+                    `가게 더 보기 (${stores.length}개 표시 중)`
+                  )}
+                </Button>
+              </div>
+            )}
+          </div>
         )}
       </div>
     );
   }, [
     loading,
     error,
+    stores,
+    selectedStore,
+    handleStoreSelect,
+    hasMore,
+    loadingMore,
+    loadMoreStores,
+    fetchStores,
+    userLocation,
+  ]);
+
+  // 뷰 모드별 컴포넌트 메모이제이션
+  const MapView = useMemo(() => {
+    return (
+      <div className="w-full h-full">
+        <KakaoMap
+          key={
+            userLocation
+              ? `map-${userLocation.lat.toFixed(6)}-${userLocation.lng.toFixed(6)}`
+              : "map-default"
+          }
+          stores={error ? [] : allStores}
+          userLocation={userLocation}
+          enableClustering={true}
+          selectedStore={error ? null : selectedStore}
+          onStoreSelect={handleStoreSelect}
+          previewTitleRef={previewTitleRef}
+          onLocationChange={() => {}} // 위치 변경 시 아무 작업 안함 (자동 검색 비활성화)
+          onManualSearch={setCustomLocation} // 수동 검색 시 위치 업데이트 및 데이터 로드
+          isVisible={true}
+        />
+      </div>
+    );
+  }, [
+    error,
     allStores,
     userLocation,
     selectedStore,
+    handleStoreSelect,
     setCustomLocation,
   ]);
 
-  // 온보딩 체크 중이면 로딩 화면 표시
-  if (isCheckingOnboarding) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100 flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-16 h-16 bg-gradient-to-br from-orange-500 to-red-500 rounded-2xl flex items-center justify-center mb-4 mx-auto animate-pulse">
-            <svg
-              className="w-8 h-8 text-white"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-              />
-            </svg>
-          </div>
-          <h2 className="text-xl font-semibold text-gray-900 mb-2">
-            Refill-spot
-          </h2>
-          <p className="text-gray-500">무한리필 가게 찾기</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <ErrorBoundary fallback={<div className="p-4">오류가 발생했습니다.</div>}>
-      <main className="flex flex-col h-screen bg-[#F5F5F5]">
+      <main className="flex h-dvh flex-col overflow-hidden bg-background text-foreground">
         <Header
           onSearch={handleSearch}
           onLocationRequest={handleGetCurrentLocation}
@@ -767,38 +879,215 @@ function HomeContent() {
           onApplyFilters={handleApplyFilters}
         />
 
-        <div className="flex flex-1 overflow-hidden">
-          {/* 왼쪽 패널 - 가게 목록만 */}
-          <div className="hidden lg:block lg:w-[30%] xl:w-[28%] 2xl:w-[25%] border-r border-gray-200 bg-white overflow-hidden">
-            {SidebarContent}
-          </div>
+        <div
+          className="flex h-10 shrink-0 items-center overflow-x-auto border-b border-border bg-card px-3"
+          role="group"
+          aria-label="음식 종류"
+        >
+          <Button
+            type="button"
+            variant="ghost"
+            className={`h-10 shrink-0 rounded-none border-b-2 px-3 text-xs ${
+              activeCategories.length === 0
+                ? "border-primary font-semibold text-primary"
+                : "border-transparent text-muted-foreground"
+            }`}
+            aria-pressed={activeCategories.length === 0}
+            onClick={() => handleCategorySelect(null)}
+          >
+            전체
+          </Button>
+          {categories.map((category) => (
+            <Button
+              key={category}
+              type="button"
+              variant="ghost"
+              className={`h-10 shrink-0 rounded-none border-b-2 px-3 text-xs ${
+                activeCategories.includes(category)
+                  ? "border-primary font-semibold text-primary"
+                  : "border-transparent text-muted-foreground"
+              }`}
+              aria-pressed={activeCategories.includes(category)}
+              onClick={() => handleCategorySelect(category)}
+            >
+              {category}
+            </Button>
+          ))}
+        </div>
 
-          {/* 필터 패널 (모바일 + 데스크톱) */}
-          {isFilterOpen && (
-            <div className="fixed inset-0 z-50 bg-black bg-opacity-50">
-              <div className="w-80 lg:w-[25%] xl:w-[22%] 2xl:w-[20%] h-full bg-white overflow-y-auto">
-                <div className="sticky top-0 bg-white border-b border-gray-200 p-4 flex items-center justify-between">
-                  <h2 className="text-lg font-semibold text-gray-900">필터</h2>
-                  <button
-                    onClick={() => setIsFilterOpen(false)}
-                    className="text-gray-500 hover:text-gray-700"
-                  >
-                    <svg
-                      className="w-6 h-6"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M6 18L18 6M6 6l12 12"
-                      />
-                    </svg>
-                  </button>
+        {activeConditions.length > 0 && (
+          <div
+            className="flex shrink-0 items-center gap-3 overflow-x-auto border-b border-border bg-muted/30 px-4"
+            aria-label="적용한 검색 조건"
+          >
+            <span className="shrink-0 text-xs text-muted-foreground">
+              적용 중
+            </span>
+            {activeConditions.map((condition) => (
+              <button
+                key={condition.key}
+                type="button"
+                onClick={() => removeCondition(condition.key)}
+                className="flex min-h-10 shrink-0 items-center gap-1.5 text-xs focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
+                aria-label={`${condition.label} 해제`}
+              >
+                {condition.label}
+                <X className="h-3 w-3" aria-hidden="true" />
+              </button>
+            ))}
+          </div>
+        )}
+
+        <div className="flex min-h-0 flex-1 overflow-hidden">
+          <aside
+            className="hidden w-[380px] shrink-0 flex-col overflow-hidden border-r border-border bg-card lg:flex xl:w-[420px]"
+            aria-label="주변 가게 검색 결과"
+          >
+            <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border px-4 py-4">
+              <div className="min-w-0">
+                <p className="mb-1 truncate text-xs text-muted-foreground">
+                  {searchParams.get("searchLocation") || "설정한 지도 위치"}{" "}
+                  주변
+                </p>
+                <h1 className="text-lg font-semibold tracking-tight">
+                  무한리필 가게
+                </h1>
+                <p
+                  className="mt-1 truncate text-xs text-muted-foreground"
+                  role="status"
+                >
+                  {loading
+                    ? "불러오는 중"
+                    : error
+                      ? "불러오기 실패"
+                      : `${stores.length}개 표시`}
+                </p>
+              </div>
+              <Button
+                variant="outline"
+                onClick={handleFilterToggle}
+                aria-label="검색 필터 열기"
+                className="h-10 shrink-0 gap-2 rounded-sm px-3"
+              >
+                <SlidersHorizontal className="h-4 w-4" aria-hidden="true" />
+                필터
+              </Button>
+            </div>
+            {ResultsContent}
+          </aside>
+
+          <div className="relative isolate min-w-0 flex-1">
+            {/* 지도 크기는 결과 패널을 펼쳐도 유지해 지도 상태를 보존 */}
+            <div
+              className={`h-full ${isMapExpanded || isResultsExpanded ? "pb-[calc(4rem+env(safe-area-inset-bottom))]" : "pb-[calc(13rem+env(safe-area-inset-bottom))]"} lg:pb-0`}
+            >
+              {MapView}
+            </div>
+
+            {/* 배경과 지도 조작을 막지 않는 모바일 결과 패널 */}
+            <section
+              className={`absolute inset-x-0 bottom-0 z-30 flex flex-col overflow-hidden border-t border-border bg-card pb-[env(safe-area-inset-bottom)] lg:hidden ${
+                isResultsExpanded
+                  ? "h-[65%] max-h-[38rem]"
+                  : isMapExpanded
+                    ? "h-[calc(4rem+env(safe-area-inset-bottom))]"
+                    : "h-[calc(13rem+env(safe-area-inset-bottom))] max-h-[55%]"
+              }`}
+              aria-label="모바일 가게 검색 결과"
+              onKeyDown={(event) => {
+                if (event.key === "Escape" && isResultsExpanded) {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  setIsResultsExpanded(false);
+                  resultsToggleRef.current?.focus();
+                }
+              }}
+            >
+              <div className="flex h-16 shrink-0 items-center justify-between gap-3 px-3">
+                <div className="min-w-0">
+                  <h2 className="text-sm font-semibold" role="status">
+                    {loading
+                      ? "가게 불러오는 중"
+                      : error
+                        ? "가게 불러오기 실패"
+                        : `가게 ${stores.length}개 표시`}
+                  </h2>
+                  {hasMore && !loading && !error && (
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      목록에서 더 보기
+                    </p>
+                  )}
                 </div>
+                <div
+                  className="flex shrink-0 items-center gap-1"
+                  role="group"
+                  aria-label="지도와 목록 보기"
+                >
+                  <Button
+                    size="sm"
+                    variant={
+                      isMapExpanded && !isResultsExpanded ? "default" : "ghost"
+                    }
+                    className="h-9 gap-1.5 rounded-sm px-2.5"
+                    aria-pressed={isMapExpanded && !isResultsExpanded}
+                    onClick={() => {
+                      setIsResultsExpanded(false);
+                      setIsMapExpanded(true);
+                    }}
+                  >
+                    <Map className="h-4 w-4" aria-hidden="true" />
+                    지도
+                  </Button>
+                  <Button
+                    ref={resultsToggleRef}
+                    size="sm"
+                    variant={isResultsExpanded ? "default" : "ghost"}
+                    className="h-9 gap-1.5 rounded-sm px-2.5"
+                    aria-expanded={isResultsExpanded}
+                    aria-controls="mobile-store-results"
+                    onClick={() => {
+                      setIsResultsExpanded((expanded) => !expanded);
+                      setIsMapExpanded(false);
+                    }}
+                  >
+                    <List className="h-4 w-4" aria-hidden="true" />
+                    {isResultsExpanded ? "목록 줄이기" : "목록 펼치기"}
+                  </Button>
+                </div>
+              </div>
+              <div
+                ref={mobileResultsRef}
+                id="mobile-store-results"
+                className="min-h-0 flex-1 flex-col border-t border-border"
+                hidden={isMapExpanded && !isResultsExpanded}
+              >
+                <div className="flex h-full min-h-0 flex-col">
+                  {ResultsContent}
+                </div>
+              </div>
+            </section>
+          </div>
+        </div>
+
+        {filterUsesSheet ? (
+          <Sheet open={isFilterOpen} onOpenChange={setIsFilterOpen}>
+            <SheetContent
+              side="left"
+              className="flex w-full flex-col gap-0 bg-card p-0 sm:max-w-[400px] motion-reduce:animate-none motion-reduce:transition-none data-[state=open]:duration-200 data-[state=closed]:duration-200"
+              onCloseAutoFocus={(event) => {
+                event.preventDefault();
+                filterTriggerRef.current?.focus();
+              }}
+            >
+              <SheetHeader className="shrink-0 border-b border-border p-4 pr-12 text-left">
+                <SheetTitle className="text-base">검색 필터</SheetTitle>
+                <SheetDescription className="text-xs">
+                  음식 종류, 거리, 평점 조건을 설정합니다.
+                </SheetDescription>
+              </SheetHeader>
+              <div className="min-h-0 flex-1">
                 <SearchFilters
+                  showHeading={false}
                   userLocation={userLocation}
                   onApplyFilters={(filters) => {
                     handleApplyFilters(filters);
@@ -806,32 +1095,51 @@ function HomeContent() {
                   }}
                 />
               </div>
-            </div>
-          )}
-
-          {/* 메인 콘텐츠 영역 - 지도만 표시 */}
-          <div className="flex-1 relative">
-            {MapView}
-
-            {/* 결과 요약 */}
-            {stores.length > 0 && (
-              <div className="absolute top-4 right-4 bg-white/90 backdrop-blur-sm px-3 py-2 rounded-lg shadow-sm border z-10">
-                <p className="text-sm text-gray-700">
-                  총{" "}
-                  <span className="font-semibold text-[#FF5722]">
-                    {stores.length}
-                  </span>
-                  개의 가게 표시
-                </p>
-                {hasMore && (
-                  <p className="text-xs text-gray-500 mt-1">
-                    더 많은 가게가 있습니다
-                  </p>
-                )}
+            </SheetContent>
+          </Sheet>
+        ) : (
+          <Drawer
+            open={isFilterOpen}
+            onOpenChange={setIsFilterOpen}
+            shouldScaleBackground={false}
+            autoFocus
+          >
+            <DrawerContent
+              className="h-[90dvh] max-h-[90dvh] overflow-hidden rounded-t-sm bg-card"
+              onCloseAutoFocus={(event) => {
+                event.preventDefault();
+                filterTriggerRef.current?.focus();
+              }}
+            >
+              <DrawerHeader className="shrink-0 border-b border-border p-4 pr-16 text-left">
+                <DrawerTitle className="text-base">검색 필터</DrawerTitle>
+                <DrawerDescription className="text-xs">
+                  음식 종류, 거리, 평점 조건을 설정합니다.
+                </DrawerDescription>
+              </DrawerHeader>
+              <DrawerClose asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="absolute right-3 top-6 h-9 w-9 rounded-sm"
+                  aria-label="필터 닫기"
+                >
+                  <X className="h-4 w-4" aria-hidden="true" />
+                </Button>
+              </DrawerClose>
+              <div className="min-h-0 flex-1">
+                <SearchFilters
+                  showHeading={false}
+                  userLocation={userLocation}
+                  onApplyFilters={(filters) => {
+                    handleApplyFilters(filters);
+                    setIsFilterOpen(false);
+                  }}
+                />
               </div>
-            )}
-          </div>
-        </div>
+            </DrawerContent>
+          </Drawer>
+        )}
       </main>
     </ErrorBoundary>
   );
@@ -839,7 +1147,16 @@ function HomeContent() {
 
 export default function MapPage() {
   return (
-    <Suspense fallback={<div>Loading...</div>}>
+    <Suspense
+      fallback={
+        <div
+          className="flex min-h-dvh items-center justify-center bg-background text-sm text-muted-foreground"
+          role="status"
+        >
+          지도 검색을 불러오는 중입니다.
+        </div>
+      }
+    >
       <HomeContent />
     </Suspense>
   );

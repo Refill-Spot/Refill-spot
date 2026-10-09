@@ -1,5 +1,6 @@
 "use client";
 
+import { BrandMark } from "@/components/brand-mark";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -7,7 +8,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Filter, MapPin, Menu, Info, MessageCircle, Bell, Map } from "lucide-react";
+import type { LocationResult } from "@/lib/location-search";
+import { Bell, Filter, Info, MapPin, Menu, MessageCircle } from "lucide-react";
 import Link from "next/link";
 import { LocationDialog } from "./location-dialog";
 import { SearchInput } from "./search-input";
@@ -16,15 +18,11 @@ interface DesktopHeaderProps {
   onMenuClick: () => void;
   onFilterClick: () => void;
   onCustomLocationSet?: (lat: number, lng: number, radius: number) => void;
-  currentLocationInfo?: {
-    address: string;
-    distance: number;
-  } | null;
+  currentLocationInfo?: { address: string; distance: number } | null;
   isLocationDialogOpen: boolean;
   onLocationDialogOpen: () => void;
   onLocationDialogClose: () => void;
-  onPlaceSelect?: (place: any) => void;
-  onManualSearch?: (searchText: string) => void;
+  onPlaceSelect?: (place: LocationResult) => void;
 }
 
 export function DesktopHeader({
@@ -36,109 +34,99 @@ export function DesktopHeader({
   onLocationDialogOpen,
   onLocationDialogClose,
   onPlaceSelect,
-  onManualSearch,
 }: DesktopHeaderProps) {
   return (
     <>
-      <div className="flex items-center justify-between w-full">
-        {/* 로고 및 메뉴 */}
-        <div className="flex items-center space-x-4">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="sm">
-                <Menu className="h-5 w-5" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-48">
-              <DropdownMenuItem asChild>
-                <Link href="/" className="flex items-center w-full">
-                  <Info className="h-4 w-4 mr-2 text-[#2196F3]" />
-                  이용 가이드
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link href="/announcements" className="flex items-center w-full">
-                  <Bell className="h-4 w-4 mr-2 text-[#FF9800]" />
-                  공지사항
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link href="/contact" className="flex items-center w-full">
-                  <MessageCircle className="h-4 w-4 mr-2 text-[#4CAF50]" />
-                  문의하기
-                </Link>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-          
-          <Link href="/map" className="flex items-center space-x-2">
-            <div className="bg-gradient-to-br from-orange-500 to-red-500 rounded-lg p-2">
-              <svg
-                className="w-6 h-6 text-white"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                />
-              </svg>
-            </div>
-            <div>
-              <h1 className="text-xl font-bold text-gray-900">Refill-spot</h1>
-              <p className="text-xs text-gray-500">무한리필 가게 찾기</p>
-            </div>
-          </Link>
+      <div className="flex w-full min-w-0 items-center gap-6 xl:gap-10">
+        <Link
+          href="/"
+          aria-label="Refill Spot 홈"
+          className="flex h-12 shrink-0 items-center gap-2.5 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-4"
+        >
+          <BrandMark size={38} className="shrink-0" />
+          <span className="flex flex-col gap-0.5">
+            <span className="text-[19px] font-semibold leading-6 tracking-tight text-foreground">
+              Refill Spot
+            </span>
+            <span className="text-[11px] leading-4 text-muted-foreground">
+              무한리필 식당 안내
+            </span>
+          </span>
+        </Link>
+
+        <div className="mx-auto min-w-0 max-w-2xl flex-1">
+          <SearchInput
+            onPlaceSelect={onPlaceSelect}
+            placeholder="지역, 역 이름, 가게 이름 검색"
+          />
         </div>
 
-        {/* 검색 영역 */}
-        <div className="flex-1 max-w-2xl xl:max-w-4xl 2xl:max-w-6xl mx-8 flex items-center space-x-6">
-          {/* 필터 버튼 */}
-          <Button variant="outline" size="sm" onClick={onFilterClick}>
-            <Filter className="h-4 w-4 text-[#FF5722]" />
-            <span className="hidden xl:inline ml-2">필터</span>
-          </Button>
-          
-          <div className="flex-1 mx-4">
-            <SearchInput
-              onPlaceSelect={onPlaceSelect}
-              onManualSearch={onManualSearch}
-              placeholder="지역, 주소를 입력하세요"
-            />
-          </div>
-          
-          {/* 현재 위치 정보 */}
+        <div className="flex shrink-0 items-center gap-1 border-l border-border pl-3">
           <Button
-            variant="outline"
-            size="sm"
-            onClick={onLocationDialogOpen}
-            className="flex items-center space-x-2"
+            variant="ghost"
+            onClick={onFilterClick}
+            aria-label="검색 필터 열기"
+            className="h-11 gap-2 px-3 text-muted-foreground hover:text-foreground"
           >
-            <MapPin className="h-4 w-4 text-[#2196F3]" />
-            <span className="hidden xl:inline">
+            <Filter className="h-4 w-4" aria-hidden="true" />
+            필터
+          </Button>
+          <Button
+            variant="ghost"
+            onClick={onLocationDialogOpen}
+            aria-label={
+              currentLocationInfo
+                ? `검색 위치 변경: ${currentLocationInfo.address}, 반경 ${currentLocationInfo.distance}km`
+                : "검색 위치 설정"
+            }
+            className="h-11 min-w-0 max-w-40 gap-2 px-3 text-muted-foreground hover:text-foreground"
+          >
+            <MapPin className="h-4 w-4" aria-hidden="true" />
+            <span className="hidden min-w-0 truncate xl:inline">
               {currentLocationInfo
                 ? `${currentLocationInfo.address} (${currentLocationInfo.distance}km)`
                 : "위치 설정"}
             </span>
             <span className="xl:hidden">위치</span>
           </Button>
-        </div>
-
-        {/* 우측 버튼들 */}
-        <div className="flex items-center space-x-2 mr-3">
-          <Button asChild className="bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white">
-            <Link href="/map" className="flex items-center">
-              <Map className="h-4 w-4 mr-2" />
-              맛집 찾기
-            </Link>
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label="메뉴 열기"
+                onClick={onMenuClick}
+                className="h-11 w-11 text-muted-foreground hover:text-foreground"
+              >
+                <Menu className="h-5 w-5" aria-hidden="true" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuItem asChild>
+                <Link href="/guide" className="flex w-full items-center">
+                  <Info className="mr-2 h-4 w-4" aria-hidden="true" />
+                  이용 가이드
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link
+                  href="/announcements"
+                  className="flex w-full items-center"
+                >
+                  <Bell className="mr-2 h-4 w-4" aria-hidden="true" />
+                  공지사항
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/contact" className="flex w-full items-center">
+                  <MessageCircle className="mr-2 h-4 w-4" aria-hidden="true" />
+                  문의하기
+                </Link>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
-
-      {/* 위치 설정 다이얼로그 */}
       <LocationDialog
         isOpen={isLocationDialogOpen}
         onClose={onLocationDialogClose}

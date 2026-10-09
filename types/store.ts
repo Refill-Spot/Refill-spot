@@ -1,5 +1,6 @@
-import { Json } from '@/types/supabase';
-import { MenuItem } from '@/types/menu';
+import { Json } from "@/types/supabase";
+import { MenuItem } from "@/types/menu";
+import type { ExternalRatings } from "@/lib/external-ratings";
 
 // 데이터베이스에서 가져오는 원본 가게 데이터 타입 (Supabase 응답 형식)
 export interface StoreFromDb {
@@ -32,10 +33,7 @@ export interface Store {
   address: string;
   distance?: string | null; // 문자열 형태의 거리 (예: "1.2km") 또는 null
   categories: string[];
-  rating: {
-    naver: number;
-    kakao: number;
-  };
+  rating: ExternalRatings;
   // 자체 리뷰 시스템 평점
   avgRating?: number; // 평균 평점 (1-5점)
   reviewCount?: number; // 리뷰 개수
@@ -69,7 +67,8 @@ export interface FormattedReview {
   imageUrls?: string[]; // 리뷰 이미지 URL 배열
   keywords?: string[]; // 키워드 배열
   atmosphere?: string[]; // 분위기 키워드 배열
-  detailedRatings?: { // 세부 평점
+  detailedRatings?: {
+    // 세부 평점
     taste?: number;
     price?: number;
     service?: number;

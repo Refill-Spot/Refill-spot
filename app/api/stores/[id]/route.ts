@@ -1,4 +1,5 @@
 import { errorResponse, successResponse } from "@/lib/api-response";
+import { summarizeReviews } from "@/lib/review-summary";
 import { mapStoreFromDb } from "@/lib/stores";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { ReviewFromDb, Store } from "@/types/store";
@@ -87,16 +88,19 @@ export async function GET(
     // 리뷰 정보 추가하여 FormattedStore 생성
     const formattedStore: FormattedStore = {
       ...baseStore,
-      reviews: (reviews || []).map((review: any) => ({
-        id: review.id,
-        rating: review.rating,
-        content: review.content,
-        createdAt: review.created_at,
-        user: {
-          id: review.user_id,
-          username: review.profiles?.username || "사용자", // 실제 사용자명 사용
-        },
-      })),
+      ...summarizeReviews(reviews, reviewsError),
+      reviews: (reviewsError ? [] : reviews || []).map(
+        (review: ReviewFromDb) => ({
+          id: review.id,
+          rating: review.rating,
+          content: review.content,
+          createdAt: review.created_at,
+          user: {
+            id: review.user_id,
+            username: review.profiles?.username || "사용자", // 실제 사용자명 사용
+          },
+        }),
+      ),
     };
 
     return successResponse(formattedStore);

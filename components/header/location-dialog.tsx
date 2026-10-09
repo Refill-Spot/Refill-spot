@@ -13,7 +13,7 @@ import { Label } from "@/components/ui/label";
 import { useGeolocation } from "@/hooks/use-geolocation";
 import { useLocationSearch } from "@/hooks/use-location-search";
 import { Loader2, MapPin, Navigation } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { PopularLocations } from "./popular-locations";
 import { SearchInput } from "./search-input";
 
@@ -38,7 +38,6 @@ export function LocationDialog({
     isLoading,
     handlePlaceSelect,
     handlePopularLocationSelect,
-    handleManualSearch,
     setSelectedPlace,
     setRadiusInput,
   } = useLocationSearch({
@@ -46,14 +45,25 @@ export function LocationDialog({
     onDialogClose: onClose,
   });
 
+  useEffect(() => {
+    if (!isOpen) {
+      setSelectedPlace(null);
+    }
+  }, [isOpen, setSelectedPlace]);
+
   const handleCurrentLocationClick = async () => {
+    setSelectedPlace(null);
     setIsUsingCurrentLocation(true);
     try {
       const position = await getLocationQuick();
-      if (position && onCustomLocationSet) {
-        console.log("위치 다이얼로그에서 현재 위치 설정:", position);
-        onCustomLocationSet(position.lat, position.lng, radiusInput);
-        onClose();
+      if (position) {
+        handlePlaceSelect({
+          id: "current-location",
+          name: "현재 위치",
+          address: "",
+          lat: position.lat,
+          lng: position.lng,
+        });
       }
     } catch (error) {
       console.error("현재 위치 가져오기 실패:", error);
@@ -115,7 +125,6 @@ export function LocationDialog({
             <Label htmlFor="location-search">지역 검색</Label>
             <SearchInput
               onPlaceSelect={handlePlaceSelect}
-              onManualSearch={handleManualSearch}
               placeholder="지역, 주소를 입력하세요"
             />
           </div>
@@ -144,7 +153,7 @@ export function LocationDialog({
                 min="1"
                 max="50"
                 value={radiusInput}
-                onChange={(e) => setRadiusInput(Number(e.target.value) || 5)}
+                onChange={(e) => setRadiusInput(Number(e.target.value))}
                 className="w-20"
               />
               <span className="text-sm text-gray-500">km</span>
@@ -161,7 +170,10 @@ export function LocationDialog({
                 <MapPin className="h-4 w-4 text-blue-600" />
                 <div className="min-w-0 flex-1">
                   <div className="text-sm font-medium text-gray-900 truncate">
-                    선택된 위치: {selectedPlace.description}
+                    선택된 위치: {selectedPlace.name || selectedPlace.address}
+                  </div>
+                  <div className="text-xs text-gray-500 truncate">
+                    {selectedPlace.address}
                   </div>
                   <div className="text-xs text-gray-500">
                     반경: {radiusInput}km

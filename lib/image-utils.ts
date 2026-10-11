@@ -12,8 +12,7 @@ export async function readImageUploadFormData(
   const contentLength = request.headers.get("content-length");
   const maxBytes = MAX_IMAGE_UPLOAD_BYTES * maxFiles + 64 * 1024;
   if (
-    !contentType ||
-    contentType.split(";")[0].trim().toLowerCase() !== "multipart/form-data" ||
+    contentType?.split(";")[0].trim().toLowerCase() !== "multipart/form-data" ||
     !request.body ||
     request.bodyUsed ||
     request.body.locked

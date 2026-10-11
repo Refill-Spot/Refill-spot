@@ -131,8 +131,7 @@ export default function FavoritesPage() {
 
   if (
     loading ||
-    !user ||
-    favoritesOwnerId !== user.id ||
+    favoritesOwnerId !== user?.id ||
     favoritesLoading ||
     (!favoritesLoaded && !favoritesError)
   ) {

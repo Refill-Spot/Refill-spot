@@ -359,6 +359,19 @@ test("search escaping keeps regex metacharacters, wildcards and filter syntax li
   }
 });
 
+test("store list responses cannot share refreshed authentication cookies through a cache", async () => {
+  for (const query of ["", "?lat=0&lng=0"]) {
+    const { handler } = loadRoute("app/api/stores/route.ts", {
+      stores: [store(1)],
+    });
+    const response = await handler(
+      new NextRequest(`http://localhost/api/stores${query}`),
+    );
+    assert.equal(response.status, 200);
+    assert.equal(response.headers.get("cache-control"), "private, no-store");
+  }
+});
+
 test("GET accepts zero coordinates and applies literal query and category filters", async () => {
   const query = "100%_*(안녕)";
   const { handler, calls } = loadRoute("app/api/stores/route.ts", {

@@ -57,10 +57,13 @@ export async function GET(request: NextRequest) {
             getAll() {
               return request.cookies.getAll();
             },
-            setAll(cookiesToSet) {
+            setAll(cookiesToSet, headers) {
               for (const { name, value, options } of cookiesToSet) {
                 request.cookies.set(name, value);
                 response.cookies.set(name, value, options);
+              }
+              for (const [name, value] of Object.entries(headers)) {
+                response.headers.set(name, value);
               }
             },
           },
@@ -89,7 +92,7 @@ export async function GET(request: NextRequest) {
           .eq("id", data.user.id)
           .single();
 
-        if (profileError && profileError.code === "PGRST116") {
+        if (profileError?.code === "PGRST116") {
           // 프로필이 없으면 생성
           const username =
             data.user.email?.split("@")[0] ||
@@ -111,7 +114,7 @@ export async function GET(request: NextRequest) {
       // 캐시 방지 헤더 추가
       response.headers.set(
         "Cache-Control",
-        "no-cache, no-store, max-age=0, must-revalidate",
+        "private, no-cache, no-store, max-age=0, must-revalidate",
       );
       response.headers.set("Pragma", "no-cache");
       response.headers.set("Expires", "0");

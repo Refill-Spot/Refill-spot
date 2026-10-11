@@ -293,6 +293,10 @@ test("refreshed cookies reach downstream requests and redirect responses", async
     const oldCookie = request.cookies.get(AUTH_COOKIE)!.value;
     const response = await middleware(request);
     const refreshedCookie = response.cookies.get(AUTH_COOKIE);
+    assert.match(response.headers.get("cache-control")!, /private/);
+    assert.match(response.headers.get("cache-control")!, /no-store/);
+    assert.equal(response.headers.get("pragma"), "no-cache");
+    assert.equal(response.headers.get("expires"), "0");
     assert.ok(refreshedCookie);
     assert.notEqual(refreshedCookie.value, oldCookie);
     assert.equal(
@@ -325,6 +329,9 @@ test("invalid refresh tokens are removed on the login redirect", async (t) => {
 
   const response = await middleware(authenticatedRequest("/my-reviews", true));
   assert.equal(new URL(response.headers.get("location")!).pathname, "/login");
+  assert.match(response.headers.get("cache-control")!, /private/);
+  assert.match(response.headers.get("cache-control")!, /no-store/);
+  assert.equal(response.headers.get("expires"), "0");
   const removedCookie = response.cookies.get(AUTH_COOKIE);
   assert.ok(removedCookie);
   assert.equal(removedCookie.value, "");

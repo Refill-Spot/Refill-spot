@@ -157,9 +157,7 @@ export async function GET(request: NextRequest) {
       {
         status: 200,
         headers: {
-          "Cache-Control": hasLocation
-            ? "public, s-maxage=180, stale-while-revalidate=300"
-            : "public, s-maxage=300, stale-while-revalidate=600",
+          "Cache-Control": "private, no-store",
         },
       },
     );

@@ -4,6 +4,20 @@ import { filterSafePrecacheEntries } from "./lib/pwa-cache.mjs";
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  async headers() {
+    // API handlers can refresh session cookies even when reading public data.
+    // This also protects handlers that return NextResponse directly.
+    return [
+      {
+        source: "/api/:path*",
+        headers: [
+          { key: "Cache-Control", value: "private, no-store" },
+          { key: "Pragma", value: "no-cache" },
+          { key: "Expires", value: "0" },
+        ],
+      },
+    ];
+  },
   // ESLint와 TypeScript 오류를 빌드 시 체크하도록 설정
   eslint: {
     // 빌드 시 ESLint 실행

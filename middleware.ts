@@ -25,8 +25,20 @@ export async function middleware(request: NextRequest) {
     return response;
   }
 
+  // All auth-dependent pages and redirects are private, even without refresh.
+  const privacyHeaders = new Headers({
+    "Cache-Control": "private, no-cache, no-store, must-revalidate, max-age=0",
+    Expires: "0",
+    Pragma: "no-cache",
+  });
+  const applyPrivacyHeaders = (target: NextResponse) => {
+    privacyHeaders.forEach((value, name) => target.headers.set(name, value));
+  };
+  applyPrivacyHeaders(response);
+
   const redirect = (url: URL) => {
     const redirectResponse = NextResponse.redirect(url);
+    applyPrivacyHeaders(redirectResponse);
     for (const cookie of response.cookies.getAll()) {
       redirectResponse.cookies.set(cookie);
     }
@@ -47,7 +59,12 @@ export async function middleware(request: NextRequest) {
           getAll() {
             return request.cookies.getAll();
           },
-          setAll(cookiesToSet) {
+          setAll(cookiesToSet, headers) {
+            // SDK sends these only with its first write; preserve across later
+            // response rebuilds and redirects in the same request.
+            for (const [name, value] of Object.entries(headers)) {
+              privacyHeaders.set(name, value);
+            }
             const previousCookies = response.cookies.getAll();
             for (const { name, value } of cookiesToSet) {
               request.cookies.set(name, value);
@@ -55,6 +72,7 @@ export async function middleware(request: NextRequest) {
             response = NextResponse.next({
               request: { headers: request.headers },
             });
+            applyPrivacyHeaders(response);
             for (const cookie of previousCookies) {
               response.cookies.set(cookie);
             }

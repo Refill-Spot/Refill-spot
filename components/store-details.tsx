@@ -982,7 +982,7 @@ export default function StoreDetails({ storeId }: StoreDetailsProps) {
                           >
                             {new Date(review.createdAt).toLocaleDateString()}
                           </time>
-                          {user && review.user.id === user.id && (
+                          {review.user.id === user?.id && (
                             <Button
                               size="sm"
                               variant="destructive"

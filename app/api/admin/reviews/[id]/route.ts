@@ -43,7 +43,7 @@ export async function DELETE(
       data: { user },
       error: authError,
     } = await supabase.auth.getUser();
-    if (authError || !user || user.id !== adminCheck.user.id) {
+    if (authError || user?.id !== adminCheck.user.id) {
       return apiResponse.error("인증된 사용자가 없습니다.", 401);
     }
 

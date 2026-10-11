@@ -425,7 +425,7 @@ export async function GET(
         likeCountMap.set(like.review_id, count + 1);
 
         // 현재 사용자가 좋아요한 리뷰 체크
-        if (user && like.user_id === user.id) {
+        if (like.user_id === user?.id) {
           userLikedSet.add(like.review_id);
         }
       });

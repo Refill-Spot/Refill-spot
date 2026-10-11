@@ -214,11 +214,7 @@ export default function StorePage() {
 
     try {
       // Web Share API 지원 확인 (주로 모바일)
-      if (
-        navigator.share &&
-        navigator.canShare &&
-        navigator.canShare(shareData)
-      ) {
+      if (navigator.share && navigator.canShare?.(shareData)) {
         await navigator.share(shareData);
         return;
       }

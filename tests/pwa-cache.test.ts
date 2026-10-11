@@ -371,6 +371,19 @@ test("Serwist next config retains registration, build checks and existing webpac
   assert.ok(config);
   assert.equal(config.eslint.ignoreDuringBuilds, false);
   assert.equal(config.typescript.ignoreBuildErrors, false);
+  const apiHeaders = (await config.headers()).find(
+    (rule: { source: string }) => rule.source === "/api/:path*",
+  );
+  assert.ok(apiHeaders);
+  const headers = new Headers(
+    apiHeaders.headers.map(({ key, value }: { key: string; value: string }) => [
+      key,
+      value,
+    ]),
+  );
+  assert.equal(headers.get("cache-control"), "private, no-store");
+  assert.equal(headers.get("pragma"), "no-cache");
+  assert.equal(headers.get("expires"), "0");
   assert.equal(config.images.minimumCacheTTL, 2678400);
   assert.deepEqual(
     Array.from(

@@ -58,7 +58,9 @@ export default function ProfilePage() {
   }, [user, profile, loading, router]);
 
   // 입력값 변경 핸들러
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
+  ) => {
     const { name, value } = e.target;
     setProfileData((prev) => ({
       ...prev,
@@ -100,7 +102,12 @@ export default function ProfilePage() {
 
   // 로그아웃 핸들러
   const handleSignOut = async () => {
-    await signOut();
+    try {
+      await signOut();
+    } catch (error) {
+      // AuthContext에서 오류를 안내하며 현재 세션을 유지합니다.
+      console.error("로그아웃 요청 실패:", error);
+    }
   };
 
   if (loading) {
@@ -133,7 +140,10 @@ export default function ProfilePage() {
             <CardContent className="p-6 flex flex-col items-center">
               <div className="mb-4">
                 <Avatar className="w-24 h-24 border-2 border-gray-200">
-                  <AvatarImage src={profile?.avatar_url} alt={profile?.username} />
+                  <AvatarImage
+                    src={profile?.avatar_url}
+                    alt={profile?.username}
+                  />
                   <AvatarFallback className="bg-gray-100">
                     <User className="w-12 h-12 text-gray-400" />
                   </AvatarFallback>

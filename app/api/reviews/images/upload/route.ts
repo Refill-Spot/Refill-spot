@@ -1,12 +1,17 @@
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import {
+  readImageUploadFormData,
+  validateImageUpload,
+} from "@/lib/image-utils";
 import { NextRequest, NextResponse } from "next/server";
+import { v4 as uuidv4 } from "uuid";
 
-const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
-const ALLOWED_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
 const MAX_IMAGES = 5;
-const REVIEW_IMAGES_BUCKET = process.env.SUPABASE_STORAGE_BUCKET_REVIEW_IMAGES || "review-images";
+const REVIEW_IMAGES_BUCKET =
+  process.env.SUPABASE_STORAGE_BUCKET_REVIEW_IMAGES || "review-images";
 
 export async function POST(request: NextRequest) {
+  let cleanupUploads: (() => Promise<void>) | null = null;
   try {
     const supabase = await createServerSupabaseClient();
 
@@ -23,10 +28,21 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const formData = await request.formData();
-    const files = formData.getAll("images") as File[];
+    const uploadRequest = await readImageUploadFormData(request, MAX_IMAGES);
+    if (!uploadRequest.valid) {
+      return NextResponse.json(
+        {
+          error:
+            uploadRequest.error === "body_too_large"
+              ? "각 이미지는 5MB 이하여야 합니다."
+              : "올바른 파일 업로드 요청이 필요합니다.",
+        },
+        { status: uploadRequest.error === "body_too_large" ? 413 : 400 },
+      );
+    }
+    const files = uploadRequest.formData.getAll("images");
 
-    if (!files || files.length === 0) {
+    if (files.length === 0) {
       return NextResponse.json(
         { error: "업로드할 이미지를 선택해주세요." },
         { status: 400 },
@@ -40,67 +56,69 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 파일 유효성 검사
+    const validatedFiles: {
+      file: File;
+      contentType: string;
+      extension: string;
+    }[] = [];
+    // 업로드를 시작하기 전에 모든 파일을 검사합니다.
     for (const file of files) {
-      if (!ALLOWED_TYPES.includes(file.type)) {
-        return NextResponse.json(
-          { error: "JPG, PNG, WebP 형식의 이미지만 업로드할 수 있습니다." },
-          { status: 400 },
-        );
+      const validation = await validateImageUpload(file);
+      if (!validation.valid) {
+        const message =
+          validation.error === "invalid_file"
+            ? "업로드할 이미지 파일이 필요합니다."
+            : validation.error === "invalid_size"
+              ? "각 이미지는 1바이트 이상 5MB 이하여야 합니다."
+              : "JPG, PNG, WebP 형식의 이미지만 업로드할 수 있습니다.";
+        return NextResponse.json({ error: message }, { status: 400 });
       }
-
-      if (file.size > MAX_FILE_SIZE) {
-        return NextResponse.json(
-          { error: "각 이미지는 5MB 이하여야 합니다." },
-          { status: 400 },
-        );
-      }
+      validatedFiles.push(validation);
     }
 
     const uploadedUrls: string[] = [];
+    const uploadedPaths: string[] = [];
+    const storage = supabase.storage.from(REVIEW_IMAGES_BUCKET);
+    cleanupUploads = async () => {
+      if (uploadedPaths.length === 0) {
+        return;
+      }
+      try {
+        const { error: cleanupError } = await storage.remove(uploadedPaths);
+        if (cleanupError) {
+          console.error("Review image rollback failed:", cleanupError);
+        }
+      } catch (cleanupError) {
+        console.error("Review image rollback failed:", cleanupError);
+      }
+    };
 
     // 각 파일을 Supabase Storage에 업로드
-    for (const file of files) {
-      const fileExt = file.name.split(".").pop();
-      const fileName = `${user.id}/${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
-      
-      const fileBuffer = await file.arrayBuffer();
-      
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from(REVIEW_IMAGES_BUCKET)
-        .upload(fileName, fileBuffer, {
-          contentType: file.type,
+    for (const validation of validatedFiles) {
+      const fileName = `${user.id}/${uuidv4()}.${validation.extension}`;
+      const { data: uploadData, error: uploadError } = await storage.upload(
+        fileName,
+        validation.file,
+        {
+          contentType: validation.contentType,
           cacheControl: "3600",
           upsert: false,
-        });
+        },
+      );
 
-      if (uploadError) {
+      if (uploadError || !uploadData) {
         console.error("이미지 업로드 오류:", uploadError);
-        console.error("업로드 시도한 파일:", fileName);
-        console.error("사용자 ID:", user.id);
-        console.error("버킷:", REVIEW_IMAGES_BUCKET);
-        
-        // 이미 업로드된 이미지들 정리
-        for (const url of uploadedUrls) {
-          const path = url.split("/").pop();
-          if (path) {
-            await supabase.storage.from(REVIEW_IMAGES_BUCKET).remove([path]);
-          }
-        }
-        
+        await cleanupUploads();
+        cleanupUploads = null;
         return NextResponse.json(
-          { 
-            error: "이미지 업로드 중 오류가 발생했습니다.",
-            details: uploadError, 
-          },
+          { error: "이미지 업로드 중 오류가 발생했습니다." },
           { status: 500 },
         );
       }
+      uploadedPaths.push(fileName);
 
       // 공개 URL 생성
-      const { data: urlData } = supabase.storage
-        .from(REVIEW_IMAGES_BUCKET)
-        .getPublicUrl(uploadData.path);
+      const { data: urlData } = storage.getPublicUrl(fileName);
 
       uploadedUrls.push(urlData.publicUrl);
     }
@@ -109,8 +127,10 @@ export async function POST(request: NextRequest) {
       message: "이미지가 성공적으로 업로드되었습니다.",
       imageUrls: uploadedUrls,
     });
-
   } catch (error) {
+    if (cleanupUploads) {
+      await cleanupUploads();
+    }
     console.error("이미지 업로드 API 오류:", error);
     return NextResponse.json(
       { error: "서버 오류가 발생했습니다." },

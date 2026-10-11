@@ -32,6 +32,7 @@ import {
 } from "@/lib/location-storage";
 import { apiLogger, geolocationLogger } from "@/lib/logger";
 import { reconcileSelectedStore } from "@/lib/map-selection";
+import { coordinateSchema } from "@/lib/validations";
 import { Store } from "@/types/store";
 import { List, Loader2, Map, SlidersHorizontal, X } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -261,10 +262,14 @@ function HomeContent() {
 
       try {
         let url = "/api/stores";
-        if (lat && lng) {
+        const coordinates = coordinateSchema.safeParse({
+          latitude: lat,
+          longitude: lng,
+        });
+        if (coordinates.success) {
           const params = new URLSearchParams({
-            lat: lat.toString(),
-            lng: lng.toString(),
+            lat: coordinates.data.latitude.toString(),
+            lng: coordinates.data.longitude.toString(),
             radius: (radius || 5).toString(),
             page: page.toString(),
             limit: "20",
@@ -407,7 +412,14 @@ function HomeContent() {
       true,
       currentQuery || undefined,
     );
-  }, [userLocation, loadingMore, hasMore, currentPage, searchParams]);
+  }, [
+    userLocation,
+    loadingMore,
+    hasMore,
+    currentPage,
+    searchParams,
+    fetchStores,
+  ]);
 
   // 초기 로드
   useEffect(() => {
@@ -420,10 +432,7 @@ function HomeContent() {
       const urlRating = searchParams.get("rating");
       const urlQuery = searchParams.get("q");
       const urlSource = searchParams.get("source") as
-        | "gps"
-        | "manual"
-        | "default"
-        | null;
+        "gps" | "manual" | "default" | null;
       const searchLocation = searchParams.get("searchLocation");
       const radius = urlDistance ? parseFloat(urlDistance) : undefined;
       const minRating = urlRating ? parseFloat(urlRating) : undefined;
@@ -668,7 +677,7 @@ function HomeContent() {
         });
       }
     },
-    [stores, userLocation, toast],
+    [stores, userLocation, toast, fetchStores],
   );
 
   // 사이드바 필터 적용
@@ -684,19 +693,24 @@ function HomeContent() {
       apiLogger.debug("필터 적용", filters);
 
       // 위치 정보 결정 (필터에서 제공된 위치 또는 현재 사용자 위치)
-      const lat = filters.latitude || userLocation?.lat;
-      const lng = filters.longitude || userLocation?.lng;
+      const hasLocation = "latitude" in filters || "longitude" in filters;
+      const coordinates = coordinateSchema.safeParse(
+        hasLocation
+          ? filters
+          : { latitude: userLocation?.lat, longitude: userLocation?.lng },
+      );
       const radius = filters.maxDistance || 5;
 
-      if (lat && lng) {
+      if (coordinates.success) {
+        const { latitude: lat, longitude: lng } = coordinates.data;
         // 위치 정보가 필터에서 제공된 경우 사용자 위치 업데이트
-        if (filters.latitude && filters.longitude) {
-          setUserLocation({ lat: filters.latitude, lng: filters.longitude });
+        if (hasLocation) {
+          setUserLocation({ lat, lng });
 
           // 위치 정보 저장
           saveUserLocation({
-            lat: filters.latitude,
-            lng: filters.longitude,
+            lat,
+            lng,
             source: "gps",
           });
         }
@@ -732,7 +746,7 @@ function HomeContent() {
         }
 
         // 위치 변경 여부 확인
-        const locationChanged = filters.latitude && filters.longitude;
+        const locationChanged = hasLocation;
 
         toast({
           title: locationChanged ? "위치 및 필터 적용 완료" : "필터 적용 완료",
@@ -746,6 +760,9 @@ function HomeContent() {
               : "모든 조건으로 검색합니다.",
         });
       } else {
+        if (hasLocation) {
+          setUserLocation(null);
+        }
         toast({
           title: "위치 정보 필요",
           description: "필터를 적용하려면 위치 정보가 필요합니다.",

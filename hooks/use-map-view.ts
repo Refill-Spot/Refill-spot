@@ -3,8 +3,9 @@
 import { useToast } from "@/components/ui/use-toast";
 import { useTranslation } from "@/hooks/use-translation";
 import { extractFiltersFromURL } from "@/lib/api-utils";
+import { coordinateSchema } from "@/lib/validations";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { StoreFilters, useFetchStores } from "./use-stores";
 
 export function useMapView() {
@@ -27,15 +28,23 @@ export function useMapView() {
 
     try {
       const filters = extractFiltersFromURL(searchParams);
+      const coordinates = coordinateSchema.safeParse(filters);
 
       if (Object.keys(filters).length > 0) {
-        setFilters(filters);
+        setFilters({
+          ...filters,
+          latitude: coordinates.success ? coordinates.data.latitude : undefined,
+          longitude: coordinates.success
+            ? coordinates.data.longitude
+            : undefined,
+          maxDistance: coordinates.success ? filters.maxDistance : undefined,
+        });
 
         // 위치 정보가 있으면 상태 업데이트
-        if (filters.latitude && filters.longitude) {
+        if (coordinates.success) {
           setUserLocation({
-            lat: filters.latitude,
-            lng: filters.longitude,
+            lat: coordinates.data.latitude,
+            lng: coordinates.data.longitude,
           });
         }
       } else {
@@ -62,17 +71,35 @@ export function useMapView() {
 
     try {
       const filters = extractFiltersFromURL(searchParams);
+      const coordinates = coordinateSchema.safeParse(filters);
 
       // 필터 적용
-      setFilters(filters);
+      setFilters(
+        Object.keys(filters).length > 0
+          ? {
+              ...filters,
+              latitude: coordinates.success
+                ? coordinates.data.latitude
+                : undefined,
+              longitude: coordinates.success
+                ? coordinates.data.longitude
+                : undefined,
+              maxDistance: coordinates.success
+                ? filters.maxDistance
+                : undefined,
+            }
+          : {},
+      );
 
       // 위치 정보가 있으면 상태 업데이트
-      if (filters.latitude && filters.longitude) {
+      if (coordinates.success) {
         const newLocation = {
-          lat: filters.latitude,
-          lng: filters.longitude,
+          lat: coordinates.data.latitude,
+          lng: coordinates.data.longitude,
         };
         setUserLocation(newLocation);
+      } else {
+        setUserLocation(null);
       }
     } catch (err) {
       console.error("URL 파라미터 변경 처리 중 오류:", err);
@@ -83,7 +110,7 @@ export function useMapView() {
   const setCustomLocation = useCallback(
     (latitude: number, longitude: number, maxDistance: number = 5) => {
       try {
-        if (!latitude || !longitude) {
+        if (!coordinateSchema.safeParse({ latitude, longitude }).success) {
           toast({
             title: t("location_error"),
             description: t("invalid_location_coordinates"),
@@ -121,7 +148,7 @@ export function useMapView() {
         });
       }
     },
-    [router, setFilters, toast, t]
+    [router, setFilters, toast, t],
   );
 
   // 현재 위치 가져오기
@@ -191,7 +218,7 @@ export function useMapView() {
           enableHighAccuracy: true,
           timeout: 10000,
           maximumAge: 0,
-        }
+        },
       );
     } catch (err) {
       console.error("위치 정보 요청 오류:", err);
@@ -255,7 +282,7 @@ export function useMapView() {
         refetch();
       }
     },
-    [router, setFilters, toast, t, userLocation, resetFilters, refetch]
+    [router, setFilters, toast, t, userLocation, resetFilters, refetch],
   );
 
   // 필터 적용
@@ -264,18 +291,38 @@ export function useMapView() {
       try {
         if (!filters || Object.keys(filters).length === 0) {
           resetFilters();
+          setUserLocation(null);
           router.replace(window.location.pathname);
           return;
         }
 
         // 필터에 위치 정보 추가 (이미 있는 경우 유지)
+        const hasLocation = "latitude" in filters || "longitude" in filters;
+        const coordinates = coordinateSchema.safeParse(
+          hasLocation
+            ? filters
+            : { latitude: userLocation?.lat, longitude: userLocation?.lng },
+        );
         const updatedFilters = {
           ...filters,
-          latitude: filters.latitude || userLocation?.lat,
-          longitude: filters.longitude || userLocation?.lng,
+          latitude: coordinates.success ? coordinates.data.latitude : undefined,
+          longitude: coordinates.success
+            ? coordinates.data.longitude
+            : undefined,
+          maxDistance: coordinates.success ? filters.maxDistance : undefined,
         };
 
         setFilters(updatedFilters);
+        if (hasLocation) {
+          setUserLocation(
+            coordinates.success
+              ? {
+                  lat: coordinates.data.latitude,
+                  lng: coordinates.data.longitude,
+                }
+              : null,
+          );
+        }
 
         // URL 업데이트 (현재 경로 유지)
         const params = new URLSearchParams();
@@ -292,9 +339,9 @@ export function useMapView() {
           params.set("rating", updatedFilters.minRating.toString());
         }
 
-        if (updatedFilters.latitude && updatedFilters.longitude) {
-          params.set("lat", updatedFilters.latitude.toString());
-          params.set("lng", updatedFilters.longitude.toString());
+        if (coordinates.success) {
+          params.set("lat", coordinates.data.latitude.toString());
+          params.set("lng", coordinates.data.longitude.toString());
         }
 
         router.replace(`${window.location.pathname}?${params.toString()}`);
@@ -311,34 +358,8 @@ export function useMapView() {
         refetch();
       }
     },
-    [router, setFilters, resetFilters, toast, t, userLocation, refetch]
+    [router, setFilters, resetFilters, toast, t, userLocation, refetch],
   );
-
-  // 데이터가 없거나 오류 상태일 때 자동으로 데이터 다시 로드
-  const retryTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-
-  useEffect(() => {
-    if (error) {
-      // 기존 타이머 제거
-      if (retryTimeoutRef.current) {
-        clearTimeout(retryTimeoutRef.current);
-      }
-
-      // 새 타이머 설정
-      retryTimeoutRef.current = setTimeout(() => {
-        // 오류 발생 시 필터 초기화하고 기본 데이터 로드
-        resetFilters();
-        refetch();
-        retryTimeoutRef.current = null;
-      }, 3000); // 3초 후 재시도
-    }
-
-    return () => {
-      if (retryTimeoutRef.current) {
-        clearTimeout(retryTimeoutRef.current);
-      }
-    };
-  }, [error, refetch, resetFilters]);
 
   return {
     stores,

@@ -36,12 +36,59 @@ export default function NaverMap({
   const mapRef = useRef<HTMLDivElement>(null);
   const [naverMapLoaded, setNaverMapLoaded] = useState(false);
   const [map, setMap] = useState<any>(null);
-  const [markers, setMarkers] = useState<any[]>([]);
-  const [markerClusters, setMarkerClusters] = useState<any>(null);
+  const mapInstanceRef = useRef<any>(null);
+  const markersRef = useRef<any[]>([]);
+  const markerClustersRef = useRef<any>(null);
+  const currentLocationMarkerRef = useRef<any>(null);
+  const initialLocationRef = useRef(userLocation);
+  const userLat = userLocation?.lat;
+  const userLng = userLocation?.lng;
+  const centerLat = center?.lat;
+  const centerLng = center?.lng;
   const [selectedStore, setSelectedStore] = useState<Store | null>(null);
   const { toast } = useToast();
   const { t } = useTranslation();
+  const translationRef = useRef(t);
   const [locationError, setLocationError] = useState<string | null>(null);
+
+  useEffect(() => {
+    translationRef.current = t;
+  }, [t]);
+
+  const translate = useCallback(
+    (key: string, params?: Record<string, string>) =>
+      translationRef.current(key, params),
+    [],
+  );
+
+  const clearStoreMarkers = useCallback(() => {
+    markerClustersRef.current?.setMap(null);
+    markerClustersRef.current = null;
+    markersRef.current.forEach((marker) => {
+      window.naver.maps.Event.clearListeners(marker, "click");
+      marker.setMap(null);
+    });
+    markersRef.current = [];
+  }, []);
+
+  const updateCurrentLocationMarker = useCallback(
+    (currentMap: any, lat: number, lng: number) => {
+      currentLocationMarkerRef.current?.setMap(null);
+      currentLocationMarkerRef.current = new window.naver.maps.Marker({
+        position: new window.naver.maps.LatLng(lat, lng),
+        map: currentMap,
+        icon: {
+          content: `
+          <div class="current-location-marker">
+            <div class="pulse"></div>
+          </div>
+        `,
+          anchor: new window.naver.maps.Point(15, 15),
+        },
+      });
+    },
+    [],
+  );
 
   // props로 전달된 selectedStore가 변경되면 내부 상태 업데이트
   useEffect(() => {
@@ -61,43 +108,35 @@ export default function NaverMap({
       navigator.geolocation.getCurrentPosition(
         (position) => {
           const { latitude, longitude } = position.coords;
-          if (map) {
-            map.setCenter(new window.naver.maps.LatLng(latitude, longitude));
+          const currentMap = mapInstanceRef.current;
+          if (currentMap) {
+            currentMap.setCenter(
+              new window.naver.maps.LatLng(latitude, longitude),
+            );
             // 현재 위치 마커 추가
-            new window.naver.maps.Marker({
-              position: new window.naver.maps.LatLng(latitude, longitude),
-              map: map,
-              icon: {
-                content: `
-                  <div class="current-location-marker">
-                    <div class="pulse"></div>
-                  </div>
-                `,
-                anchor: new window.naver.maps.Point(15, 15),
-              },
-            });
+            updateCurrentLocationMarker(currentMap, latitude, longitude);
           }
           setLocationError(null);
         },
         (error) => {
           console.error("위치 정보 오류:", error);
           toast({
-            title: t("location_error"),
-            description: t("location_error_description"),
+            title: translate("location_error"),
+            description: translate("location_error_description"),
             variant: "destructive",
           });
-          setLocationError(t("location_error_description"));
+          setLocationError(translate("location_error_description"));
         },
       );
     } else {
       toast({
-        title: t("location_not_supported"),
-        description: t("location_not_supported_description"),
+        title: translate("location_not_supported"),
+        description: translate("location_not_supported_description"),
         variant: "destructive",
       });
-      setLocationError(t("location_not_supported_description"));
+      setLocationError(translate("location_not_supported_description"));
     }
-  }, [map, toast, t]);
+  }, [toast, translate, updateCurrentLocationMarker]);
 
   // 지도 초기화
   useEffect(() => {
@@ -116,8 +155,8 @@ export default function NaverMap({
       }
 
       // 초기 좌표 설정 (사용자 위치 또는 기본값)
-      const initialLat = userLocation?.lat || 37.5665;
-      const initialLng = userLocation?.lng || 126.978;
+      const initialLat = initialLocationRef.current?.lat ?? 37.5665;
+      const initialLng = initialLocationRef.current?.lng ?? 126.978;
 
       // 지도 옵션
       const mapOptions = {
@@ -131,26 +170,8 @@ export default function NaverMap({
 
       // 지도 생성
       const newMap = new window.naver.maps.Map(mapRef.current, mapOptions);
+      mapInstanceRef.current = newMap;
       setMap(newMap);
-
-      // 현재 위치 마커 추가 (사용자 위치가 있는 경우)
-      if (userLocation) {
-        new window.naver.maps.Marker({
-          position: new window.naver.maps.LatLng(
-            userLocation.lat,
-            userLocation.lng,
-          ),
-          map: newMap,
-          icon: {
-            content: `
-              <div class="current-location-marker">
-                <div class="pulse"></div>
-              </div>
-            `,
-            anchor: new window.naver.maps.Point(15, 15),
-          },
-        });
-      }
 
       // 지도 클릭 이벤트 - 선택된 가게 초기화
       window.naver.maps.Event.addListener(newMap, "click", () => {
@@ -158,10 +179,11 @@ export default function NaverMap({
       });
 
       return () => {
-        // 이벤트 리스너 제거 로직
-        if (newMap) {
-          window.naver.maps.Event.clearListeners(newMap, "click");
-        }
+        clearStoreMarkers();
+        currentLocationMarkerRef.current?.setMap(null);
+        currentLocationMarkerRef.current = null;
+        mapInstanceRef.current = null;
+        newMap.destroy();
       };
     } catch (error) {
       console.error("지도 초기화 오류:", error);
@@ -169,30 +191,39 @@ export default function NaverMap({
         "지도를 초기화하는데 실패했습니다. 페이지를 새로고침해 주세요.",
       );
       toast({
-        title: t("map_initialization_error"),
-        description: t("map_initialization_error_description"),
+        title: translate("map_initialization_error"),
+        description: translate("map_initialization_error_description"),
         variant: "destructive",
       });
     }
-  }, [naverMapLoaded, userLocation, toast, t]);
+  }, [naverMapLoaded, toast, translate, clearStoreMarkers]);
+
+  // 위치 변경은 기존 지도와 현재 위치 마커에 반영
+  useEffect(() => {
+    if (!map) {
+      return;
+    }
+    if (userLat === undefined || userLng === undefined) {
+      currentLocationMarkerRef.current?.setMap(null);
+      currentLocationMarkerRef.current = null;
+      return;
+    }
+    map.setCenter(new window.naver.maps.LatLng(userLat, userLng));
+    updateCurrentLocationMarker(map, userLat, userLng);
+  }, [map, userLat, userLng, updateCurrentLocationMarker]);
 
   // center props로 지도 중심 이동
   useEffect(() => {
-    if (map && center) {
-      map.setCenter(new window.naver.maps.LatLng(center.lat, center.lng));
+    if (map && centerLat !== undefined && centerLng !== undefined) {
+      map.setCenter(new window.naver.maps.LatLng(centerLat, centerLng));
     }
-  }, [center, map]);
+  }, [centerLat, centerLng, map]);
 
   // 마커 클러스터링 설정
   const setupMarkerClustering = useCallback(
     (map: any, markers: any[]) => {
       if (!enableClustering || !window.naver?.maps?.MarkerClustering) {
         return null;
-      }
-
-      // 기존 클러스터가 있으면 제거
-      if (markerClusters) {
-        markerClusters.destroy();
       }
 
       // 클러스터 스타일 정의
@@ -240,21 +271,26 @@ export default function NaverMap({
 
       return cluster;
     },
-    [enableClustering, markerClusters],
+    [enableClustering],
   );
 
   // 가게 마커 추가
   useEffect(() => {
+    clearStoreMarkers();
     if (!map || !stores.length || !window.naver?.maps) {
       return;
     }
 
-    try {
-      // 기존 마커 제거
-      markers.forEach((marker) => marker.setMap(null));
+    let removeDocumentListeners: (() => void) | undefined;
+    const cleanup = () => {
+      removeDocumentListeners?.();
+      clearStoreMarkers();
+    };
 
+    try {
       // 새 마커 배열
-      const newMarkers = [];
+      const newMarkers: any[] = [];
+      markersRef.current = newMarkers;
 
       // 각 가게별 마커 생성
       for (const store of stores) {
@@ -290,6 +326,7 @@ export default function NaverMap({
           zIndex: 100,
           title: store.name,
         });
+        newMarkers.push(marker);
 
         // 마커에 store 데이터 저장
         marker.set("data", store);
@@ -300,16 +337,11 @@ export default function NaverMap({
           setSelectedStore(store);
           map.panTo(markerPosition);
         });
-
-        newMarkers.push(marker);
       }
-
-      setMarkers(newMarkers);
 
       // 클러스터링 적용
       if (newMarkers.length > 0) {
-        const cluster = setupMarkerClustering(map, newMarkers);
-        setMarkerClusters(cluster);
+        markerClustersRef.current = setupMarkerClustering(map, newMarkers);
       }
 
       // 마커 호버 이벤트를 위한 전역 이벤트 리스너
@@ -368,16 +400,19 @@ export default function NaverMap({
       document.addEventListener("mouseover", handleMarkerHover);
       document.addEventListener("mouseout", handleMarkerLeave);
       document.addEventListener("click", handleMarkerClick);
+      removeDocumentListeners = () => {
+        document.removeEventListener("mouseover", handleMarkerHover);
+        document.removeEventListener("mouseout", handleMarkerLeave);
+        document.removeEventListener("click", handleMarkerClick);
+      };
 
       // 모든 마커가 보이도록 지도 범위 조정
       if (stores.length > 1) {
         const bounds = new window.naver.maps.LatLngBounds();
 
         // 사용자 위치가 있으면 포함
-        if (userLocation) {
-          bounds.extend(
-            new window.naver.maps.LatLng(userLocation.lat, userLocation.lng),
-          );
+        if (userLat !== undefined && userLng !== undefined) {
+          bounds.extend(new window.naver.maps.LatLng(userLat, userLng));
         }
 
         // 모든 가게 위치 포함
@@ -398,21 +433,26 @@ export default function NaverMap({
           left: 50,
         });
       }
-
-      return () => {
-        document.removeEventListener("mouseover", handleMarkerHover);
-        document.removeEventListener("mouseout", handleMarkerLeave);
-        document.removeEventListener("click", handleMarkerClick);
-      };
     } catch (error) {
+      cleanup();
       console.error("마커 생성 오류:", error);
       toast({
-        title: t("marker_error"),
-        description: t("marker_error_description"),
+        title: translate("marker_error"),
+        description: translate("marker_error_description"),
         variant: "destructive",
       });
     }
-  }, [map, stores, userLocation, setupMarkerClustering, toast, t]);
+    return cleanup;
+  }, [
+    map,
+    stores,
+    userLat,
+    userLng,
+    setupMarkerClustering,
+    clearStoreMarkers,
+    toast,
+    translate,
+  ]);
 
   return (
     <div className="w-full h-full bg-gray-100 relative">

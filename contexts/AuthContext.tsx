@@ -1,8 +1,8 @@
 "use client";
 
 import { useToast } from "@/components/ui/use-toast";
-import { useTranslation } from "@/hooks/use-translation";
 import { authLogger } from "@/lib/logger";
+import { useStoreStore } from "@/lib/store";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { getSafeReturnUrl } from "@/lib/utils";
 import { AuthError, User } from "@supabase/supabase-js";
@@ -33,11 +33,11 @@ type AuthContextType = {
   signUp: (
     email: string,
     password: string,
-    options?: { username?: string }
+    options?: { username?: string },
   ) => Promise<{ error: AuthError | null }>;
   signIn: (
     email: string,
-    password: string
+    password: string,
   ) => Promise<{ error: AuthError | null }>;
   signInWithGoogle: () => Promise<void>;
   signInWithKakao: () => Promise<void>;
@@ -50,317 +50,225 @@ type AuthContextType = {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+function getAuthReturnUrl() {
+  try {
+    const returnUrl = new URLSearchParams(window.location.search).get(
+      "returnUrl",
+    );
+    const destination = new URL(
+      getSafeReturnUrl(returnUrl, "/"),
+      window.location.origin,
+    );
+    const isAuthPage = [
+      "/login",
+      "/register",
+      "/forgot-password",
+      "/auth/callback",
+    ].some(
+      (path) =>
+        destination.pathname === path ||
+        destination.pathname.startsWith(`${path}/`),
+    );
+    if (
+      destination.origin !== window.location.origin ||
+      destination.pathname.startsWith("//") ||
+      isAuthPage
+    ) {
+      return "/";
+    }
+    return destination.pathname + destination.search + destination.hash;
+  } catch {
+    return "/";
+  }
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
-  const [initialized, setInitialized] = useState(false);
-  const loadingUserRef = useRef<string | null>(null);
+  const mountedRef = useRef(false);
+  const authVersionRef = useRef(0);
+  const userIdRef = useRef<string | null>(null);
+  const signingOutRef = useRef(false);
   const router = useRouter();
   const { toast } = useToast();
-  const { t } = useTranslation();
   const supabase = supabaseBrowser;
 
   // 사용자 정보 및 프로필 로드
   const loadUserData = useCallback(
-    async (user: User | null) => {
-      if (!user) {
-        authLogger.debug("사용자 없음, 프로필 초기화");
-        setProfile(null);
-        return;
-      }
+    async (user: User, version: number) => {
+      const isCurrent = () =>
+        mountedRef.current &&
+        authVersionRef.current === version &&
+        userIdRef.current === user.id;
+      const controller = new AbortController();
+      let timeout: ReturnType<typeof setTimeout> | undefined;
 
-      // 이미 같은 사용자에 대해 로딩 중이면 스킵
-      if (loadingUserRef.current === user.id) {
-        authLogger.debug("프로필 이미 로딩 중, 스킵", { userId: user.id });
-        return;
-      }
+      const loadProfile = async () => {
+        const { data, error } = await supabase
+          .from("profiles")
+          .select("username, role, is_admin, avatar_url, bio")
+          .eq("id", user.id)
+          .abortSignal(controller.signal)
+          .maybeSingle();
 
-      loadingUserRef.current = user.id;
-
-      const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => {
-          authLogger.warn("프로필 로딩 타임아웃, fallback 사용", { userId: user.id });
-          reject(new Error("Profile loading timeout"));
-        }, 5000); // 5초로 단축
-      });
-
-      try {
-        authLogger.debug("프로필 데이터 로딩 시작", { userId: user.id });
-        
-        const loadProfile = async () => {
-          authLogger.debug("프로필 쿼리 시작", { 
-            userId: user.id,
-            hasSupabaseClient: !!supabase
-          });
-          
-          // 먼저 간단한 연결 테스트
-          try {
-            await supabase.from("profiles").select("count").limit(1);
-            authLogger.debug("Supabase 연결 테스트 성공");
-          } catch (connectionError) {
-            authLogger.error("Supabase 연결 실패", connectionError);
-            return createFallbackProfile();
-          }
-          
-          try {
-            const { data, error } = await supabase
-              .from("profiles")
-              .select("username, role, is_admin, avatar_url, bio")
-              .eq("id", user.id)
-              .single();
-
-            authLogger.debug("프로필 쿼리 결과", { 
-              hasData: !!data, 
-              error: error?.message,
-              errorCode: error?.code 
-            });
-
-            if (!error && data) {
-              authLogger.debug("프로필 데이터 로딩 성공", data);
-              return { ...data, id: user.id };
-            } else if (error?.code === 'PGRST116') {
-              // 프로필이 없는 경우 (not found)
-              authLogger.debug("프로필 없음, 기본 프로필 생성 시작");
-              return await createDefaultProfile();
-            } else {
-              // 다른 에러인 경우 기본 프로필 반환
-              authLogger.warn("프로필 쿼리 에러, 기본 프로필 사용", error);
-              return createFallbackProfile();
-            }
-          } catch (queryError) {
-            authLogger.error("프로필 쿼리 예외 발생", queryError);
-            return createFallbackProfile();
-          }
-        };
-
-        const createDefaultProfile = async () => {
-          const username = user.email?.split("@")[0] || `user_${Math.random().toString(36).substring(2, 10)}`;
-          
-          authLogger.debug("프로필 생성 시도", { username, userId: user.id });
-          
-          try {
-            const { error: createError } = await supabase
-              .from("profiles")
-              .insert({
-                id: user.id,
-                username,
-              });
-
-            const newProfile = { id: user.id, username, role: 'user' as const, is_admin: false };
-            
-            if (!createError) {
-              authLogger.debug("기본 프로필 생성 성공", newProfile);
-            } else {
-              authLogger.error("기본 프로필 생성 실패, fallback 사용", createError);
-            }
-            
-            return newProfile;
-          } catch (insertError) {
-            authLogger.error("프로필 생성 예외 발생", insertError);
-            return createFallbackProfile();
-          }
-        };
-
-        const createFallbackProfile = () => {
-          const username = user.email?.split("@")[0] || `user_${Math.random().toString(36).substring(2, 10)}`;
-          return { id: user.id, username, role: 'user' as const, is_admin: false };
-        };
-
-        // 타임아웃과 경쟁하여 프로필 로딩
-        try {
-          const profileData = await Promise.race([loadProfile(), timeoutPromise]) as Profile;
-          authLogger.debug("프로필 설정 완료", { 
-            userId: user.id, 
-            isAdmin: profileData.is_admin,
-            role: profileData.role 
-          });
-          setProfile(profileData);
-          
-          // 어드민 상태 디버깅
-          if (profileData.is_admin === true) {
-            authLogger.info("🔑 어드민 사용자 로그인 감지", { 
-              userId: user.id, 
-              email: user.email 
-            });
-          }
-        } catch (timeoutError) {
-          authLogger.warn("타임아웃으로 인한 fallback 프로필 사용", { userId: user.id });
-          // 기존 프로필이 있고 admin 정보가 있다면 유지
-          setProfile(prevProfile => {
-            if (prevProfile && prevProfile.is_admin !== undefined) {
-              authLogger.debug("기존 어드민 프로필 유지", { is_admin: prevProfile.is_admin });
-              return prevProfile;
-            }
-            const fallbackUsername = user.email?.split("@")[0] || `user_${Math.random().toString(36).substring(2, 10)}`;
-            return { username: fallbackUsername, role: 'user', is_admin: false };
-          });
+        if (error) throw error;
+        if (data) {
+          return {
+            ...data,
+            id: user.id,
+            avatar_url: data.avatar_url ?? undefined,
+            bio: data.bio ?? undefined,
+          };
         }
-        
-        // 프로필 로딩 완료 시 완료 토스트 (소셜 로그인의 경우)
-        if (user.app_metadata?.provider && user.app_metadata.provider !== "email") {
-          setTimeout(() => {
-            toast({
-              title: "설정 완료",
-              description: "계정 설정이 완료되었습니다!",
-            });
-          }, 500);
-        }
-        
-      } catch (error) {
-        authLogger.error("Profile data loading failed", error);
-        // 에러가 발생해도 기본 프로필은 설정 (사용자 경험 우선)
-        const fallbackUsername =
+        if (!isCurrent() || controller.signal.aborted) return null;
+
+        // 기존 신규 계정의 프로필 생성은 유지하되 실제 저장된 값만 사용한다.
+        const username =
           user.email?.split("@")[0] ||
           `user_${Math.random().toString(36).substring(2, 10)}`;
-        setProfile({ username: fallbackUsername, role: 'user', is_admin: false });
+        const { data: createdProfile, error: createError } = await supabase
+          .from("profiles")
+          .insert({ id: user.id, username })
+          .select("username, role, is_admin, avatar_url, bio")
+          .abortSignal(controller.signal)
+          .single();
+
+        if (createError) throw createError;
+        return createdProfile
+          ? {
+              ...createdProfile,
+              id: user.id,
+              avatar_url: createdProfile.avatar_url ?? undefined,
+              bio: createdProfile.bio ?? undefined,
+            }
+          : null;
+      };
+
+      try {
+        const timeoutPromise = new Promise<never>((_, reject) => {
+          timeout = setTimeout(() => {
+            controller.abort();
+            reject(new Error("Profile loading timeout"));
+          }, 5000);
+        });
+        const profileData = await Promise.race([loadProfile(), timeoutPromise]);
+        if (isCurrent()) setProfile(profileData);
+      } catch (error) {
+        authLogger.error("Profile data loading failed", error);
+        // 다른 계정의 권한이나 저장되지 않은 임시 프로필을 유지하지 않는다.
+        if (isCurrent()) setProfile(null);
       } finally {
-        loadingUserRef.current = null;
+        clearTimeout(timeout);
+        controller.abort();
       }
     },
-    [supabase, toast]
+    [supabase],
   );
 
-  // 초기 사용자 상태 확인
+  // 세션 이벤트는 재검증 신호일 뿐 사용자 신원의 근거가 아니다.
   useEffect(() => {
-    let mounted = true;
-    
-    const initAuth = async () => {
-      if (!mounted) return;
-      
-      setLoading(true);
-      try {
-        authLogger.debug("인증 초기화 시작");
-        
-        // 현재 사용자 확인 (서버 인증)
-        const {
-          data: { user },
-          error: authError,
-        } = await supabase.auth.getUser();
+    mountedRef.current = true;
+    const pendingTimers = new Set<ReturnType<typeof setTimeout>>();
 
-        if (!mounted) return;
-
-        if (user && !authError) {
-          authLogger.debug("초기 사용자 확인됨", { userId: user.id, email: user.email });
-          setUser(user);
-          try {
-            await loadUserData(user);
-          } catch (error) {
-            authLogger.error("초기 프로필 로딩 실패:", error);
-          }
-        } else {
-          authLogger.debug("초기 사용자 없음");
-          setUser(null);
-          setProfile(null);
-        }
-      } catch (error) {
-        if (!mounted) return;
-        authLogger.error("Authentication initialization failed", error);
-        setUser(null);
-        setProfile(null);
-      } finally {
-        if (mounted) {
-          // 최소 100ms 로딩 시간으로 깜빡임 방지 (단축)
-          setTimeout(() => {
-            if (mounted) {
-              setLoading(false);
-              setInitialized(true);
-              authLogger.debug("인증 초기화 완료");
-            }
-          }, 100);
-        }
-      }
-    };
-
-    initAuth();
-
-    // 인증 상태 변경 구독
+    // INITIAL_SESSION도 전달되므로 별도의 중복 초기화 요청은 필요하지 않다.
     const { data: authListener } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        if (!mounted) return;
-        
-        authLogger.debug("Auth state changed", { 
-          event, 
-          userEmail: session?.user?.email,
-          hasSession: !!session,
-          hasUser: !!session?.user
-        });
-
-        const user = session?.user || null;
-        setUser(user);
-
-        if (user && mounted) {
-          try {
-            await loadUserData(user);
-          } catch (error) {
-            authLogger.error("loadUserData 오류:", error);
-          } finally {
-            if (mounted) {
-              setLoading(false);
-            }
-          }
-        } else if (mounted) {
-          authLogger.debug("사용자 로그아웃, 프로필 초기화");
+      (event, session) => {
+        if (!mountedRef.current) return;
+        const version = ++authVersionRef.current;
+        if (event === "SIGNED_OUT") {
+          useStoreStore.getState().setFavoritesOwner(null);
+          userIdRef.current = null;
+          setUser(null);
           setProfile(null);
           setLoading(false);
+          return;
         }
+        if (signingOutRef.current) return;
 
-        // 로그인 성공 시 처리 (OAuth 포함)
-        if (event === "SIGNED_IN" && user) {
-          authLogger.info("SIGNED_IN 이벤트 처리");
-          
-          // OAuth 로그인인지 확인 (provider 정보가 있으면 OAuth)
-          const isOAuthLogin =
-            user.app_metadata?.provider &&
-            user.app_metadata.provider !== "email";
-
-          // 리다이렉트 처리 - OAuth 로그인만 여기서 처리
-          const currentPath = window.location.pathname;
-          
-          if (isOAuthLogin && currentPath === "/login") {
-            // OAuth 로그인의 경우 프로필 처리 중임을 알림
-            toast({
-              title: "로그인 성공",
-              description: "프로필을 설정하고 있습니다...",
-            });
-            
-            // OAuth 콜백에서 온 경우 returnUrl 확인
-            const urlParams = new URLSearchParams(window.location.search);
-            const returnUrl = urlParams.get('returnUrl');
-            const safeReturnUrl = getSafeReturnUrl(returnUrl, '/');
-            
-            authLogger.debug("OAuth 로그인 후 리다이렉트", { returnUrl, safeReturnUrl });
-            
-            // 약간의 지연 후 리다이렉트 (프로필 설정 완료 기다림)
-            setTimeout(() => {
-              router.push(safeReturnUrl);
-            }, 1000);
-          } else if (!isOAuthLogin) {
-            // 일반 로그인의 경우 토스트만 표시, 리다이렉트는 로그인 페이지에서 처리
-            console.log('🔄 일반 로그인 - AuthContext에서 리다이렉트 건너뛰기');
-          }
-        }
-
-        // 로그아웃 시 상태 초기화 처리
-        if (event === "SIGNED_OUT") {
-          authLogger.info("SIGNED_OUT 이벤트 처리");
+        // 계정 전환을 알게 되면 이전 계정의 프로필을 즉시 숨긴다.
+        if (session?.user.id !== userIdRef.current) {
+          useStoreStore.getState().setFavoritesOwner(null);
+          userIdRef.current = null;
           setUser(null);
           setProfile(null);
         }
-      }
+        setLoading(true);
+
+        const refreshUser = async () => {
+          const isCurrent = () =>
+            mountedRef.current &&
+            authVersionRef.current === version &&
+            !signingOutRef.current;
+          if (!isCurrent()) return;
+
+          try {
+            const {
+              data: { user },
+              error,
+            } = await supabase.auth.getUser();
+            if (!isCurrent()) return;
+            if (error || !user) {
+              useStoreStore.getState().setFavoritesOwner(null);
+              userIdRef.current = null;
+              setUser(null);
+              setProfile(null);
+              return;
+            }
+
+            if (userIdRef.current !== user.id) setProfile(null);
+            useStoreStore.getState().setFavoritesOwner(user.id);
+            userIdRef.current = user.id;
+            setUser(user);
+            await loadUserData(user, version);
+            if (!isCurrent()) return;
+
+            const isOAuthLogin =
+              user.app_metadata?.provider &&
+              user.app_metadata.provider !== "email";
+            if (
+              event === "SIGNED_IN" &&
+              isOAuthLogin &&
+              window.location.pathname === "/login"
+            ) {
+              router.replace(getAuthReturnUrl());
+            }
+          } catch (error) {
+            authLogger.error("Authentication verification failed", error);
+            if (isCurrent()) {
+              useStoreStore.getState().setFavoritesOwner(null);
+              userIdRef.current = null;
+              setUser(null);
+              setProfile(null);
+            }
+          } finally {
+            if (isCurrent()) setLoading(false);
+          }
+        };
+
+        // Supabase 인증 락을 잡은 콜백 안에서 다른 인증 API를 기다리지 않는다.
+        const timer = setTimeout(() => {
+          pendingTimers.delete(timer);
+          void refreshUser();
+        }, 0);
+        pendingTimers.add(timer);
+      },
     );
 
     return () => {
-      mounted = false;
+      mountedRef.current = false;
+      ++authVersionRef.current;
+      useStoreStore.getState().setFavoritesOwner(null);
+      for (const timer of pendingTimers) clearTimeout(timer);
       authListener.subscription.unsubscribe();
     };
-  }, [supabase, loadUserData, router, toast]);
+  }, [supabase, loadUserData, router]);
 
   // 회원가입
   const signUp = async (
     email: string,
     password: string,
-    options?: { username?: string }
+    options?: { username?: string },
   ) => {
     try {
       const { data, error } = await supabase.auth.signUp({
@@ -390,14 +298,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // 로그인
   const signIn = async (email: string, password: string) => {
     try {
-      const { error } = await supabase.auth.signInWithPassword({
+      const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
-      if (!error) {
-        // 토스트는 onAuthStateChange에서 처리되므로 여기서는 제거
-        // 리다이렉트도 onAuthStateChange에서 처리됨
+      if (!error && (!data.user || !data.session)) {
+        return { error: new AuthError("로그인 세션을 확인할 수 없습니다.") };
       }
 
       return { error };
@@ -411,19 +318,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // 구글 로그인
   const signInWithGoogle = async () => {
     try {
-      // 현재 페이지의 returnUrl 파라미터를 콜백에 전달
-      const urlParams = new URLSearchParams(window.location.search);
-      const returnUrl = urlParams.get('returnUrl');
-      
-      let redirectTo = `${window.location.origin}/auth/callback`;
-      if (returnUrl) {
-        redirectTo += `?returnUrl=${encodeURIComponent(returnUrl)}`;
-      }
+      const callbackUrl = new URL("/auth/callback", window.location.origin);
+      callbackUrl.searchParams.set("returnUrl", getAuthReturnUrl());
 
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo,
+          redirectTo: callbackUrl.toString(),
         },
       });
 
@@ -448,19 +349,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // 카카오 로그인
   const signInWithKakao = async () => {
     try {
-      // 현재 페이지의 returnUrl 파라미터를 콜백에 전달
-      const urlParams = new URLSearchParams(window.location.search);
-      const returnUrl = urlParams.get('returnUrl');
-      
-      let redirectTo = `${window.location.origin}/auth/callback`;
-      if (returnUrl) {
-        redirectTo += `?returnUrl=${encodeURIComponent(returnUrl)}`;
-      }
+      const callbackUrl = new URL("/auth/callback", window.location.origin);
+      callbackUrl.searchParams.set("returnUrl", getAuthReturnUrl());
 
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "kakao",
         options: {
-          redirectTo,
+          redirectTo: callbackUrl.toString(),
         },
       });
 
@@ -484,79 +379,97 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // 로그아웃
   const signOut = async () => {
+    if (signingOutRef.current) return;
+    signingOutRef.current = true;
+    ++authVersionRef.current;
+    useStoreStore.getState().setFavoritesOwner(null);
     try {
       authLogger.debug("로그아웃 시작");
-      
-      // 1. 먼저 현재 세션 정보 확인
-      const { data: { session: currentSession } } = await supabase.auth.getSession();
-      authLogger.debug("현재 세션 정보", currentSession);
-      
-      // 2. 로그아웃 시도 (기본 로그아웃)
       const { error } = await supabase.auth.signOut();
-      
-      if (error) {
-        authLogger.error("로그아웃 에러:", error);
-        throw error;
-      }
-      
-      authLogger.info("로그아웃 성공");
-      
-      // 3. 상태 강제 초기화 (onAuthStateChange가 호출되지 않을 수 있으므로)
+      if (error) throw error;
+      if (!mountedRef.current) return;
+
+      useStoreStore.getState().setFavoritesOwner(null);
+      userIdRef.current = null;
       setUser(null);
       setProfile(null);
       setLoading(false);
-      
+
       toast({
         title: "로그아웃 완료",
         description: "안전하게 로그아웃되었습니다.",
       });
-      
-      // 4. 페이지 리다이렉트 처리
+
       const currentPath = window.location.pathname;
-      const protectedPaths = ['/admin', '/profile', '/favorites'];
-      const isProtectedPage = protectedPaths.some(path => currentPath.startsWith(path));
-      
+      const protectedPaths = [
+        "/admin",
+        "/profile",
+        "/favorites",
+        "/my-reviews",
+      ];
+      const isProtectedPage = protectedPaths.some(
+        (path) => currentPath === path || currentPath.startsWith(`${path}/`),
+      );
       if (isProtectedPage) {
-        router.push("/");
+        router.replace("/");
       }
-      
+      router.refresh();
     } catch (error) {
       authLogger.error("로그아웃 오류:", error);
-      
-      // 완전 실패시 강제 초기화
-      setUser(null);
-      setProfile(null);
-      setLoading(false);
-      
-      toast({
-        title: "오류",
-        description: "로그아웃 중 오류가 발생했습니다.",
-        variant: "destructive",
-      });
+      // SDK의 인증 상태 이벤트를 유지하고 오류를 호출자에게 전달한다.
+      if (mountedRef.current) {
+        useStoreStore.getState().setFavoritesOwner(userIdRef.current);
+        setLoading(false);
+        if (userIdRef.current === null) router.refresh();
+        toast({
+          title: "오류",
+          description: "로그아웃 처리 중 오류가 발생했습니다.",
+          variant: "destructive",
+        });
+      }
+      throw error;
+    } finally {
+      signingOutRef.current = false;
     }
   };
 
   // 프로필 업데이트
   const updateProfile = async (data: { username?: string; bio?: string }) => {
+    const version = authVersionRef.current;
     try {
-      if (!user) {
+      if (!user || userIdRef.current !== user.id || signingOutRef.current) {
         throw new Error("로그인이 필요합니다.");
       }
 
-      const { error } = await supabase
+      const { data: updatedProfile, error } = await supabase
         .from("profiles")
         .update(data)
-        .eq("id", user.id);
+        .eq("id", user.id)
+        .select("username, role, is_admin, avatar_url, bio")
+        .single();
 
-      if (!error) {
-        setProfile(prev => prev ? { ...prev, ...data } : { username: data.username || "", ...data });
+      if (error) throw new Error(error.message);
+      if (!updatedProfile)
+        throw new Error("프로필 업데이트를 확인할 수 없습니다.");
+
+      if (
+        mountedRef.current &&
+        authVersionRef.current === version &&
+        userIdRef.current === user.id
+      ) {
+        setProfile({
+          ...updatedProfile,
+          id: user.id,
+          avatar_url: updatedProfile.avatar_url ?? undefined,
+          bio: updatedProfile.bio ?? undefined,
+        });
         toast({
           title: "프로필 업데이트 완료",
           description: "프로필이 성공적으로 업데이트되었습니다.",
         });
       }
 
-      return { error };
+      return { error: null };
     } catch (err) {
       console.error("프로필 업데이트 오류:", err);
       const error = err as Error;

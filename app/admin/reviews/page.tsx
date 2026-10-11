@@ -1,13 +1,14 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { 
+import {
   AlertTriangle,
   Trash2,
   CheckCircle,
@@ -19,7 +20,17 @@ import {
   Eye,
   EyeOff,
 } from "lucide-react";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 interface Review {
   id: string;
@@ -64,13 +75,17 @@ export default function AdminReviewsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("all");
+  const requestVersion = useRef(0);
   const [pagination, setPagination] = useState({
     page: 1,
     limit: 20,
     total: 0,
     hasMore: false,
   });
-  const [adminCheck, setAdminCheck] = useState<{isAdmin: boolean, loading: boolean}>({
+  const [adminCheck, setAdminCheck] = useState<{
+    isAdmin: boolean;
+    loading: boolean;
+  }>({
     isAdmin: false,
     loading: true,
   });
@@ -81,12 +96,12 @@ export default function AdminReviewsPage() {
       try {
         const response = await fetch("/api/auth/check-admin");
         const data = await response.json();
-        
+
         if (!data.success || !data.data.isAdmin) {
           router.push("/unauthorized");
           return;
         }
-        
+
         setAdminCheck({ isAdmin: true, loading: false });
       } catch (error) {
         console.error("관리자 권한 확인 오류:", error);
@@ -98,33 +113,55 @@ export default function AdminReviewsPage() {
   }, [router]);
 
   // 리뷰 목록 로드
-  const loadReviews = async (page: number = 1, reportedOnly: boolean = false) => {
-    try {
-      setLoading(true);
-      const params = new URLSearchParams({
-        page: page.toString(),
-        limit: pagination.limit.toString(),
-        reported_only: reportedOnly.toString(),
-      });
+  const loadReviews = useCallback(
+    async (page: number = 1, reportedOnly: boolean = false) => {
+      const version = ++requestVersion.current;
+      try {
+        setLoading(true);
+        const params = new URLSearchParams({
+          page: page.toString(),
+          limit: pagination.limit.toString(),
+          reported_only: reportedOnly.toString(),
+        });
 
-      const response = await fetch(`/api/admin/reviews?${params}`);
-      const data = await response.json();
+        const response = await fetch(`/api/admin/reviews?${params}`);
+        const data = await response.json();
 
-      if (!data.success) {
-        throw new Error(data.error || "리뷰를 불러오는데 실패했습니다.");
+        if (!response.ok || !data.success) {
+          throw new Error(
+            data.error?.message || "리뷰를 불러오는데 실패했습니다.",
+          );
+        }
+
+        if (version !== requestVersion.current) {
+          return;
+        }
+        const reviewsData: ReviewsResponse = data.data;
+        setReviews(reviewsData.reviews);
+        setPagination(reviewsData.pagination);
+        setError(null);
+      } catch (error) {
+        if (version !== requestVersion.current) {
+          return;
+        }
+        console.error("리뷰 로드 오류:", error);
+        setError(
+          error instanceof Error
+            ? error.message
+            : "알 수 없는 오류가 발생했습니다.",
+        );
+      } finally {
+        if (version === requestVersion.current) {
+          setLoading(false);
+        }
       }
+    },
+    [pagination.limit],
+  );
 
-      const reviewsData: ReviewsResponse = data.data;
-      setReviews(reviewsData.reviews);
-      setPagination(reviewsData.pagination);
-      setError(null);
-    } catch (error) {
-      console.error("리뷰 로드 오류:", error);
-      setError(error instanceof Error ? error.message : "알 수 없는 오류가 발생했습니다.");
-    } finally {
-      setLoading(false);
-    }
-  };
+  const invalidateRequests = useCallback(() => {
+    ++requestVersion.current;
+  }, []);
 
   // 탭 변경시 리뷰 로드
   useEffect(() => {
@@ -132,7 +169,8 @@ export default function AdminReviewsPage() {
       const reportedOnly = activeTab === "reported";
       loadReviews(1, reportedOnly);
     }
-  }, [activeTab, adminCheck.isAdmin]);
+    return invalidateRequests;
+  }, [activeTab, adminCheck.isAdmin, loadReviews, invalidateRequests]);
 
   // 리뷰 삭제
   const handleDeleteReview = async (reviewId: string) => {
@@ -151,12 +189,19 @@ export default function AdminReviewsPage() {
       loadReviews(pagination.page, activeTab === "reported");
     } catch (error) {
       console.error("리뷰 삭제 오류:", error);
-      setError(error instanceof Error ? error.message : "리뷰 삭제 중 오류가 발생했습니다.");
+      setError(
+        error instanceof Error
+          ? error.message
+          : "리뷰 삭제 중 오류가 발생했습니다.",
+      );
     }
   };
 
   // 리뷰 신고 상태 업데이트
-  const handleReviewAction = async (reviewId: string, action: "approve" | "reject") => {
+  const handleReviewAction = async (
+    reviewId: string,
+    action: "approve" | "reject",
+  ) => {
     try {
       const response = await fetch(`/api/admin/reviews/${reviewId}`, {
         method: "PATCH",
@@ -176,7 +221,11 @@ export default function AdminReviewsPage() {
       loadReviews(pagination.page, activeTab === "reported");
     } catch (error) {
       console.error("리뷰 상태 업데이트 오류:", error);
-      setError(error instanceof Error ? error.message : "리뷰 상태 업데이트 중 오류가 발생했습니다.");
+      setError(
+        error instanceof Error
+          ? error.message
+          : "리뷰 상태 업데이트 중 오류가 발생했습니다.",
+      );
     }
   };
 
@@ -205,7 +254,9 @@ export default function AdminReviewsPage() {
     <div className="p-6 max-w-7xl mx-auto">
       <div className="mb-6">
         <h1 className="text-3xl font-bold mb-2">리뷰 관리</h1>
-        <p className="text-gray-600">사용자 리뷰를 관리하고 신고된 리뷰를 처리할 수 있습니다.</p>
+        <p className="text-gray-600">
+          사용자 리뷰를 관리하고 신고된 리뷰를 처리할 수 있습니다.
+        </p>
       </div>
 
       {error && (
@@ -215,7 +266,11 @@ export default function AdminReviewsPage() {
         </Alert>
       )}
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+      <Tabs
+        value={activeTab}
+        onValueChange={setActiveTab}
+        className="space-y-6"
+      >
         <TabsList>
           <TabsTrigger value="all" className="flex items-center gap-2">
             <Eye className="h-4 w-4" />
@@ -232,24 +287,34 @@ export default function AdminReviewsPage() {
             <div className="text-center py-8">로딩 중...</div>
           ) : reviews.length === 0 ? (
             <div className="text-center py-8 text-gray-500">
-              {activeTab === "reported" ? "신고된 리뷰가 없습니다." : "리뷰가 없습니다."}
+              {activeTab === "reported"
+                ? "신고된 리뷰가 없습니다."
+                : "리뷰가 없습니다."}
             </div>
           ) : (
             <>
               <div className="mb-4 text-sm text-gray-600">
                 총 {pagination.total}개의 리뷰 (페이지 {pagination.page})
               </div>
-              
+
               <div className="space-y-4">
                 {reviews.map((review) => (
-                  <Card key={review.id} className={`${review.is_reported ? "border-red-200 bg-red-50" : ""}`}>
+                  <Card
+                    key={review.id}
+                    className={`${review.is_reported ? "border-red-200 bg-red-50" : ""}`}
+                  >
                     <CardHeader className="pb-4">
                       <div className="flex justify-between items-start">
                         <div className="space-y-2">
                           <div className="flex items-center gap-2">
-                            <CardTitle className="text-lg">{review.stores.name}</CardTitle>
+                            <CardTitle className="text-lg">
+                              {review.stores.name}
+                            </CardTitle>
                             {review.is_reported && (
-                              <Badge variant="destructive" className="flex items-center gap-1">
+                              <Badge
+                                variant="destructive"
+                                className="flex items-center gap-1"
+                              >
                                 <AlertTriangle className="h-3 w-3" />
                                 신고됨 ({review.report_count})
                               </Badge>
@@ -272,29 +337,36 @@ export default function AdminReviewsPage() {
                         </div>
                         <div className="flex items-center gap-2">
                           {renderStars(review.rating)}
-                          <span className="text-sm text-gray-600">({review.rating})</span>
+                          <span className="text-sm text-gray-600">
+                            ({review.rating})
+                          </span>
                         </div>
                       </div>
                     </CardHeader>
-                    
+
                     <CardContent className="space-y-4">
                       {review.content && (
-                        <p className="text-gray-700 leading-relaxed">{review.content}</p>
+                        <p className="text-gray-700 leading-relaxed">
+                          {review.content}
+                        </p>
                       )}
-                      
+
                       {review.image_urls && review.image_urls.length > 0 && (
                         <div className="flex flex-wrap gap-2">
                           {review.image_urls.map((url, index) => (
-                            <img
+                            <Image
                               key={index}
                               src={url}
                               alt={`리뷰 이미지 ${index + 1}`}
+                              width={80}
+                              height={80}
+                              unoptimized
                               className="w-20 h-20 object-cover rounded-lg"
                             />
                           ))}
                         </div>
                       )}
-                      
+
                       <div className="flex justify-between items-center pt-4 border-t">
                         <div className="text-xs text-gray-500">
                           리뷰 ID: {review.id}
@@ -305,7 +377,9 @@ export default function AdminReviewsPage() {
                               <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={() => handleReviewAction(review.id, "approve")}
+                                onClick={() =>
+                                  handleReviewAction(review.id, "approve")
+                                }
                                 className="flex items-center gap-1"
                               >
                                 <CheckCircle className="h-4 w-4" />
@@ -314,7 +388,9 @@ export default function AdminReviewsPage() {
                               <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={() => handleReviewAction(review.id, "reject")}
+                                onClick={() =>
+                                  handleReviewAction(review.id, "reject")
+                                }
                                 className="flex items-center gap-1"
                               >
                                 <XCircle className="h-4 w-4" />
@@ -322,7 +398,7 @@ export default function AdminReviewsPage() {
                               </Button>
                             </>
                           )}
-                          
+
                           <AlertDialog>
                             <AlertDialogTrigger asChild>
                               <Button
@@ -336,13 +412,21 @@ export default function AdminReviewsPage() {
                             </AlertDialogTrigger>
                             <AlertDialogContent>
                               <AlertDialogHeader>
-                                <AlertDialogTitle>리뷰 삭제 확인</AlertDialogTitle>
+                                <AlertDialogTitle>
+                                  리뷰 삭제 확인
+                                </AlertDialogTitle>
                                 <AlertDialogDescription>
-                                  이 리뷰를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.
-                                  <br /><br />
-                                  <strong>작성자:</strong> {review.profiles.username}<br />
-                                  <strong>매장:</strong> {review.stores.name}<br />
-                                  <strong>내용:</strong> {review.content?.substring(0, 100)}...
+                                  이 리뷰를 삭제하시겠습니까? 이 작업은 되돌릴
+                                  수 없습니다.
+                                  <br />
+                                  <br />
+                                  <strong>작성자:</strong>{" "}
+                                  {review.profiles.username}
+                                  <br />
+                                  <strong>매장:</strong> {review.stores.name}
+                                  <br />
+                                  <strong>내용:</strong>{" "}
+                                  {review.content?.substring(0, 100)}...
                                 </AlertDialogDescription>
                               </AlertDialogHeader>
                               <AlertDialogFooter>
@@ -367,7 +451,9 @@ export default function AdminReviewsPage() {
               {pagination.hasMore && (
                 <div className="text-center mt-6">
                   <Button
-                    onClick={() => loadReviews(pagination.page + 1, activeTab === "reported")}
+                    onClick={() =>
+                      loadReviews(pagination.page + 1, activeTab === "reported")
+                    }
                     disabled={loading}
                   >
                     더 보기

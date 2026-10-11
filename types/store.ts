@@ -14,7 +14,7 @@ export interface StoreFromDb {
   position_lng: number;
   position_x: number;
   position_y: number;
-  refill_items: MenuItem[] | null;
+  refill_items: Json;
   open_hours: string | null;
   phone_number: string | null;
   break_time: string | null;

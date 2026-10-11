@@ -19,13 +19,13 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/use-toast";
-import { 
-  ArrowLeft, 
-  Search, 
-  Filter, 
-  Eye, 
-  CheckCircle, 
-  Clock, 
+import {
+  ArrowLeft,
+  Search,
+  Filter,
+  Eye,
+  CheckCircle,
+  Clock,
   XCircle,
   Mail,
   Phone,
@@ -35,16 +35,28 @@ import {
   User,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import type { Database } from "@/types/supabase";
 
 type Contact = Database["public"]["Tables"]["contacts"]["Row"];
 
 const statusMap = {
-  pending: { label: "대기중", color: "bg-yellow-100 text-yellow-800", icon: Clock },
-  in_progress: { label: "처리중", color: "bg-blue-100 text-blue-800", icon: MessageSquare },
-  completed: { label: "완료", color: "bg-green-100 text-green-800", icon: CheckCircle },
+  pending: {
+    label: "대기중",
+    color: "bg-yellow-100 text-yellow-800",
+    icon: Clock,
+  },
+  in_progress: {
+    label: "처리중",
+    color: "bg-blue-100 text-blue-800",
+    icon: MessageSquare,
+  },
+  completed: {
+    label: "완료",
+    color: "bg-green-100 text-green-800",
+    icon: CheckCircle,
+  },
   closed: { label: "종료", color: "bg-gray-100 text-gray-800", icon: XCircle },
 };
 
@@ -58,7 +70,8 @@ export default function AdminContactsPage() {
   const router = useRouter();
   const { toast } = useToast();
   const { user } = useAuth();
-  
+  const userId = user?.id;
+
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
@@ -76,7 +89,7 @@ export default function AdminContactsPage() {
   const [isAdminChecking, setIsAdminChecking] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
 
-  const fetchContacts = async () => {
+  const fetchContacts = useCallback(async () => {
     try {
       setLoading(true);
       const params = new URLSearchParams({
@@ -85,23 +98,23 @@ export default function AdminContactsPage() {
       });
 
       if (filters.status && filters.status !== "all") {
-params.append("status", filters.status);
-}
+        params.append("status", filters.status);
+      }
       if (filters.type && filters.type !== "all") {
-params.append("type", filters.type);
-}
+        params.append("type", filters.type);
+      }
 
       const response = await fetch(`/api/contact?${params.toString()}`);
-      
+
       if (!response.ok) {
         throw new Error("문의사항을 불러오는데 실패했습니다.");
       }
 
       const data = await response.json();
-      
+
       if (data.success) {
         setContacts(data.data.contacts);
-        setPagination(prev => ({
+        setPagination((prev) => ({
           ...prev,
           total: data.data.pagination.total,
           totalPages: data.data.pagination.totalPages,
@@ -119,54 +132,59 @@ params.append("type", filters.type);
     } finally {
       setLoading(false);
     }
-  };
+  }, [pagination.page, pagination.limit, filters.status, filters.type, toast]);
 
-  const updateContactStatus = async (contactId: number, status: string) => {
-    try {
-      const response = await fetch(`/api/contact/${contactId}`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ status }),
-      });
-
-      if (!response.ok) {
-        throw new Error("상태 업데이트에 실패했습니다.");
-      }
-
-      const data = await response.json();
-      
-      if (data.success) {
-        toast({
-          title: "성공",
-          description: "문의사항 상태가 업데이트되었습니다.",
+  const updateContactStatus = useCallback(
+    async (contactId: number, status: string) => {
+      try {
+        const response = await fetch(`/api/contact/${contactId}`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ status }),
         });
-        
-        // 목록 새로고침
-        fetchContacts();
-        
-        // 선택된 연락처 업데이트
-        if (selectedContact?.id === contactId) {
-          setSelectedContact(prev => prev ? { ...prev, status: status as any } : null);
+
+        if (!response.ok) {
+          throw new Error("상태 업데이트에 실패했습니다.");
         }
-      } else {
-        throw new Error(data.message || "상태 업데이트에 실패했습니다.");
+
+        const data = await response.json();
+
+        if (data.success) {
+          toast({
+            title: "성공",
+            description: "문의사항 상태가 업데이트되었습니다.",
+          });
+
+          // 목록 새로고침
+          fetchContacts();
+
+          // 선택된 연락처 업데이트
+          setSelectedContact((prev) =>
+            prev?.id === contactId
+              ? { ...prev, status: status as Contact["status"] }
+              : prev,
+          );
+        } else {
+          throw new Error(data.message || "상태 업데이트에 실패했습니다.");
+        }
+      } catch (error) {
+        console.error("상태 업데이트 오류:", error);
+        toast({
+          title: "오류",
+          description: "상태 업데이트에 실패했습니다.",
+          variant: "destructive",
+        });
       }
-    } catch (error) {
-      console.error("상태 업데이트 오류:", error);
-      toast({
-        title: "오류",
-        description: "상태 업데이트에 실패했습니다.",
-        variant: "destructive",
-      });
-    }
-  };
+    },
+    [fetchContacts, toast],
+  );
 
   // 관리자 권한 확인
-  const checkAdminStatus = async () => {
+  const checkAdminStatus = useCallback(async () => {
     try {
-      if (!user) {
+      if (!userId) {
         router.push("/login");
         return;
       }
@@ -190,21 +208,21 @@ params.append("type", filters.type);
     } finally {
       setIsAdminChecking(false);
     }
-  };
+  }, [userId, router]);
 
   useEffect(() => {
     checkAdminStatus();
-  }, [user]);
+  }, [checkAdminStatus]);
 
   useEffect(() => {
     if (isAdmin && !isAdminChecking) {
       fetchContacts();
     }
-  }, [pagination.page, filters.status, filters.type, isAdmin, isAdminChecking]);
+  }, [fetchContacts, isAdmin, isAdminChecking]);
 
   const handleFilterChange = (key: string, value: string) => {
-    setFilters(prev => ({ ...prev, [key]: value }));
-    setPagination(prev => ({ ...prev, page: 1 }));
+    setFilters((prev) => ({ ...prev, [key]: value }));
+    setPagination((prev) => ({ ...prev, page: 1 }));
   };
 
   const formatDate = (dateString: string) => {
@@ -241,7 +259,9 @@ params.append("type", filters.type);
             >
               <ArrowLeft className="w-5 h-5" />
             </Button>
-            <h1 className="text-lg font-semibold text-gray-900">문의사항 관리</h1>
+            <h1 className="text-lg font-semibold text-gray-900">
+              문의사항 관리
+            </h1>
             <div className="ml-auto flex gap-2">
               <Badge variant="outline" className="text-sm">
                 총 {pagination.total}건
@@ -267,7 +287,12 @@ params.append("type", filters.type);
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
                     <Label>상태</Label>
-                    <Select value={filters.status} onValueChange={(value) => handleFilterChange("status", value)}>
+                    <Select
+                      value={filters.status}
+                      onValueChange={(value) =>
+                        handleFilterChange("status", value)
+                      }
+                    >
                       <SelectTrigger>
                         <SelectValue placeholder="전체" />
                       </SelectTrigger>
@@ -282,13 +307,20 @@ params.append("type", filters.type);
                   </div>
                   <div>
                     <Label>유형</Label>
-                    <Select value={filters.type} onValueChange={(value) => handleFilterChange("type", value)}>
+                    <Select
+                      value={filters.type}
+                      onValueChange={(value) =>
+                        handleFilterChange("type", value)
+                      }
+                    >
                       <SelectTrigger>
                         <SelectValue placeholder="전체" />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">전체</SelectItem>
-                        <SelectItem value="store_registration">가게 등록</SelectItem>
+                        <SelectItem value="store_registration">
+                          가게 등록
+                        </SelectItem>
                         <SelectItem value="inquiry">일반 문의</SelectItem>
                         <SelectItem value="feedback">피드백</SelectItem>
                       </SelectContent>
@@ -301,7 +333,12 @@ params.append("type", filters.type);
                       <Input
                         placeholder="이름, 이메일 검색"
                         value={filters.search}
-                        onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
+                        onChange={(e) =>
+                          setFilters((prev) => ({
+                            ...prev,
+                            search: e.target.value,
+                          }))
+                        }
                         className="pl-10"
                       />
                     </div>
@@ -334,7 +371,9 @@ params.append("type", filters.type);
                     <Card
                       key={contact.id}
                       className={`cursor-pointer transition-all hover:shadow-md ${
-                        selectedContact?.id === contact.id ? "ring-2 ring-[#FF5722]" : ""
+                        selectedContact?.id === contact.id
+                          ? "ring-2 ring-[#FF5722]"
+                          : ""
                       }`}
                       onClick={() => setSelectedContact(contact)}
                     >
@@ -343,21 +382,33 @@ params.append("type", filters.type);
                           <div className="flex-1">
                             <div className="flex items-center gap-2 mb-2">
                               <TypeIcon className="w-4 h-4 text-[#FF5722]" />
-                              <span className="font-medium">{typeInfo.label}</span>
+                              <span className="font-medium">
+                                {typeInfo.label}
+                              </span>
                               <Badge className={statusInfo.color}>
                                 <StatusIcon className="w-3 h-3 mr-1" />
                                 {statusInfo.label}
                               </Badge>
                             </div>
-                            <h3 className="font-semibold text-gray-900 mb-1">{contact.name}</h3>
-                            <p className="text-sm text-gray-600 mb-2">{contact.email}</p>
-                            <p className="text-sm text-gray-700 line-clamp-2">{contact.message}</p>
+                            <h3 className="font-semibold text-gray-900 mb-1">
+                              {contact.name}
+                            </h3>
+                            <p className="text-sm text-gray-600 mb-2">
+                              {contact.email}
+                            </p>
+                            <p className="text-sm text-gray-700 line-clamp-2">
+                              {contact.message}
+                            </p>
                             {contact.store_name && (
-                              <p className="text-sm text-[#FF5722] mt-1">가게: {contact.store_name}</p>
+                              <p className="text-sm text-[#FF5722] mt-1">
+                                가게: {contact.store_name}
+                              </p>
                             )}
                           </div>
                           <div className="text-right">
-                            <p className="text-xs text-gray-500">{formatDate(contact.created_at)}</p>
+                            <p className="text-xs text-gray-500">
+                              {formatDate(contact.created_at)}
+                            </p>
                             <Button
                               variant="ghost"
                               size="sm"
@@ -385,7 +436,9 @@ params.append("type", filters.type);
                   variant="outline"
                   size="sm"
                   disabled={pagination.page === 1}
-                  onClick={() => setPagination(prev => ({ ...prev, page: prev.page - 1 }))}
+                  onClick={() =>
+                    setPagination((prev) => ({ ...prev, page: prev.page - 1 }))
+                  }
                 >
                   이전
                 </Button>
@@ -396,7 +449,9 @@ params.append("type", filters.type);
                   variant="outline"
                   size="sm"
                   disabled={pagination.page === pagination.totalPages}
-                  onClick={() => setPagination(prev => ({ ...prev, page: prev.page + 1 }))}
+                  onClick={() =>
+                    setPagination((prev) => ({ ...prev, page: prev.page + 1 }))
+                  }
                 >
                   다음
                 </Button>
@@ -431,7 +486,9 @@ params.append("type", filters.type);
                     <div className="mt-2">
                       <Select
                         value={selectedContact.status}
-                        onValueChange={(value) => updateContactStatus(selectedContact.id, value)}
+                        onValueChange={(value) =>
+                          updateContactStatus(selectedContact.id, value)
+                        }
                       >
                         <SelectTrigger>
                           <SelectValue />
@@ -460,7 +517,9 @@ params.append("type", filters.type);
                       {selectedContact.phone && (
                         <div className="flex items-center gap-2">
                           <Phone className="w-4 h-4 text-gray-500" />
-                          <span className="text-sm">{selectedContact.phone}</span>
+                          <span className="text-sm">
+                            {selectedContact.phone}
+                          </span>
                         </div>
                       )}
                     </div>
@@ -472,12 +531,16 @@ params.append("type", filters.type);
                       <div className="space-y-2 mt-2">
                         <div className="flex items-center gap-2">
                           <Store className="w-4 h-4 text-gray-500" />
-                          <span className="text-sm">{selectedContact.store_name}</span>
+                          <span className="text-sm">
+                            {selectedContact.store_name}
+                          </span>
                         </div>
                         {selectedContact.store_address && (
                           <div className="flex items-center gap-2">
                             <MapPin className="w-4 h-4 text-gray-500" />
-                            <span className="text-sm">{selectedContact.store_address}</span>
+                            <span className="text-sm">
+                              {selectedContact.store_address}
+                            </span>
                           </div>
                         )}
                       </div>
@@ -503,7 +566,9 @@ params.append("type", filters.type);
               <Card>
                 <CardContent className="text-center py-8">
                   <MessageSquare className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-                  <p className="text-gray-500">문의사항을 선택하여 상세 정보를 확인하세요.</p>
+                  <p className="text-gray-500">
+                    문의사항을 선택하여 상세 정보를 확인하세요.
+                  </p>
                 </CardContent>
               </Card>
             )}

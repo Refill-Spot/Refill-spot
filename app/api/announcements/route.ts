@@ -12,14 +12,16 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const page = parseInt(searchParams.get("page") || "1");
     const limit = parseInt(searchParams.get("limit") || "10");
-    const includeUnpublished = searchParams.get("includeUnpublished") === "true";
+    const includeUnpublished =
+      searchParams.get("includeUnpublished") === "true";
 
     const offset = (page - 1) * limit;
 
     // 관리자가 아닌 경우 게시된 공지사항만 조회
     let query = supabase
       .from("announcements")
-      .select(`
+      .select(
+        `
         id,
         title,
         content,
@@ -33,7 +35,8 @@ export async function GET(request: NextRequest) {
           id,
           username
         )
-      `)
+      `,
+      )
       .order("is_important", { ascending: false })
       .order("published_at", { ascending: false })
       .range(offset, offset + limit - 1);
@@ -69,7 +72,10 @@ export async function GET(request: NextRequest) {
 
     if (countError) {
       console.error("공지사항 개수 조회 오류:", countError);
-      return apiResponse.error("공지사항 개수 조회 중 오류가 발생했습니다.", 500);
+      return apiResponse.error(
+        "공지사항 개수 조회 중 오류가 발생했습니다.",
+        500,
+      );
     }
 
     return apiResponse.success({
@@ -92,7 +98,7 @@ export async function POST(request: NextRequest) {
   try {
     // 관리자 권한 확인
     const adminCheck = await checkAdminAccessForAPI(request);
-    if (!adminCheck.isAdmin) {
+    if (!adminCheck.isAdmin || !adminCheck.user) {
       return apiResponse.error("관리자 권한이 필요합니다.", 403);
     }
 
@@ -107,7 +113,10 @@ export async function POST(request: NextRequest) {
     }
 
     if (title.length < 1 || content.length < 1) {
-      return apiResponse.error("제목과 내용은 최소 1자 이상이어야 합니다.", 400);
+      return apiResponse.error(
+        "제목과 내용은 최소 1자 이상이어야 합니다.",
+        400,
+      );
     }
 
     const insertData = {
@@ -115,14 +124,15 @@ export async function POST(request: NextRequest) {
       content,
       is_important,
       is_published,
-      author_id: adminCheck.user?.id,
+      author_id: adminCheck.user.id,
       published_at: is_published ? new Date().toISOString() : null,
     };
 
     const { data: announcement, error } = await supabase
       .from("announcements")
       .insert(insertData)
-      .select(`
+      .select(
+        `
         id,
         title,
         content,
@@ -136,7 +146,8 @@ export async function POST(request: NextRequest) {
           id,
           username
         )
-      `)
+      `,
+      )
       .single();
 
     if (error) {

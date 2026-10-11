@@ -1,8 +1,16 @@
 import { NextRequest } from "next/server";
 import { apiResponse } from "@/lib/api-response";
 import { checkAdminAccessForAPI } from "@/lib/auth-utils";
-import { createRouteHandlerSupabaseClient, createServerSupabaseClient } from "@/lib/supabase/server";
-import { createClient } from "@supabase/supabase-js";
+import { createRouteHandlerSupabaseClient } from "@/lib/supabase/server";
+
+function parseReviewId(id: string) {
+  if (!id || /[^0-9]/.test(id)) {
+    return null;
+  }
+
+  const reviewId = Number(id);
+  return Number.isSafeInteger(reviewId) && reviewId > 0 ? reviewId : null;
+}
 
 // 관리자용 리뷰 삭제
 export async function DELETE(
@@ -10,18 +18,32 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const { id } = await params;
-    
     const adminCheck = await checkAdminAccessForAPI(request);
-    
+
     if (!adminCheck.isAdmin) {
-      return apiResponse.error(adminCheck.error || "관리자 권한이 필요합니다.", adminCheck.status || 403);
+      return apiResponse.error(
+        adminCheck.error || "관리자 권한이 필요합니다.",
+        adminCheck.status || 403,
+      );
+    }
+
+    if (!adminCheck.user) {
+      return apiResponse.error("인증된 사용자가 없습니다.", 401);
+    }
+
+    const { id } = await params;
+    const reviewId = parseReviewId(id);
+    if (reviewId === null) {
+      return apiResponse.error("잘못된 리뷰 ID입니다.", 400);
     }
 
     const supabase = createRouteHandlerSupabaseClient(request);
-    
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (!user) {
+
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+    if (authError || !user || user.id !== adminCheck.user.id) {
       return apiResponse.error("인증된 사용자가 없습니다.", 401);
     }
 
@@ -29,21 +51,24 @@ export async function DELETE(
     const { data: existingReview, error: fetchError } = await supabase
       .from("reviews")
       .select("id, user_id, profiles(username)")
-      .eq("id", id)
+      .eq("id", reviewId)
       .single();
 
     if (fetchError || !existingReview) {
       return apiResponse.error("리뷰를 찾을 수 없습니다.", 404);
     }
 
-    // 관리자 권한으로 리뷰 삭제 (RLS 바이패스)
-    const { error: deleteError } = await supabase.rpc("delete_review_as_admin", {
-      review_id: parseInt(id),
-      admin_user_id: user.id,
-    });
+    const { error: deleteError } = await supabase.rpc(
+      "delete_review_as_admin",
+      {
+        review_id: reviewId,
+        admin_user_id: user.id,
+      },
+    );
 
     if (deleteError) {
-      return apiResponse.error(`리뷰 삭제에 실패했습니다: ${deleteError.message}`, 500);
+      console.error("관리자 리뷰 삭제 오류:", deleteError);
+      return apiResponse.error("리뷰 삭제에 실패했습니다.", 500);
     }
 
     return apiResponse.success({
@@ -51,12 +76,11 @@ export async function DELETE(
       deletedReview: {
         id: existingReview.id,
         userId: existingReview.user_id,
-        username: Array.isArray(existingReview.profiles) 
-          ? (existingReview.profiles[0] as any)?.username 
+        username: Array.isArray(existingReview.profiles)
+          ? (existingReview.profiles[0] as any)?.username
           : (existingReview.profiles as any)?.username,
       },
     });
-
   } catch (error) {
     console.error("관리자 리뷰 삭제 API 오류:", error);
     return apiResponse.error("서버 오류가 발생했습니다.", 500);
@@ -70,43 +94,58 @@ export async function PATCH(
 ) {
   try {
     const adminCheck = await checkAdminAccessForAPI(request);
-    
+
     if (!adminCheck.isAdmin) {
-      return apiResponse.error(adminCheck.error || "관리자 권한이 필요합니다.", adminCheck.status || 403);
+      return apiResponse.error(
+        adminCheck.error || "관리자 권한이 필요합니다.",
+        adminCheck.status || 403,
+      );
+    }
+
+    if (!adminCheck.user) {
+      return apiResponse.error("인증된 사용자가 없습니다.", 401);
     }
 
     const { id } = await params;
-    const body = await request.json();
-    const { action } = body; // "approve" | "reject"
-
-    if (!["approve", "reject"].includes(action)) {
-      return apiResponse.error("잘못된 액션입니다.", 400);
+    const reviewId = parseReviewId(id);
+    if (reviewId === null) {
+      return apiResponse.error("잘못된 리뷰 ID입니다.", 400);
     }
 
-    // 관리자 권한이 확인되었으므로 서비스 역할 클라이언트 사용 (RLS 완전 바이패스)
-    const supabase = createClient(
-      process.env.SUPABASE_URL!,
-      process.env.SUPABASE_ANON_KEY!,
-      {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false,
-        },
-      },
-    );
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      return apiResponse.error("잘못된 JSON 요청입니다.", 400);
+    }
+
+    if (
+      !body ||
+      typeof body !== "object" ||
+      Array.isArray(body) ||
+      !("action" in body) ||
+      (body.action !== "approve" && body.action !== "reject")
+    ) {
+      return apiResponse.error("잘못된 액션입니다.", 400);
+    }
+    const { action } = body;
+
+    const supabase = createRouteHandlerSupabaseClient(request);
 
     // 리뷰와 신고 내역 확인
     const { data: existingReview, error: fetchError } = await supabase
       .from("reviews")
-      .select(`
+      .select(
+        `
         id,
         review_reports (
           id,
           status,
           reason
         )
-      `)
-      .eq("id", id)
+      `,
+      )
+      .eq("id", reviewId)
       .single();
 
     if (fetchError || !existingReview) {
@@ -114,30 +153,27 @@ export async function PATCH(
     }
 
     // 신고 내역이 없으면 에러
-    if (!existingReview.review_reports || existingReview.review_reports.length === 0) {
+    if (
+      !existingReview.review_reports ||
+      existingReview.review_reports.length === 0
+    ) {
       return apiResponse.error("해당 리뷰에 대한 신고 내역이 없습니다.", 400);
     }
 
-    let updateData: any = {};
-    let message = "";
-
-    if (action === "approve") {
-      // 신고 승인 - 신고 상태를 'reviewed'로 변경
-      updateData = { status: "reviewed", reviewed_at: new Date().toISOString(), reviewed_by: adminCheck.user?.id };
-      message = "신고가 승인되어 처리되었습니다.";
-    } else if (action === "dismiss") {
-      // 신고 기각 - 신고 상태를 'dismissed'로 변경
-      updateData = { status: "dismissed", reviewed_at: new Date().toISOString(), reviewed_by: adminCheck.user?.id };
-      message = "신고가 기각되었습니다.";
-    } else {
-      return apiResponse.error("잘못된 액션입니다. 'approve' 또는 'dismiss'만 허용됩니다.", 400);
-    }
+    const message =
+      action === "approve"
+        ? "신고가 승인되어 처리되었습니다."
+        : "신고가 기각되었습니다.";
 
     // review_reports 테이블 업데이트
     const { data: updatedReports, error: updateError } = await supabase
       .from("review_reports")
-      .update(updateData)
-      .eq("review_id", id)
+      .update({
+        status: action === "approve" ? "reviewed" : "dismissed",
+        reviewed_at: new Date().toISOString(),
+        reviewed_by: adminCheck.user.id,
+      })
+      .eq("review_id", reviewId)
       .eq("status", "pending")
       .select();
 
@@ -146,11 +182,14 @@ export async function PATCH(
       return apiResponse.error("신고 상태 업데이트에 실패했습니다.", 500);
     }
 
+    if (!updatedReports || updatedReports.length === 0) {
+      return apiResponse.error("처리할 대기 중인 신고가 없습니다.", 409);
+    }
+
     return apiResponse.success({
       message,
       updated_reports: updatedReports,
     });
-
   } catch (error) {
     console.error("관리자 리뷰 상태 업데이트 API 오류:", error);
     return apiResponse.error("서버 오류가 발생했습니다.", 500);

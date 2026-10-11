@@ -42,11 +42,20 @@ import { useEffect, useState } from "react";
 
 export default function FavoritesPage() {
   const { user, loading } = useAuth();
+  const userId = user?.id;
   const router = useRouter();
   const { navigateConditionally } = usePWADetection();
   const { toast } = useToast();
-  const { favorites, favoritesLoading, fetchFavorites, toggleFavorite } =
-    useStoreStore();
+  const {
+    favorites,
+    favoritesOwnerId,
+    favoritesOwnerVersion,
+    favoritesLoading,
+    favoritesLoaded,
+    favoritesError,
+    fetchFavorites,
+    toggleFavorite,
+  } = useStoreStore();
   const [storeToRemove, setStoreToRemove] = useState<number | null>(null);
 
   // 뒤로가기 핸들러
@@ -62,31 +71,53 @@ export default function FavoritesPage() {
 
   // 첫 로딩시 및 사용자 변경시 즐겨찾기 목록 불러오기
   useEffect(() => {
-    if (!loading && user) {
-      fetchFavorites(user.id);
-    } else if (!loading && !user) {
-      router.push("/login");
+    if (!loading && userId && favoritesOwnerId === userId) {
+      fetchFavorites(userId);
+    } else if (!loading && !userId) {
+      router.replace("/login");
       toast({
         title: "로그인 필요",
         description: "즐겨찾기를 보려면 로그인이 필요합니다.",
       });
     }
-  }, [user, loading, router, toast, fetchFavorites]);
+  }, [
+    userId,
+    loading,
+    router,
+    toast,
+    fetchFavorites,
+    favoritesOwnerId,
+    favoritesOwnerVersion,
+  ]);
 
   // 즐겨찾기 삭제 처리
   const handleRemoveFavorite = async (storeId: number) => {
-    if (!user) {
+    if (!user || loading || favoritesOwnerId !== user.id) {
       return;
     }
+    const ownerVersion = useStoreStore.getState().favoritesOwnerVersion;
+    const isCurrentOwner = () => {
+      const state = useStoreStore.getState();
+      return (
+        state.favoritesOwnerId === user.id &&
+        state.favoritesOwnerVersion === ownerVersion
+      );
+    };
 
     try {
       await toggleFavorite(storeId, user.id);
+      if (!isCurrentOwner()) {
+        return;
+      }
 
       toast({
         title: "즐겨찾기 삭제",
         description: "즐겨찾기에서 삭제되었습니다.",
       });
     } catch (error) {
+      if (!isCurrentOwner()) {
+        return;
+      }
       console.error("즐겨찾기 삭제 오류:", error);
       toast({
         title: "오류",
@@ -98,7 +129,13 @@ export default function FavoritesPage() {
     }
   };
 
-  if (loading || favoritesLoading) {
+  if (
+    loading ||
+    !user ||
+    favoritesOwnerId !== user.id ||
+    favoritesLoading ||
+    (!favoritesLoaded && !favoritesError)
+  ) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#FF5722]" />
@@ -121,7 +158,22 @@ export default function FavoritesPage() {
         <h1 className="text-2xl font-bold">내 즐겨찾기</h1>
       </div>
 
-      {favorites.length > 0 ? (
+      {favoritesError ? (
+        <Card>
+          <CardContent className="text-center py-16" role="alert">
+            <h2 className="text-xl font-semibold text-gray-700">
+              즐겨찾기를 불러오지 못했습니다
+            </h2>
+            <p className="mt-2 text-gray-500">잠시 후 다시 시도해주세요.</p>
+            <Button
+              className="mt-6 bg-[#FF5722] hover:bg-[#E64A19]"
+              onClick={() => fetchFavorites(user.id)}
+            >
+              다시 시도
+            </Button>
+          </CardContent>
+        </Card>
+      ) : favorites.length > 0 ? (
         <div className="grid gap-4">
           {favorites.map((store: Store) => (
             <Card key={store.id} className="overflow-hidden">

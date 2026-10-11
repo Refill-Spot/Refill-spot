@@ -1,32 +1,46 @@
 import { NextRequest } from "next/server";
 import { apiResponse } from "@/lib/api-response";
 import { checkAdminAccessForAPI } from "@/lib/auth-utils";
-import { createRouteHandlerSupabaseClient, createServerSupabaseClient } from "@/lib/supabase/server";
+import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { paginationQuerySchema, storeIdQuerySchema } from "@/lib/validations";
 
 // 관리자용 리뷰 목록 조회 (신고된 리뷰 포함)
 export async function GET(request: NextRequest) {
   try {
     const adminCheck = await checkAdminAccessForAPI(request);
-    
+
     if (!adminCheck.isAdmin) {
-      return apiResponse.error(adminCheck.error || "관리자 권한이 필요합니다.", adminCheck.status || 403);
+      return apiResponse.error(
+        adminCheck.error || "관리자 권한이 필요합니다.",
+        adminCheck.status || 403,
+      );
     }
 
-    // 관리자 권한이 확인되었으므로 서버 클라이언트 사용 (RLS 바이패스)
+    // 검증된 관리자 세션의 RLS 정책을 적용합니다.
     const supabase = await createServerSupabaseClient();
     const { searchParams } = new URL(request.url);
-    const page = parseInt(searchParams.get("page") || "1");
-    const limit = parseInt(searchParams.get("limit") || "20");
+    const pagination = paginationQuerySchema.safeParse({
+      page: searchParams.get("page") ?? undefined,
+      limit: searchParams.get("limit") ?? undefined,
+    });
+    const storeFilter = storeIdQuerySchema
+      .optional()
+      .safeParse(searchParams.get("store_id") ?? undefined);
+    if (!pagination.success || !storeFilter.success) {
+      return apiResponse.error("올바른 페이지와 가게 ID를 입력해 주세요.", 400);
+    }
+    const { page, limit } = pagination.data;
     const reportedOnly = searchParams.get("reported_only") === "true";
     const autoReviewed = searchParams.get("auto_reviewed") === "true";
-    const storeId = searchParams.get("store_id");
+    const storeId = storeFilter.data;
 
     const from = (page - 1) * limit;
     const to = from + limit - 1;
 
     let query = supabase
       .from("reviews")
-      .select(`
+      .select(
+        `
         id,
         rating,
         content,
@@ -51,7 +65,8 @@ export async function GET(request: NextRequest) {
           reviewed_at,
           reviewed_by
         )
-      `)
+      `,
+      )
       .order("created_at", { ascending: false })
       .range(from, to);
 
@@ -103,15 +118,18 @@ export async function GET(request: NextRequest) {
     }
 
     // 리뷰 데이터에 자동 검토 여부 플래그 추가
-    const enrichedReviews = (reviews || []).map(review => {
-      const reports = Array.isArray(review.review_reports) ? review.review_reports : [];
-      const hasAutoReviewed = reports.some(report => 
-        report.status === "reviewed" && 
-        report.reviewed_at && 
-        !report.reviewed_by,
+    const enrichedReviews = (reviews || []).map((review) => {
+      const reports = Array.isArray(review.review_reports)
+        ? review.review_reports
+        : [];
+      const hasAutoReviewed = reports.some(
+        (report) =>
+          report.status === "reviewed" &&
+          report.reviewed_at &&
+          !report.reviewed_by,
       );
       const reportCount = reports.length;
-      
+
       return {
         ...review,
         is_auto_reviewed: hasAutoReviewed,
@@ -128,7 +146,6 @@ export async function GET(request: NextRequest) {
         hasMore: (count || 0) > page * limit,
       },
     });
-
   } catch (error) {
     console.error("관리자 리뷰 목록 API 오류:", error);
     return apiResponse.error("서버 오류가 발생했습니다.", 500);

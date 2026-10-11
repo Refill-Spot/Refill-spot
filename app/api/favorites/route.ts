@@ -1,12 +1,16 @@
 import { createRouteHandlerSupabaseClient } from "@/lib/supabase/server";
+import { storeIdQuerySchema, favoriteSchema } from "@/lib/validations";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(request: NextRequest) {
   try {
     const supabase = createRouteHandlerSupabaseClient(request);
-    
+
     // 사용자 인증 확인
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
     if (authError || !user) {
       return NextResponse.json(
         { error: "인증이 필요합니다." },
@@ -17,7 +21,8 @@ export async function GET(request: NextRequest) {
     // 사용자의 즐겨찾기 목록 조회
     const { data: favorites, error } = await supabase
       .from("favorites")
-      .select(`
+      .select(
+        `
         id,
         store_id,
         created_at,
@@ -31,7 +36,8 @@ export async function GET(request: NextRequest) {
           position_lat,
           position_lng
         )
-      `)
+      `,
+      )
       .eq("user_id", user.id)
       .order("created_at", { ascending: false });
 
@@ -47,7 +53,6 @@ export async function GET(request: NextRequest) {
       success: true,
       data: favorites,
     });
-
   } catch (error) {
     console.error("즐겨찾기 조회 오류:", error);
     return NextResponse.json(
@@ -60,9 +65,12 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const supabase = createRouteHandlerSupabaseClient(request);
-    
+
     // 사용자 인증 확인
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
     if (authError || !user) {
       return NextResponse.json(
         { error: "인증이 필요합니다." },
@@ -70,22 +78,31 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { store_id } = await request.json();
-
-    if (!store_id) {
+    const validation = favoriteSchema
+      .pick({ store_id: true })
+      .safeParse(await request.json().catch(() => null));
+    if (!validation.success) {
       return NextResponse.json(
-        { error: "가게 ID가 필요합니다." },
+        { error: "올바른 가게 ID가 필요합니다." },
         { status: 400 },
       );
     }
+    const { store_id } = validation.data;
 
     // 이미 즐겨찾기에 있는지 확인
-    const { data: existing } = await supabase
+    const { data: existing, error: existingError } = await supabase
       .from("favorites")
       .select("id")
       .eq("user_id", user.id)
       .eq("store_id", store_id)
-      .single();
+      .maybeSingle();
+
+    if (existingError) {
+      return NextResponse.json(
+        { error: "즐겨찾기 상태를 확인하지 못했습니다." },
+        { status: 500 },
+      );
+    }
 
     if (existing) {
       return NextResponse.json(
@@ -108,8 +125,13 @@ export async function POST(request: NextRequest) {
 
     if (error) {
       return NextResponse.json(
-        { error: "즐겨찾기 추가에 실패했습니다." },
-        { status: 500 },
+        {
+          error:
+            error.code === "23505"
+              ? "이미 즐겨찾기에 추가된 가게입니다."
+              : "즐겨찾기 추가에 실패했습니다.",
+        },
+        { status: error.code === "23505" ? 409 : 500 },
       );
     }
 
@@ -117,7 +139,6 @@ export async function POST(request: NextRequest) {
       success: true,
       data: data,
     });
-
   } catch (error) {
     console.error("즐겨찾기 추가 오류:", error);
     return NextResponse.json(
@@ -130,9 +151,12 @@ export async function POST(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
   try {
     const supabase = createRouteHandlerSupabaseClient(request);
-    
+
     // 사용자 인증 확인
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
     if (authError || !user) {
       return NextResponse.json(
         { error: "인증이 필요합니다." },
@@ -141,11 +165,12 @@ export async function DELETE(request: NextRequest) {
     }
 
     const { searchParams } = new URL(request.url);
-    const store_id = searchParams.get("store_id");
-
-    if (!store_id) {
+    const validation = storeIdQuerySchema.safeParse(
+      searchParams.get("store_id"),
+    );
+    if (!validation.success) {
       return NextResponse.json(
-        { error: "가게 ID가 필요합니다." },
+        { error: "올바른 가게 ID가 필요합니다." },
         { status: 400 },
       );
     }
@@ -155,7 +180,7 @@ export async function DELETE(request: NextRequest) {
       .from("favorites")
       .delete()
       .eq("user_id", user.id)
-      .eq("store_id", parseInt(store_id));
+      .eq("store_id", validation.data);
 
     if (error) {
       return NextResponse.json(
@@ -168,7 +193,6 @@ export async function DELETE(request: NextRequest) {
       success: true,
       message: "즐겨찾기에서 제거되었습니다.",
     });
-
   } catch (error) {
     console.error("즐겨찾기 제거 오류:", error);
     return NextResponse.json(

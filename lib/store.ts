@@ -3,6 +3,7 @@
 import { fetchAllStores, fetchFilteredStores } from "@/lib/api-utils";
 import { getStoreById, mapStoreFromDb } from "@/lib/stores";
 import { supabaseBrowser } from "@/lib/supabase/client";
+import { coordinateSchema } from "@/lib/validations";
 import { FormattedReview, Store } from "@/types/store";
 import { create } from "zustand";
 
@@ -31,7 +32,12 @@ interface StoreState {
 
   // 즐겨찾기 관련 상태
   favorites: Store[];
+  favoritesOwnerId: string | null;
+  favoritesOwnerVersion: number;
+  favoritesRequestId: number;
   favoritesLoading: boolean;
+  favoritesLoaded: boolean;
+  favoritesError: string | null;
 
   // 액션
   fetchStores: () => Promise<void>;
@@ -42,18 +48,15 @@ interface StoreState {
   fetchReviews: (storeId: number) => Promise<void>;
   toggleFavorite: (storeId: number, userId: string) => Promise<void>;
   fetchFavorites: (userId: string) => Promise<void>;
-  addReview: (
+  setFavoritesOwner: (userId: string | null) => void;
+  saveReview: (
     storeId: number,
-    userId: string,
     rating: number,
-    content: string
-  ) => Promise<void>;
-  updateReview: (
-    reviewId: number,
-    rating: number,
-    content: string
+    content: string,
   ) => Promise<void>;
 }
+
+let favoritesAbortController: AbortController | null = null;
 
 // 스토어 생성
 export const useStoreStore = create<StoreState>((set, get) => ({
@@ -73,7 +76,29 @@ export const useStoreStore = create<StoreState>((set, get) => ({
 
   // 즐겨찾기 관련 상태
   favorites: [],
+  favoritesOwnerId: null,
+  favoritesOwnerVersion: 0,
+  favoritesRequestId: 0,
   favoritesLoading: false,
+  favoritesLoaded: false,
+  favoritesError: null,
+
+  setFavoritesOwner: (userId) => {
+    if (get().favoritesOwnerId === userId) {
+      return;
+    }
+    favoritesAbortController?.abort();
+    favoritesAbortController = null;
+    set((state) => ({
+      favorites: [],
+      favoritesOwnerId: userId,
+      favoritesOwnerVersion: state.favoritesOwnerVersion + 1,
+      favoritesRequestId: state.favoritesRequestId + 1,
+      favoritesLoading: false,
+      favoritesLoaded: false,
+      favoritesError: null,
+    }));
+  },
 
   // 모든 가게 목록 가져오기
   fetchStores: async () => {
@@ -96,7 +121,7 @@ export const useStoreStore = create<StoreState>((set, get) => ({
       set({ loading: true, error: null });
 
       if (
-        (filters.latitude && filters.longitude) ||
+        coordinateSchema.safeParse(filters).success ||
         filters.categories?.length ||
         filters.minRating ||
         filters.query
@@ -132,16 +157,18 @@ export const useStoreStore = create<StoreState>((set, get) => ({
       set({ storeLoading: true, storeError: null });
       const storeData = await getStoreById(id);
 
-      console.log("🔍 [Store] getStoreById result", { 
-        id, 
-        storeData: storeData ? {
-          id: storeData.id,
-          name: storeData.name,
-          openHours: storeData.openHours,
-          hasOpenHours: !!storeData.openHours,
-          openHoursType: typeof storeData.openHours,
-          openHoursLength: storeData.openHours?.length,
-        } : null, 
+      console.log("🔍 [Store] getStoreById result", {
+        id,
+        storeData: storeData
+          ? {
+              id: storeData.id,
+              name: storeData.name,
+              openHours: storeData.openHours,
+              hasOpenHours: !!storeData.openHours,
+              openHoursType: typeof storeData.openHours,
+              openHoursLength: storeData.openHours?.length,
+            }
+          : null,
       });
 
       if (!storeData) {
@@ -180,8 +207,8 @@ export const useStoreStore = create<StoreState>((set, get) => ({
         .order("created_at", { ascending: false });
 
       if (error) {
-throw error;
-}
+        throw error;
+      }
 
       // 리뷰 데이터 가공
       const formattedReviews = data.map((review: any) => ({
@@ -203,16 +230,30 @@ throw error;
 
   // 즐겨찾기 추가/삭제
   toggleFavorite: async (storeId, userId) => {
-    const { currentStore } = get();
+    const ownerVersion = get().favoritesOwnerVersion;
+    const isCurrentOwner = () =>
+      get().favoritesOwnerId === userId &&
+      get().favoritesOwnerVersion === ownerVersion;
 
     try {
+      if (!isCurrentOwner()) {
+        throw new Error("로그인이 필요합니다.");
+      }
+
       // 현재 즐겨찾기 상태 확인
-      const { data } = await supabaseBrowser
+      const { data, error: favoriteError } = await supabaseBrowser
         .from("favorites")
         .select("id")
         .eq("user_id", userId)
         .eq("store_id", storeId)
-        .single();
+        .maybeSingle();
+
+      if (favoriteError) {
+        throw favoriteError;
+      }
+      if (!isCurrentOwner()) {
+        throw new Error("사용자가 변경되었습니다.");
+      }
 
       if (data) {
         // 즐겨찾기 삭제
@@ -223,8 +264,8 @@ throw error;
           .eq("store_id", storeId);
 
         if (error) {
-throw error;
-}
+          throw error;
+        }
       } else {
         // 즐겨찾기 추가
         const { error } = await supabaseBrowser.from("favorites").insert({
@@ -233,33 +274,63 @@ throw error;
         });
 
         if (error) {
-throw error;
-}
+          throw error;
+        }
       }
 
       // 즐겨찾기 목록 갱신
-      get().fetchFavorites(userId);
+      if (!isCurrentOwner()) {
+        throw new Error("사용자가 변경되었습니다.");
+      }
+      await get().fetchFavorites(userId);
+      if (!isCurrentOwner()) {
+        throw new Error("사용자가 변경되었습니다.");
+      }
     } catch (err) {
       console.error("즐겨찾기 토글 오류:", err);
+      throw err;
     }
   },
 
   // 즐겨찾기 목록 가져오기
   fetchFavorites: async (userId) => {
-    try {
-      set({ favoritesLoading: true });
+    // 인증 컨텍스트가 정한 소유자만 요청할 수 있으며 오래된 호출은 소유자를 바꾸지 않는다.
+    if (get().favoritesOwnerId !== userId) {
+      return;
+    }
+    favoritesAbortController?.abort();
+    const controller = new AbortController();
+    favoritesAbortController = controller;
+    const requestId = get().favoritesRequestId + 1;
+    const isCurrent = () =>
+      get().favoritesOwnerId === userId &&
+      get().favoritesRequestId === requestId &&
+      !controller.signal.aborted;
+    set({
+      favoritesRequestId: requestId,
+      favoritesLoading: true,
+      favoritesError: null,
+    });
 
+    try {
       // 즐겨찾기 ID 목록 가져오기
       const { data: favoriteData, error: favoriteError } = await supabaseBrowser
         .from("favorites")
         .select("store_id")
-        .eq("user_id", userId);
+        .eq("user_id", userId)
+        .abortSignal(controller.signal);
 
+      if (!isCurrent()) {
+        return;
+      }
       if (favoriteError) {
-throw favoriteError;
-}
+        throw favoriteError;
+      }
+      if (!favoriteData) {
+        throw new Error("즐겨찾기 목록을 확인할 수 없습니다.");
+      }
 
-      if (favoriteData && favoriteData.length > 0) {
+      if (favoriteData.length > 0) {
         const storeIds = favoriteData.map((item) => item.store_id);
 
         // 가게 정보 가져오기
@@ -273,80 +344,61 @@ throw favoriteError;
             )
           `,
           )
-          .in("id", storeIds);
+          .in("id", storeIds)
+          .abortSignal(controller.signal);
 
+        if (!isCurrent()) {
+          return;
+        }
         if (storesError) {
-throw storesError;
-}
+          throw storesError;
+        }
+        if (!storesData) {
+          throw new Error("즐겨찾기 가게 정보를 확인할 수 없습니다.");
+        }
 
         // 가게 데이터 가공 - mapStoreFromDb 사용
-        const formattedStores = storesData.map((store) => mapStoreFromDb(store));
+        const formattedStores = storesData.map((store) =>
+          mapStoreFromDb(store),
+        );
 
-        set({ favorites: formattedStores, favoritesLoading: false });
+        set({
+          favorites: formattedStores,
+          favoritesLoading: false,
+          favoritesLoaded: true,
+        });
       } else {
-        set({ favorites: [], favoritesLoading: false });
+        set({ favorites: [], favoritesLoading: false, favoritesLoaded: true });
       }
     } catch (err) {
+      if (!isCurrent()) {
+        return;
+      }
       console.error("즐겨찾기 로드 오류:", err);
-      set({ favoritesLoading: false });
+      const errMsg = err instanceof Error ? err.message : String(err);
+      set({ favoritesError: errMsg, favoritesLoading: false });
+    } finally {
+      if (favoritesAbortController === controller) {
+        favoritesAbortController = null;
+      }
     }
   },
 
-  // 리뷰 추가
-  addReview: async (storeId, userId, rating, content) => {
-    try {
-      const { data, error } = await supabaseBrowser
-        .from("reviews")
-        .insert({
-          user_id: userId,
-          store_id: storeId,
-          rating,
-          content,
-        })
-        .select(
-          `
-          *,
-          profiles:profiles(username)
-        `,
-        )
-        .single();
-
-      if (error) {
-throw error;
-}
-
-      // 리뷰 목록 갱신
-      get().fetchReviews(storeId);
-    } catch (err) {
-      console.error("리뷰 추가 오류:", err);
+  // 서버의 인증·검증·동시성 처리를 통해 등록과 수정을 수행합니다.
+  saveReview: async (storeId, rating, content) => {
+    const response = await fetch(`/api/stores/${storeId}/reviews`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ rating, content }),
+    });
+    const result = await response.json();
+    if (!response.ok || result.success !== true) {
+      throw new Error(
+        typeof result.error === "string"
+          ? result.error
+          : "리뷰 저장에 실패했습니다.",
+      );
     }
-  },
-
-  // 리뷰 업데이트
-  updateReview: async (reviewId, rating, content) => {
-    try {
-      const { currentStore } = get();
-      if (!currentStore) {
-return;
-}
-
-      const { error } = await supabaseBrowser
-        .from("reviews")
-        .update({
-          rating,
-          content,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", reviewId);
-
-      if (error) {
-throw error;
-}
-
-      // 리뷰 목록 갱신
-      get().fetchReviews(currentStore.id);
-    } catch (err) {
-      console.error("리뷰 업데이트 오류:", err);
-    }
+    await get().fetchReviews(storeId);
   },
 }));

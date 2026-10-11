@@ -72,13 +72,16 @@ export default function ContactPage() {
           message: "",
         });
       } else {
-        throw new Error(data.message || "문의 접수에 실패했습니다.");
+        throw new Error(data.error?.message || "문의 접수에 실패했습니다.");
       }
     } catch (error) {
       console.error("문의 접수 오류:", error);
       toast({
         title: "오류가 발생했습니다",
-        description: error instanceof Error ? error.message : "문의 접수 중 오류가 발생했습니다. 다시 시도해주세요.",
+        description:
+          error instanceof Error
+            ? error.message
+            : "문의 접수 중 오류가 발생했습니다. 다시 시도해주세요.",
         variant: "destructive",
       });
     } finally {

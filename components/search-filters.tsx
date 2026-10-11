@@ -22,6 +22,23 @@ interface SearchFiltersProps {
   showHeading?: boolean;
 }
 
+function getFilterLocation(latitude?: number, longitude?: number) {
+  if (
+    latitude === undefined ||
+    longitude === undefined ||
+    !Number.isFinite(latitude) ||
+    !Number.isFinite(longitude) ||
+    latitude < -90 ||
+    latitude > 90 ||
+    longitude < -180 ||
+    longitude > 180
+  ) {
+    return null;
+  }
+
+  return { lat: latitude, lng: longitude };
+}
+
 export default function SearchFilters({
   onApplyFilters,
   initialFilters,
@@ -37,6 +54,15 @@ export default function SearchFilters({
     resetFilters: resetStoreFilters,
   } = useStoreStore();
   const geolocation = useGeolocation();
+  const urlLat = searchParams.get("lat");
+  const urlLng = searchParams.get("lng");
+  const filterLocation =
+    getFilterLocation(userLocation?.lat, userLocation?.lng) ??
+    getFilterLocation(initialFilters?.latitude, initialFilters?.longitude) ??
+    getFilterLocation(
+      urlLat?.trim() ? Number(urlLat) : undefined,
+      urlLng?.trim() ? Number(urlLng) : undefined,
+    );
 
   // 필터 상태 관리
   const [radius, setRadius] = useState([
@@ -87,69 +113,32 @@ export default function SearchFilters({
       searchParams.get("distance") || searchParams.get("radius");
     const queryParam = searchParams.get("q") || searchParams.get("query");
 
-    let shouldUpdate = false;
-    let newCategoryState = { ...categories };
-    let newRadius = radius[0];
-    let newSearchQuery = searchQuery;
-
-    // 카테고리 업데이트
-    if (categoryParam) {
-      const categoryList = categoryParam.split(",");
-
-      Object.keys(newCategoryState).forEach((key) => {
-        const shouldCheck = categoryList.includes(key);
-        if (newCategoryState[key] !== shouldCheck) {
-          newCategoryState[key] = shouldCheck;
-          shouldUpdate = true;
+    setCategories((previous) => {
+      const categoryList = categoryParam?.split(",") || [];
+      const next = { ...previous };
+      let changed = false;
+      Object.keys(next).forEach((key) => {
+        const checked = categoryList.includes(key);
+        if (next[key] !== checked) {
+          next[key] = checked;
+          changed = true;
         }
       });
-    } else {
-      // 카테고리 파라미터가 없으면 모든 카테고리 해제
-      const hasSelectedCategories = Object.values(newCategoryState).some(
-        (val) => val,
-      );
-      if (hasSelectedCategories) {
-        newCategoryState = {
-          고기: false,
-          해산물: false,
-          양식: false,
-          한식: false,
-          중식: false,
-          일식: false,
-          카페: false,
-          디저트: false,
-        };
-        shouldUpdate = true;
-      }
-    }
+      return changed ? next : previous;
+    });
 
-    // 거리 업데이트
-    if (distanceParam) {
-      const distanceValue = Number(distanceParam);
-      if (!isNaN(distanceValue) && newRadius !== distanceValue) {
-        newRadius = distanceValue;
-        shouldUpdate = true;
-      }
-    } else if (newRadius !== 3) {
-      newRadius = 3; // 기본값으로 리셋
-      shouldUpdate = true;
-    }
-
-    // 검색어 업데이트
-    if (queryParam && newSearchQuery !== queryParam) {
-      newSearchQuery = queryParam;
-      shouldUpdate = true;
-    } else if (!queryParam && newSearchQuery !== "") {
-      newSearchQuery = ""; // 기본값으로 리셋
-      shouldUpdate = true;
-    }
-
-    // 상태 업데이트
-    if (shouldUpdate) {
-      setCategories(newCategoryState);
-      setRadius([newRadius]);
-      setSearchQuery(newSearchQuery);
-    }
+    const distanceValue = Number(distanceParam);
+    const nextRadius =
+      distanceParam &&
+      Number.isFinite(distanceValue) &&
+      distanceValue > 0 &&
+      distanceValue <= 50
+        ? distanceValue
+        : 3;
+    setRadius((previous) =>
+      previous[0] === nextRadius ? previous : [nextRadius],
+    );
+    setSearchQuery(queryParam || "");
   }, [searchParams]);
 
   const handleCategoryChange = (category: string) => {
@@ -167,10 +156,7 @@ export default function SearchFilters({
       });
 
       // 위치 정보를 필터에 포함시켜 적용
-      handleApplyFilters({
-        latitude: coordinates.lat,
-        longitude: coordinates.lng,
-      });
+      handleApplyFilters(coordinates);
     } catch (error) {
       console.error("위치 정보 오류:", error);
       // 에러는 useGeolocation 훅에서 이미 처리됨
@@ -178,37 +164,21 @@ export default function SearchFilters({
   };
 
   const handleApplyFilters = useCallback(
-    (additionalFilters?: Partial<StoreFilters>) => {
+    (selectedLocation?: { lat: number; lng: number }) => {
       const selectedCategories = Object.entries(categories)
         .filter(([_, isSelected]) => isSelected)
         .map(([category]) => category);
+      const location = selectedLocation
+        ? getFilterLocation(selectedLocation.lat, selectedLocation.lng)
+        : filterLocation;
 
-      // 기본 필터 생성
-      const baseFilters: StoreFilters = {};
-
-      if (selectedCategories.length > 0) {
-        baseFilters.categories = selectedCategories;
-      }
-
-      if (radius[0] !== 3) {
-        // 기본값이 3이 아닐 때만 추가
-        baseFilters.maxDistance = radius[0];
-      }
-
-      if (searchQuery.trim()) {
-        baseFilters.query = searchQuery.trim();
-      }
-
-      // 현재 위치 정보 추가
-      if (userLocation) {
-        baseFilters.latitude = userLocation.lat;
-        baseFilters.longitude = userLocation.lng;
-      }
-
-      // 추가 필터 병합 및 글로벌 스토어의 기존 평점 조건 해제
-      const finalFilters = {
-        ...baseFilters,
-        ...additionalFilters,
+      // 병합하는 스토어에서도 해제된 조건이 남지 않도록 명시적으로 초기화
+      const finalFilters: StoreFilters = {
+        categories: selectedCategories.length ? selectedCategories : undefined,
+        query: searchQuery.trim() || undefined,
+        maxDistance: location ? radius[0] : undefined,
+        latitude: location?.lat,
+        longitude: location?.lng,
         minRating: 0,
       };
 
@@ -218,14 +188,10 @@ export default function SearchFilters({
       // URL 업데이트
       const params = filtersToURLParams(finalFilters);
       const currentPath = window.location.pathname;
-      const currentParams = new URLSearchParams(window.location.search);
 
-      // 위치 정보는 URL에서 유지
-      const lat = currentParams.get("lat");
-      const lng = currentParams.get("lng");
-      if (lat && lng) {
-        params.set("lat", lat);
-        params.set("lng", lng);
+      if (location) {
+        params.set("lat", String(location.lat));
+        params.set("lng", String(location.lng));
       }
 
       const newUrl = params.toString()
@@ -242,7 +208,7 @@ export default function SearchFilters({
       categories,
       radius,
       searchQuery,
-      userLocation,
+      filterLocation,
       router,
       onApplyFilters,
       updateFilters,
@@ -271,17 +237,19 @@ export default function SearchFilters({
       onApplyFilters({});
     }
 
-    // URL 초기화 (파라미터만 제거, 위치 정보는 유지)
-    const lat = searchParams.get("lat");
-    const lng = searchParams.get("lng");
+    // URL 초기화 (유효한 선택 위치만 유지)
     const currentPath = window.location.pathname;
 
-    if (lat && lng) {
-      router.replace(`${currentPath}?lat=${lat}&lng=${lng}`);
+    if (filterLocation) {
+      const params = new URLSearchParams({
+        lat: String(filterLocation.lat),
+        lng: String(filterLocation.lng),
+      });
+      router.replace(`${currentPath}?${params.toString()}`);
     } else {
       router.replace(currentPath);
     }
-  }, [router, searchParams, onApplyFilters, resetStoreFilters]);
+  }, [router, filterLocation, onApplyFilters, resetStoreFilters]);
 
   return (
     <form
@@ -371,12 +339,16 @@ export default function SearchFilters({
               {ko.radius}
             </h3>
             <span className="text-sm font-semibold tabular-nums">
-              {radius[0]}km
+              {filterLocation ? `${radius[0]}km` : "위치 필요"}
             </span>
           </div>
           <Slider
             aria-labelledby={`${filterId}-radius`}
-            aria-valuetext={`${radius[0]}km`}
+            aria-describedby={
+              filterLocation ? undefined : `${filterId}-location-required`
+            }
+            aria-valuetext={filterLocation ? `${radius[0]}km` : "위치 필요"}
+            disabled={!filterLocation}
             defaultValue={[3]}
             max={5}
             min={1}
@@ -390,6 +362,14 @@ export default function SearchFilters({
             <span>3km</span>
             <span>5km</span>
           </div>
+          {!filterLocation && (
+            <p
+              id={`${filterId}-location-required`}
+              className="mt-2 text-xs text-muted-foreground"
+            >
+              거리 필터를 사용하려면 위치를 설정하세요.
+            </p>
+          )}
           <Button
             type="button"
             onClick={handleCurrentLocation}

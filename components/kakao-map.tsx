@@ -143,12 +143,7 @@ export default function KakaoMap({
   const relayoutMap = useCallback(() => {
     const currentMap = mapInstanceRef.current;
     const container = mapRef.current;
-    if (
-      !currentMap ||
-      !container ||
-      !container.clientWidth ||
-      !container.clientHeight
-    ) {
+    if (!currentMap || !container?.clientWidth || !container.clientHeight) {
       return;
     }
     const width = container.clientWidth;

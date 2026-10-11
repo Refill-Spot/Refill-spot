@@ -1,38 +1,50 @@
-import { createServerClient, type CookieOptions } from "@supabase/ssr";
+import { createServerClient } from "@supabase/ssr";
 import { NextRequest, NextResponse } from "next/server";
+import { getSafeReturnUrl } from "@/lib/utils";
 
 export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url);
   const code = requestUrl.searchParams.get("code");
-  const returnUrl = requestUrl.searchParams.get("returnUrl");
-  const redirectTo = requestUrl.searchParams.get("next") || "/";
+  const rawReturnUrl = requestUrl.searchParams.get("returnUrl");
+  const returnUrl = rawReturnUrl
+    ? getSafeReturnUrl(rawReturnUrl, "/", requestUrl.origin)
+    : null;
+  const redirectTo = getSafeReturnUrl(
+    requestUrl.searchParams.get("next"),
+    "/",
+    requestUrl.origin,
+  );
 
   if (code) {
     try {
       // 비밀번호 재설정 플로우인지 확인
-      const isPasswordReset = redirectTo.includes("/reset-password") || 
-                              requestUrl.searchParams.get("type") === "recovery";
-      
+      const isPasswordReset =
+        new URL(redirectTo, requestUrl.origin).pathname === "/reset-password" ||
+        requestUrl.searchParams.get("type") === "recovery";
+
       if (isPasswordReset) {
         // 비밀번호 재설정의 경우 세션을 생성하지 않고 바로 리다이렉트
         // 코드를 URL 파라미터로 전달하여 reset-password 페이지에서 처리
-        const resetUrl = new URL(redirectTo, request.url);
+        const resetUrl = new URL("/reset-password", requestUrl.origin);
         resetUrl.searchParams.set("code", code);
-        return NextResponse.redirect(resetUrl);
+        const response = NextResponse.redirect(resetUrl);
+        response.headers.set("Cache-Control", "private, no-store");
+        response.headers.set("Referrer-Policy", "no-referrer");
+        return response;
       }
 
       // 일반 OAuth 로그인의 경우 기존 로직 수행
       // returnUrl이 있으면 사용, 없으면 기본 redirectTo 사용
       const finalRedirectUrl = returnUrl || redirectTo;
-      
-      // returnUrl을 로그인 페이지에 전달하여 클라이언트에서 안전성 검사 수행
+
+      // 서버에서 검증한 내부 경로만 로그인 페이지에 전달
       let redirectUrl: string;
       if (returnUrl) {
         redirectUrl = `/login?returnUrl=${encodeURIComponent(returnUrl)}`;
       } else {
         redirectUrl = finalRedirectUrl;
       }
-      
+
       // 응답 객체를 먼저 생성
       const response = NextResponse.redirect(new URL(redirectUrl, request.url));
 
@@ -42,18 +54,14 @@ export async function GET(request: NextRequest) {
         process.env.SUPABASE_ANON_KEY!,
         {
           cookies: {
-            get(name: string) {
-              return request.cookies.get(name)?.value;
+            getAll() {
+              return request.cookies.getAll();
             },
-            set(name: string, value: string, options: CookieOptions) {
-              // 요청과 응답 모두에 쿠키 설정
-              request.cookies.set({ name, value, ...options });
-              response.cookies.set({ name, value, ...options });
-            },
-            remove(name: string, options: CookieOptions) {
-              // 요청과 응답 모두에서 쿠키 제거
-              request.cookies.set({ name, value: "", ...options });
-              response.cookies.set({ name, value: "", ...options });
+            setAll(cookiesToSet) {
+              for (const { name, value, options } of cookiesToSet) {
+                request.cookies.set(name, value);
+                response.cookies.set(name, value, options);
+              }
             },
           },
         },
@@ -63,14 +71,17 @@ export async function GET(request: NextRequest) {
 
       if (error) {
         console.error("OAuth 콜백 오류:", error);
-        return NextResponse.redirect(
+        const failure = NextResponse.redirect(
           new URL("/login?error=oauth_error", request.url),
         );
+        for (const cookie of response.cookies.getAll()) {
+          failure.cookies.set(cookie);
+        }
+        failure.headers.set("Cache-Control", "private, no-store");
+        return failure;
       }
 
       if (data.user) {
-        console.log("OAuth 로그인 성공:", data.user.email);
-
         // 프로필 확인 및 생성
         const { data: profile, error: profileError } = await supabase
           .from("profiles")
@@ -93,8 +104,6 @@ export async function GET(request: NextRequest) {
 
           if (insertError) {
             console.error("프로필 생성 오류:", insertError);
-          } else {
-            console.log("프로필 생성 완료:", username);
           }
         }
       }

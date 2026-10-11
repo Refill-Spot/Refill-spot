@@ -55,8 +55,7 @@ export default function StoreDetails({ storeId }: StoreDetailsProps) {
     fetchStoreById,
     fetchReviews,
     toggleFavorite,
-    addReview,
-    updateReview,
+    saveReview,
   } = useStoreStore();
   const [userReview, setUserReview] = useState({ rating: 0, content: "" });
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -96,6 +95,9 @@ export default function StoreDetails({ storeId }: StoreDetailsProps) {
 
   // 즐겨찾기 상태 확인
   useEffect(() => {
+    let active = true;
+    const controller = new AbortController();
+    setIsFavorite(false);
     const checkFavoriteStatus = async () => {
       if (!user || !currentStore) {
         return;
@@ -106,16 +108,19 @@ export default function StoreDetails({ storeId }: StoreDetailsProps) {
         .select("id")
         .eq("user_id", user.id)
         .eq("store_id", currentStore.id)
-        .single();
+        .abortSignal(controller.signal)
+        .maybeSingle();
 
-      if (!error && data) {
-        setIsFavorite(true);
-      } else {
-        setIsFavorite(false);
+      if (active) {
+        setIsFavorite(!error && Boolean(data));
       }
     };
 
     checkFavoriteStatus();
+    return () => {
+      active = false;
+      controller.abort();
+    };
   }, [user, currentStore]);
 
   // 사용자의 리뷰가 있는지 확인
@@ -217,40 +222,11 @@ export default function StoreDetails({ storeId }: StoreDetailsProps) {
     setIsSubmitting(true);
 
     try {
-      // 리뷰가 있는지 확인
-      const { data: existingReview } = await supabaseBrowser
-        .from("reviews")
-        .select("id")
-        .eq("user_id", user.id)
-        .eq("store_id", currentStore.id)
-        .maybeSingle();
-
-      if (existingReview) {
-        // 기존 리뷰 업데이트
-        await updateReview(
-          existingReview.id,
-          userReview.rating,
-          userReview.content,
-        );
-
-        toast({
-          title: "리뷰 업데이트",
-          description: "리뷰가 성공적으로 업데이트되었습니다.",
-        });
-      } else {
-        // 새 리뷰 추가
-        await addReview(
-          currentStore.id,
-          user.id,
-          userReview.rating,
-          userReview.content,
-        );
-
-        toast({
-          title: "리뷰 등록",
-          description: "리뷰가 성공적으로 등록되었습니다.",
-        });
-      }
+      await saveReview(currentStore.id, userReview.rating, userReview.content);
+      toast({
+        title: "리뷰 저장",
+        description: "리뷰가 성공적으로 저장되었습니다.",
+      });
     } catch (error) {
       console.error("리뷰 제출 오류:", error);
       toast({
@@ -265,10 +241,25 @@ export default function StoreDetails({ storeId }: StoreDetailsProps) {
 
   // 이미지 업로드 핸들러
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!e.target.files || e.target.files.length === 0 || !currentStore) {
+    if (
+      !e.target.files ||
+      e.target.files.length === 0 ||
+      !currentStore ||
+      uploading
+    ) {
+      return;
+    }
+    if ((currentStore.imageUrls?.length || 0) >= 3) {
+      toast({
+        title: "업로드 실패",
+        description: "가게 사진은 최대 3장까지 추가할 수 있습니다.",
+        variant: "destructive",
+      });
+      e.target.value = "";
       return;
     }
     const file = e.target.files[0];
+    let uploadCompleted = false;
     setUploading(true);
     try {
       const formData = new FormData();
@@ -278,17 +269,20 @@ export default function StoreDetails({ storeId }: StoreDetailsProps) {
         body: formData,
       });
       const data = await res.json();
-      if (res.ok && data.url) {
+      if (res.ok && typeof data.url === "string" && data.url) {
+        uploadCompleted = true;
         // imageUrls에 추가 (최대 3장)
-        const newUrls = [...(currentStore.imageUrls || []), data.url].slice(
-          0,
-          3,
-        );
+        const newUrls = [...(currentStore.imageUrls || []), data.url];
         // DB 업데이트
-        await supabaseBrowser
+        const { data: updatedStore, error: updateError } = await supabaseBrowser
           .from("stores")
           .update({ image_urls: newUrls })
-          .eq("id", currentStore.id);
+          .eq("id", currentStore.id)
+          .select("id")
+          .maybeSingle();
+        if (updateError || !updatedStore) {
+          throw new Error("매장 사진 저장에 실패했습니다.");
+        }
         // UI 갱신
         fetchStoreById(currentStore.id);
         toast({
@@ -302,10 +296,12 @@ export default function StoreDetails({ storeId }: StoreDetailsProps) {
           variant: "destructive",
         });
       }
-    } catch (err) {
+    } catch {
       toast({
         title: "업로드 오류",
-        description: String(err),
+        description: uploadCompleted
+          ? "파일은 업로드되었지만 매장 사진 저장을 확인하지 못했습니다. 연결되지 않은 업로드 파일은 저장소에 남아 있습니다."
+          : "이미지 업로드 중 오류가 발생했습니다.",
         variant: "destructive",
       });
     } finally {

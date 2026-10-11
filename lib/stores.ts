@@ -1,14 +1,19 @@
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { Store, StoreFromDb } from "@/types/store";
-import { MenuItem } from "@/types/menu";
-import { mapStoredExternalRatings } from "@/lib/external-ratings";
 
-// 카테고리 아이템 타입 정의
-interface CategoryItem {
-  category: {
-    name: string;
-  };
-}
+import { mapStoredExternalRatings } from "@/lib/external-ratings";
+import { z } from "zod";
+
+const menuItemsSchema = z.array(
+  z.object({
+    name: z.string(),
+    type: z.string(),
+    order: z.number().finite(),
+    price: z.string(),
+    price_numeric: z.number().finite(),
+    is_recommended: z.boolean(),
+  }),
+);
 
 // 공통 매핑 함수 - StoreFromDb를 Store로 변환
 export function mapStoreFromDb(
@@ -43,7 +48,8 @@ export function mapStoreFromDb(
     id: store.id,
     name: store.name,
     address: store.address,
-    distance: distance ? String(distance) : null,
+    distance:
+      distance === null || distance === undefined ? null : String(distance),
     categories,
     rating: mapStoredExternalRatings(store),
     avgRating: avgRating || undefined,
@@ -59,22 +65,20 @@ export function mapStoreFromDb(
         return null;
       }
 
-      // PostGIS 함수에서 오는 경우 이미 파싱된 배열
-      if (Array.isArray(store.refill_items)) {
-        return store.refill_items as MenuItem[];
-      }
-
-      // 직접 DB에서 오는 경우 JSON 문자열일 수 있음
-      if (typeof store.refill_items === "string") {
-        try {
-          return JSON.parse(store.refill_items) as MenuItem[];
-        } catch (e) {
-          console.error("refill_items JSON 파싱 오류:", e);
-          return null;
+      try {
+        const value =
+          typeof store.refill_items === "string"
+            ? JSON.parse(store.refill_items)
+            : store.refill_items;
+        const result = menuItemsSchema.safeParse(value);
+        if (result.success) {
+          return result.data;
         }
+        console.error("refill_items 데이터 형식이 올바르지 않습니다.");
+      } catch {
+        console.error("refill_items JSON 파싱 오류");
       }
-
-      return store.refill_items as MenuItem[];
+      return null;
     })(),
     openHours: store.open_hours,
     phoneNumber: store.phone_number,
@@ -82,58 +86,6 @@ export function mapStoreFromDb(
   };
 
   return mappedStore;
-}
-
-// 가게 목록 조회
-export async function getStores(): Promise<Store[]> {
-  const { data, error } = await supabaseBrowser
-    .from("stores")
-    .select(
-      `
-      *,
-      categories:store_categories(
-        category:categories(name)
-      )
-    `,
-    )
-    .order("name");
-
-  if (error) {
-    console.error("가게 목록 조회 오류:", error);
-    return [];
-  }
-
-  // 공통 매핑 함수 사용 (리뷰 통계는 여기서는 제공하지 않음)
-  return data.map((store: StoreFromDb) => mapStoreFromDb(store));
-}
-
-// 현재 위치 기반 가게 조회
-export async function getNearbyStores(
-  lat: number,
-  lng: number,
-  radius: number = 5000,
-): Promise<Store[]> {
-  // Supabase RPC 함수를 호출하여 반경 내 가게 검색
-  const { data, error } = await supabaseBrowser.rpc("stores_within_radius", {
-    lat,
-    lng,
-    radius_meters: radius,
-  }).select(`
-      *,
-      categories:store_categories(
-        category:categories(name)
-      )
-    `);
-
-  if (error) {
-    console.error("주변 가게 조회 오류:", error);
-    return [];
-  }
-
-  // 공통 매핑 함수 사용 (리뷰 통계는 여기서는 제공하지 않음)
-  return data.map((store: StoreFromDb) =>
-    mapStoreFromDb(store, store.distance),
-  );
 }
 
 // 가게 상세 정보 조회

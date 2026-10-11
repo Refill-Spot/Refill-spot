@@ -1,15 +1,15 @@
-import { createServerClient, type CookieOptions } from "@supabase/ssr";
+import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 export async function middleware(request: NextRequest) {
-  const response = NextResponse.next({
+  let response = NextResponse.next({
     request: {
       headers: request.headers,
     },
   });
 
   const pathname = request.nextUrl.pathname;
-  const authRequiredPaths = ["/profile", "/favorites"];
+  const authRequiredPaths = ["/profile", "/favorites", "/my-reviews"];
   const adminRequiredPaths = ["/admin"];
   const publicOnlyPaths = ["/login", "/register", "/forgot-password"];
   const matchesPath = (path: string) =>
@@ -25,76 +25,103 @@ export async function middleware(request: NextRequest) {
     return response;
   }
 
-  const supabase = createServerClient(
-    process.env.SUPABASE_URL!,
-    process.env.SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        get(name: string) {
-          return request.cookies.get(name)?.value;
-        },
-        set(name: string, value: string, options: CookieOptions) {
-          // 응답 객체에 쿠키 설정
-          response.cookies.set({ name, value, ...options });
-        },
-        remove(name: string, options: CookieOptions) {
-          // 응답 객체에서 쿠키 제거
-          response.cookies.set({ name, value: "", ...options });
+  const redirect = (url: URL) => {
+    const redirectResponse = NextResponse.redirect(url);
+    for (const cookie of response.cookies.getAll()) {
+      redirectResponse.cookies.set(cookie);
+    }
+    return redirectResponse;
+  };
+  const loginRedirect = () => {
+    const url = new URL("/login", request.url);
+    url.searchParams.set("returnUrl", pathname + request.nextUrl.search);
+    return redirect(url);
+  };
+
+  try {
+    const supabase = createServerClient(
+      process.env.SUPABASE_URL!,
+      process.env.SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          getAll() {
+            return request.cookies.getAll();
+          },
+          setAll(cookiesToSet) {
+            const previousCookies = response.cookies.getAll();
+            for (const { name, value } of cookiesToSet) {
+              request.cookies.set(name, value);
+            }
+            response = NextResponse.next({
+              request: { headers: request.headers },
+            });
+            for (const cookie of previousCookies) {
+              response.cookies.set(cookie);
+            }
+            for (const { name, value, options } of cookiesToSet) {
+              response.cookies.set(name, value, options);
+            }
+          },
         },
       },
-    },
-  );
-
-  // 사용자 인증 확인
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
-
-  // 보호된 경로 확인 및 처리
-  // 관리자 경로 접근 제어
-  if (adminRequiredPaths.some(matchesPath)) {
-    if (authError || !user) {
-      const redirectUrl = new URL("/login", request.url);
-      redirectUrl.searchParams.set(
-        "returnUrl",
-        pathname + request.nextUrl.search,
-      );
-      return NextResponse.redirect(redirectUrl);
-    }
-
-    // 관리자 권한 확인
-    try {
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("role, is_admin")
-        .eq("id", user.id)
-        .single();
-
-      const isAdmin = profile?.is_admin === true || profile?.role === "admin";
-
-      if (!isAdmin) {
-        return NextResponse.redirect(new URL("/unauthorized", request.url));
-      }
-    } catch (error) {
-      console.error("관리자 권한 확인 오류:", error);
-      return NextResponse.redirect(new URL("/unauthorized", request.url));
-    }
-  }
-
-  // 인증이 필요한 경로이나 로그인하지 않은 경우
-  if (authRequiredPaths.some(matchesPath) && (authError || !user)) {
-    const redirectUrl = new URL("/login", request.url);
-    redirectUrl.searchParams.set(
-      "returnUrl",
-      pathname + request.nextUrl.search,
     );
-    return NextResponse.redirect(redirectUrl);
-  }
 
-  // 로그인 상태에서 접근 불가능한 경로인데 로그인한 경우
-  if (publicOnlyPaths.some(matchesPath) && user && !authError) {
-    return NextResponse.redirect(new URL("/", request.url));
+    // 저장된 세션이 아닌 인증 서버가 검증한 사용자만 신뢰한다.
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      return publicOnlyPaths.some(matchesPath) ? response : loginRedirect();
+    }
+
+    if (adminRequiredPaths.some(matchesPath)) {
+      try {
+        const { data: profile, error: profileError } = await supabase
+          .from("profiles")
+          .select("role, is_admin")
+          .eq("id", user.id)
+          .single();
+
+        const isAdmin = profile?.is_admin === true || profile?.role === "admin";
+
+        if (profileError || !isAdmin) {
+          return redirect(new URL("/unauthorized", request.url));
+        }
+      } catch {
+        return redirect(new URL("/unauthorized", request.url));
+      }
+    }
+
+    if (publicOnlyPaths.some(matchesPath)) {
+      const returnUrl = request.nextUrl.searchParams.get("returnUrl");
+      if (
+        returnUrl &&
+        returnUrl.length <= 2048 &&
+        returnUrl.startsWith("/") &&
+        !returnUrl.startsWith("//") &&
+        !/[\\\u0000-\u0020\u007f]/.test(returnUrl)
+      ) {
+        const destination = new URL(returnUrl, request.url);
+        const isAuthPage = [...publicOnlyPaths, "/auth/callback"].some(
+          (path) =>
+            destination.pathname === path ||
+            destination.pathname.startsWith(`${path}/`),
+        );
+        if (
+          destination.origin === request.nextUrl.origin &&
+          !destination.pathname.startsWith("//") &&
+          !isAuthPage
+        ) {
+          return redirect(destination);
+        }
+      }
+      return redirect(new URL("/", request.url));
+    }
+  } catch {
+    // 설정 누락이나 인증/권한 서버 예외도 보호된 화면을 열지 않는다.
+    return publicOnlyPaths.some(matchesPath) ? response : loginRedirect();
   }
 
   return response;

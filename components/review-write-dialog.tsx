@@ -24,6 +24,8 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 
+const menuOptions = ["바지락칼국수", "양푼보리밥", "영양밥", "해물파전"];
+
 interface ReviewWriteDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -34,22 +36,38 @@ interface ReviewWriteDialogProps {
     rating: number;
     content: string;
     imageUrls?: string[];
+    keywords?: string[];
+    atmosphere?: string[];
+    detailedRatings?: Partial<Record<"taste" | "price" | "service", number>>;
+    menus?: string[];
   } | null;
   onReviewSubmitted?: () => void;
 }
 
-export function ReviewWriteDialog({ 
-  open, 
-  onOpenChange, 
-  storeId, 
+export function ReviewWriteDialog({
+  open,
+  onOpenChange,
+  storeId,
   storeName,
   existingReview = null,
-  onReviewSubmitted, 
+  onReviewSubmitted,
 }: ReviewWriteDialogProps) {
   const { user } = useAuth();
   const { toast } = useToast();
   const { t } = useTranslation();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const submissionInFlight = useRef(false);
+  const uploadedImages = useRef(new Map<File, string>());
+  const initializedReview = useRef<{
+    storeId: number;
+    reviewId: number | null;
+    value: ReviewWriteDialogProps["existingReview"];
+  } | null>(null);
+  const modifiedMetadata = useRef(
+    new Set<"keywords" | "atmosphere" | "menus">(),
+  );
+  const modifiedRatings = useRef(new Set<"taste" | "price" | "service">());
+  const modifiedImages = useRef(false);
 
   const [review, setReview] = useState({
     rating: 0,
@@ -59,10 +77,13 @@ export function ReviewWriteDialog({
   const [selectedImages, setSelectedImages] = useState<File[]>([]);
   const [imagePreviewUrls, setImagePreviewUrls] = useState<string[]>([]);
   const [selectedMenuImages, setSelectedMenuImages] = useState<File[]>([]);
-  const [menuImagePreviewUrls, setMenuImagePreviewUrls] = useState<string[]>([]);
+  const [menuImagePreviewUrls, setMenuImagePreviewUrls] = useState<string[]>(
+    [],
+  );
   const [submitting, setSubmitting] = useState(false);
   const [uploadingImages, setUploadingImages] = useState(false);
-  
+  const reviewBusy = submitting || uploadingImages;
+
   // 새로운 상태 추가
   const [selectedKeywords, setSelectedKeywords] = useState<string[]>([]);
   const [selectedAtmosphere, setSelectedAtmosphere] = useState<string[]>([]);
@@ -78,51 +99,109 @@ export function ReviewWriteDialog({
 
   // 키워드 및 메뉴 옵션
   const restaurantKeywords = [
-    "무료주차", "발렛주차", "주차불가", "개별룸", "대형룸", "24시간영업",
-    "야외좌석(테라스)", "놀이방", "애완동물동반", "콜키지무료", "해당없음",
+    "무료주차",
+    "발렛주차",
+    "주차불가",
+    "개별룸",
+    "대형룸",
+    "24시간영업",
+    "야외좌석(테라스)",
+    "놀이방",
+    "애완동물동반",
+    "콜키지무료",
+    "해당없음",
   ];
 
   const atmosphereKeywords = [
-    "배달", "아이동반", "다이어트식단", "실버푸드", "아침식사", "점심식사",
-    "저녁식사", "식사모임", "술모임", "차모임", "혼카페", "혼밥", "혼술",
-    "점대", "회식", "데이트", "기념일", "가족외식", "간식",
+    "배달",
+    "아이동반",
+    "다이어트식단",
+    "실버푸드",
+    "아침식사",
+    "점심식사",
+    "저녁식사",
+    "식사모임",
+    "술모임",
+    "차모임",
+    "혼카페",
+    "혼밥",
+    "혼술",
+    "점대",
+    "회식",
+    "데이트",
+    "기념일",
+    "가족외식",
+    "간식",
   ];
 
   const atmosphereDescriptions = [
-    "숨은맛집", "서민적인", "캐주얼한", "고급스러운", "격식있는", "가성비좋은",
-    "푸짐한", "조용한", "시끌벅적한", "예쁜", "깔끔한", "이국적/이색적",
-    "경관/야경이좋은", "지역주민이찾는", "핫플레이스",
-  ];
-
-  const menuOptions = [
-    "바지락칼국수",
-    "양푼보리밥",
-    "영양밥",
-    "해물파전",
+    "숨은맛집",
+    "서민적인",
+    "캐주얼한",
+    "고급스러운",
+    "격식있는",
+    "가성비좋은",
+    "푸짐한",
+    "조용한",
+    "시끌벅적한",
+    "예쁜",
+    "깔끔한",
+    "이국적/이색적",
+    "경관/야경이좋은",
+    "지역주민이찾는",
+    "핫플레이스",
   ];
 
   // 기존 리뷰가 있으면 초기값 설정
   useEffect(() => {
+    if (!open) {
+      initializedReview.current = null;
+      return;
+    }
+    const reviewId = existingReview?.id ?? null;
+    if (
+      initializedReview.current?.storeId === storeId &&
+      initializedReview.current.reviewId === reviewId
+    ) {
+      return;
+    }
+    initializedReview.current = { storeId, reviewId, value: existingReview };
+    uploadedImages.current.clear();
+    modifiedMetadata.current.clear();
+    modifiedRatings.current.clear();
+    modifiedImages.current = false;
+    setSelectedImages([]);
+    setSelectedMenuImages([]);
+    setMenuImagePreviewUrls([]);
+    setSelectedKeywords(existingReview?.keywords || []);
+    setSelectedAtmosphere(existingReview?.atmosphere || []);
+    setDetailedRatings({
+      taste: existingReview?.detailedRatings?.taste ?? 3,
+      price: existingReview?.detailedRatings?.price ?? 3,
+      service: existingReview?.detailedRatings?.service ?? 3,
+    });
+    setSelectedMenus(existingReview?.menus || []);
+    setCustomMenu("");
+    setCustomMenuList(existingReview?.menus || []);
     if (existingReview) {
       setReview({
         rating: existingReview.rating,
         content: existingReview.content,
         imageUrls: existingReview.imageUrls || [],
       });
-      if (existingReview.imageUrls && existingReview.imageUrls.length > 0) {
-        setImagePreviewUrls(existingReview.imageUrls);
-      }
+      setImagePreviewUrls(existingReview.imageUrls || []);
     } else {
       // 새 리뷰인 경우 초기화
       setReview({ rating: 0, content: "", imageUrls: [] });
       setSelectedImages([]);
       setImagePreviewUrls([]);
     }
-  }, [existingReview, open]);
+  }, [existingReview, open, storeId]);
 
   // 모달이 닫힐 때 폼 초기화
   useEffect(() => {
     if (!open) {
+      uploadedImages.current.clear();
       setReview({ rating: 0, content: "", imageUrls: [] });
       setSelectedImages([]);
       setImagePreviewUrls([]);
@@ -149,37 +228,46 @@ export function ReviewWriteDialog({
             console.log("API Success:", data.success);
             console.log("Store data exists:", !!data.data);
             console.log("refillItems:", data.data?.refillItems);
-            console.log("refillItems count:", data.data?.refillItems?.length || 0);
-            
+            console.log(
+              "refillItems count:",
+              data.data?.refillItems?.length || 0,
+            );
+
             if (data.success && data.data) {
               // refillItems를 메뉴로 사용
               let menus = [];
               const refillItems = data.data.refillItems;
-              
+
               if (refillItems && Array.isArray(refillItems)) {
                 console.log("Processing", refillItems.length, "refill items");
-                
+
                 // order 속성으로 정렬 후 name 속성 추출
                 const sortedItems = refillItems
-                  .filter(item => item && typeof item === "object" && item.name)
+                  .filter(
+                    (item) => item && typeof item === "object" && item.name,
+                  )
                   .sort((a, b) => {
                     const orderA = a.order || 999; // order가 없으면 맨 뒤로
                     const orderB = b.order || 999;
                     return orderA - orderB;
                   });
-                
+
                 menus = sortedItems.map((item: any) => {
-                  console.log("Extracted menu (order:", item.order + "):", item.name);
+                  console.log(
+                    "Extracted menu (order:",
+                    item.order + "):",
+                    item.name,
+                  );
                   return item.name;
                 });
-                
+
                 console.log("Sorted menu names:", menus);
               } else {
                 console.log("No valid refillItems found, using default menus");
               }
-              
+
               console.log("Final parsed menus:", menus);
-              
+
               if (menus.length > 0) {
                 setStoreMenus(menus);
               } else {
@@ -206,25 +294,35 @@ export function ReviewWriteDialog({
   }, [storeId]);
 
   // 키워드 토글 함수
-  const toggleKeyword = (keyword: string, type: "restaurant" | "atmosphere") => {
+  const toggleKeyword = (
+    keyword: string,
+    type: "restaurant" | "atmosphere",
+  ) => {
+    modifiedMetadata.current.add(
+      type === "restaurant" ? "keywords" : "atmosphere",
+    );
     if (type === "restaurant") {
-      setSelectedKeywords(prev => 
-        prev.includes(keyword) 
-          ? prev.filter(k => k !== keyword)
+      setSelectedKeywords((prev) =>
+        prev.includes(keyword)
+          ? prev.filter((k) => k !== keyword)
           : [...prev, keyword],
       );
     } else {
-      setSelectedAtmosphere(prev => 
-        prev.includes(keyword) 
-          ? prev.filter(k => k !== keyword)
+      setSelectedAtmosphere((prev) =>
+        prev.includes(keyword)
+          ? prev.filter((k) => k !== keyword)
           : [...prev, keyword],
       );
     }
   };
 
   // 세부 평점 변경 함수 (3가지 선택)
-  const handleDetailedRatingChange = (type: "taste" | "price" | "service", value: number) => {
-    setDetailedRatings(prev => ({
+  const handleDetailedRatingChange = (
+    type: "taste" | "price" | "service",
+    value: number,
+  ) => {
+    modifiedRatings.current.add(type);
+    setDetailedRatings((prev) => ({
       ...prev,
       [type]: value,
     }));
@@ -232,10 +330,9 @@ export function ReviewWriteDialog({
 
   // 메뉴 토글 함수
   const toggleMenu = (menu: string) => {
-    setSelectedMenus(prev => 
-      prev.includes(menu) 
-        ? prev.filter(m => m !== menu)
-        : [...prev, menu],
+    modifiedMetadata.current.add("menus");
+    setSelectedMenus((prev) =>
+      prev.includes(menu) ? prev.filter((m) => m !== menu) : [...prev, menu],
     );
   };
 
@@ -243,10 +340,11 @@ export function ReviewWriteDialog({
   const handleAddCustomMenu = () => {
     if (customMenu.trim() && !customMenuList.includes(customMenu.trim())) {
       const newMenu = customMenu.trim();
-      setCustomMenuList(prev => [...prev, newMenu]);
-      setSelectedMenus(prev => [...prev, newMenu]); // 추가한 메뉴를 자동으로 선택
+      modifiedMetadata.current.add("menus");
+      setCustomMenuList((prev) => [...prev, newMenu]);
+      setSelectedMenus((prev) => [...prev, newMenu]); // 추가한 메뉴를 자동으로 선택
       setCustomMenu(""); // 입력 필드 초기화
-      
+
       toast({
         title: "메뉴 추가 완료",
         description: `"${newMenu}" 메뉴가 추가되었습니다.`,
@@ -268,14 +366,17 @@ export function ReviewWriteDialog({
 
   // 이미지 업로드
   const uploadImages = async (files: File[]): Promise<string[]> => {
-    if (files.length === 0) {
-return [];
-}
+    const pendingFiles = files.filter(
+      (file) => !uploadedImages.current.has(file),
+    );
+    if (pendingFiles.length === 0) {
+      return files.map((file) => uploadedImages.current.get(file)!);
+    }
 
     setUploadingImages(true);
     try {
       const formData = new FormData();
-      files.forEach(file => {
+      pendingFiles.forEach((file) => {
         formData.append("images", file);
       });
 
@@ -290,15 +391,19 @@ return [];
       }
 
       const data = await response.json();
-      return data.imageUrls || [];
-    } catch (error) {
-      console.error("이미지 업로드 오류:", error);
-      toast({
-        title: "이미지 업로드 실패",
-        description: error instanceof Error ? error.message : "이미지 업로드 중 오류가 발생했습니다.",
-        variant: "destructive",
+      if (
+        !Array.isArray(data?.imageUrls) ||
+        data.imageUrls.length !== pendingFiles.length ||
+        data.imageUrls.some(
+          (url: unknown) => typeof url !== "string" || !url.trim(),
+        )
+      ) {
+        throw new Error("이미지 업로드에 실패했습니다.");
+      }
+      pendingFiles.forEach((file, index) => {
+        uploadedImages.current.set(file, data.imageUrls[index]);
       });
-      return [];
+      return files.map((file) => uploadedImages.current.get(file)!);
     } finally {
       setUploadingImages(false);
     }
@@ -307,6 +412,10 @@ return [];
   // 리뷰 제출
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (submissionInFlight.current || submitting || uploadingImages) {
+      return;
+    }
 
     if (review.rating < 1 || review.rating > 5) {
       toast({
@@ -317,7 +426,10 @@ return [];
       return;
     }
 
-    if (selectedMenus.length === 0) {
+    if (
+      (!existingReview || modifiedMetadata.current.has("menus")) &&
+      selectedMenus.length === 0
+    ) {
       toast({
         title: "메뉴를 선택해주세요",
         description: "드신 음식을 하나 이상 선택해주세요.",
@@ -326,46 +438,91 @@ return [];
       return;
     }
 
+    if (!review.content.trim()) {
+      toast({
+        title: "리뷰 내용을 입력해주세요",
+        description: "방문 후기를 입력해주세요.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    submissionInFlight.current = true;
     setSubmitting(true);
 
     try {
       // 새로 선택된 이미지 업로드
       let finalImageUrls = [...review.imageUrls];
-      if (selectedImages.length > 0) {
-        const uploadedUrls = await uploadImages(selectedImages);
-        if (uploadedUrls.length > 0) {
-          finalImageUrls = [...finalImageUrls, ...uploadedUrls];
-        }
+      const files = [...selectedImages, ...selectedMenuImages];
+      if (files.length > 0) {
+        const uploadedUrls = await uploadImages(files);
+        finalImageUrls = [...finalImageUrls, ...uploadedUrls];
       }
 
-      const method = existingReview ? "PUT" : "POST";
+      const originalReview = initializedReview.current?.value;
+      const finalDetailedRatings = originalReview
+        ? { ...originalReview.detailedRatings }
+        : { ...detailedRatings };
+      modifiedRatings.current.forEach((type) => {
+        finalDetailedRatings[type] = detailedRatings[type];
+      });
       const response = await fetch(`/api/stores/${storeId}/reviews`, {
-        method,
+        method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          ...review,
-          imageUrls: finalImageUrls,
-          keywords: selectedKeywords,
-          atmosphere: selectedAtmosphere,
-          detailedRatings,
-          menus: selectedMenus,
+          rating: review.rating,
+          content: review.content,
+          ...(!originalReview ||
+          originalReview.imageUrls !== undefined ||
+          modifiedImages.current
+            ? { imageUrls: finalImageUrls }
+            : {}),
+          ...(!originalReview ||
+          originalReview.keywords !== undefined ||
+          modifiedMetadata.current.has("keywords")
+            ? { keywords: selectedKeywords }
+            : {}),
+          ...(!originalReview ||
+          originalReview.atmosphere !== undefined ||
+          modifiedMetadata.current.has("atmosphere")
+            ? { atmosphere: selectedAtmosphere }
+            : {}),
+          ...(!originalReview ||
+          originalReview.detailedRatings !== undefined ||
+          modifiedRatings.current.size > 0
+            ? { detailedRatings: finalDetailedRatings }
+            : {}),
+          ...(!originalReview ||
+          originalReview.menus !== undefined ||
+          modifiedMetadata.current.has("menus")
+            ? { menus: selectedMenus }
+            : {}),
         }),
       });
 
       const data = await response.json();
 
-      if (!data.success) {
-        throw new Error(data.error || "리뷰 저장에 실패했습니다.");
+      if (!response.ok || data?.success !== true) {
+        throw new Error(data?.error || "리뷰 저장에 실패했습니다.");
       }
 
       toast({
         title: existingReview ? "리뷰 수정 완료" : "리뷰 작성 완료",
-        description: existingReview ? "리뷰가 성공적으로 수정되었습니다." : "리뷰가 성공적으로 작성되었습니다.",
+        description:
+          (existingReview
+            ? "리뷰가 성공적으로 수정되었습니다."
+            : "리뷰가 성공적으로 작성되었습니다.") +
+          (data.imageCleanup?.deferred === true &&
+          Number.isSafeInteger(data.imageCleanup.count) &&
+          data.imageCleanup.count > 0
+            ? ` 삭제한 이미지 ${data.imageCleanup.count}개의 파일 정리는 보류되었습니다.`
+            : ""),
       });
 
       // 폼 초기화
+      uploadedImages.current.clear();
       setReview({ rating: 0, content: "", imageUrls: [] });
       setSelectedImages([]);
       setImagePreviewUrls([]);
@@ -377,23 +534,26 @@ return [];
       setSelectedMenus([]);
       setCustomMenu("");
       setCustomMenuList([]);
-      
+
       // 모달 닫기
       onOpenChange(false);
-      
+
       // 리뷰 목록 새로고침 콜백 호출
       if (onReviewSubmitted) {
         onReviewSubmitted();
       }
-
     } catch (error) {
       console.error("리뷰 저장 오류:", error);
       toast({
         title: "저장 실패",
-        description: error instanceof Error ? error.message : "리뷰 저장 중 오류가 발생했습니다.",
+        description:
+          error instanceof Error
+            ? error.message
+            : "리뷰 저장 중 오류가 발생했습니다.",
         variant: "destructive",
       });
     } finally {
+      submissionInFlight.current = false;
       setSubmitting(false);
     }
   };
@@ -402,8 +562,11 @@ return [];
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
     const maxImages = 5;
-    const currentImageCount = review.imageUrls.length + selectedImages.length;
-    
+    const currentImageCount =
+      review.imageUrls.length +
+      selectedImages.length +
+      selectedMenuImages.length;
+
     if (currentImageCount + files.length > maxImages) {
       toast({
         title: "이미지 개수 초과",
@@ -414,10 +577,15 @@ return [];
     }
 
     // 파일 검증
-    const validFiles = files.filter(file => {
+    const validFiles = files.filter((file) => {
       const maxSize = 5 * 1024 * 1024; // 5MB
-      const allowedTypes = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
-      
+      const allowedTypes = [
+        "image/jpeg",
+        "image/jpg",
+        "image/png",
+        "image/webp",
+      ];
+
       if (!allowedTypes.includes(file.type)) {
         toast({
           title: "지원하지 않는 파일 형식",
@@ -426,7 +594,7 @@ return [];
         });
         return false;
       }
-      
+
       if (file.size > maxSize) {
         toast({
           title: "파일 크기 초과",
@@ -435,16 +603,19 @@ return [];
         });
         return false;
       }
-      
+
       return true;
     });
 
     if (validFiles.length > 0) {
-      setSelectedImages(prev => [...prev, ...validFiles]);
-      
+      modifiedImages.current = true;
+      setSelectedImages((prev) => [...prev, ...validFiles]);
+
       // 미리보기 URL 생성
-      const newPreviewUrls = validFiles.map(file => URL.createObjectURL(file));
-      setImagePreviewUrls(prev => [...prev, ...newPreviewUrls]);
+      const newPreviewUrls = validFiles.map((file) =>
+        URL.createObjectURL(file),
+      );
+      setImagePreviewUrls((prev) => [...prev, ...newPreviewUrls]);
     }
 
     // 파일 입력 초기화
@@ -457,8 +628,14 @@ return [];
   const handleMenuImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
     const maxImages = 5;
-    
-    if (selectedMenuImages.length + files.length > maxImages) {
+
+    if (
+      review.imageUrls.length +
+        selectedImages.length +
+        selectedMenuImages.length +
+        files.length >
+      maxImages
+    ) {
       toast({
         title: "이미지 개수 초과",
         description: `이미지는 최대 ${maxImages}개까지 첨부할 수 있습니다.`,
@@ -468,10 +645,15 @@ return [];
     }
 
     // 파일 검증
-    const validFiles = files.filter(file => {
+    const validFiles = files.filter((file) => {
       const maxSize = 5 * 1024 * 1024; // 5MB
-      const allowedTypes = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
-      
+      const allowedTypes = [
+        "image/jpeg",
+        "image/jpg",
+        "image/png",
+        "image/webp",
+      ];
+
       if (!allowedTypes.includes(file.type)) {
         toast({
           title: "지원하지 않는 파일 형식",
@@ -480,7 +662,7 @@ return [];
         });
         return false;
       }
-      
+
       if (file.size > maxSize) {
         toast({
           title: "파일 크기 초과",
@@ -489,39 +671,44 @@ return [];
         });
         return false;
       }
-      
+
       return true;
     });
 
     if (validFiles.length > 0) {
-      setSelectedMenuImages(prev => [...prev, ...validFiles]);
-      
+      modifiedImages.current = true;
+      setSelectedMenuImages((prev) => [...prev, ...validFiles]);
+
       // 미리보기 URL 생성
-      const newPreviewUrls = validFiles.map(file => URL.createObjectURL(file));
-      setMenuImagePreviewUrls(prev => [...prev, ...newPreviewUrls]);
+      const newPreviewUrls = validFiles.map((file) =>
+        URL.createObjectURL(file),
+      );
+      setMenuImagePreviewUrls((prev) => [...prev, ...newPreviewUrls]);
     }
+    e.target.value = "";
   };
 
   // 이미지 제거
   const handleImageRemove = (index: number) => {
+    modifiedImages.current = true;
     const totalExistingImages = review.imageUrls.length;
-    
+
     if (index < totalExistingImages) {
       // 기존 이미지 제거
       const newImageUrls = [...review.imageUrls];
       newImageUrls.splice(index, 1);
-      setReview(prev => ({ ...prev, imageUrls: newImageUrls }));
+      setReview((prev) => ({ ...prev, imageUrls: newImageUrls }));
     } else {
       // 새로 선택된 이미지 제거
       const selectedIndex = index - totalExistingImages;
       const newSelectedImages = [...selectedImages];
       newSelectedImages.splice(selectedIndex, 1);
       setSelectedImages(newSelectedImages);
-      
+
       // 미리보기 URL 정리
       URL.revokeObjectURL(imagePreviewUrls[index]);
     }
-    
+
     // 미리보기 URL 업데이트
     const newPreviewUrls = [...imagePreviewUrls];
     newPreviewUrls.splice(index, 1);
@@ -530,10 +717,11 @@ return [];
 
   // 메뉴 이미지 제거
   const handleMenuImageRemove = (index: number) => {
+    modifiedImages.current = true;
     const newSelectedImages = [...selectedMenuImages];
     newSelectedImages.splice(index, 1);
     setSelectedMenuImages(newSelectedImages);
-    
+
     // 미리보기 URL 정리
     URL.revokeObjectURL(menuImagePreviewUrls[index]);
     const newPreviewUrls = [...menuImagePreviewUrls];
@@ -544,14 +732,14 @@ return [];
   // 평점에 따른 색상
   const getRatingColor = (rating: number) => {
     if (rating >= 4.5) {
-return "text-green-600";
-}
+      return "text-green-600";
+    }
     if (rating >= 3.5) {
-return "text-yellow-600";
-}
+      return "text-yellow-600";
+    }
     if (rating >= 2.5) {
-return "text-orange-600";
-}
+      return "text-orange-600";
+    }
     return "text-red-600";
   };
 
@@ -570,7 +758,9 @@ return "text-orange-600";
               취소
             </Button>
             <Link href="/login">
-              <Button className="bg-[#FF5722] hover:bg-[#E64A19] text-white">로그인하기</Button>
+              <Button className="bg-[#FF5722] hover:bg-[#E64A19] text-white">
+                로그인하기
+              </Button>
             </Link>
           </div>
         </DialogContent>
@@ -579,7 +769,14 @@ return "text-orange-600";
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog
+      open={open}
+      onOpenChange={(nextOpen) => {
+        if (!submissionInFlight.current) {
+          onOpenChange(nextOpen);
+        }
+      }}
+    >
       <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
@@ -587,33 +784,44 @@ return "text-orange-600";
             {existingReview ? "리뷰 수정" : "리뷰 작성"}
           </DialogTitle>
           <DialogDescription>
-            <span className="font-semibold text-gray-900">{storeName}</span>에 대한 솔직한 리뷰를 남겨주세요.
+            <span className="font-semibold text-gray-900">{storeName}</span>에
+            대한 솔직한 리뷰를 남겨주세요.
           </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* 전체적으로 어떠셨나요? */}
           <div>
-            <h3 className="text-xl font-bold text-center mb-2">전체적으로 어떠셨나요?</h3>
-            <p className="text-center text-gray-600 mb-6">별점을 선택해주세요</p>
-            
+            <h3 className="text-xl font-bold text-center mb-2">
+              전체적으로 어떠셨나요?
+            </h3>
+            <p className="text-center text-gray-600 mb-6">
+              별점을 선택해주세요
+            </p>
+
             <div className="flex justify-center items-center gap-2 mb-6">
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
-                onClick={() => setReview({ ...review, rating: Math.max(1, review.rating - 1) })}
-                disabled={review.rating <= 1}
+                onClick={() =>
+                  setReview({
+                    ...review,
+                    rating: Math.max(1, review.rating - 1),
+                  })
+                }
+                disabled={reviewBusy || review.rating <= 1}
               >
                 <Minus className="h-4 w-4" />
               </Button>
-              
+
               <div className="flex gap-1 mx-4">
                 {[1, 2, 3, 4, 5].map((star) => (
                   <button
                     key={star}
                     type="button"
                     onClick={() => setReview({ ...review, rating: star })}
+                    disabled={reviewBusy}
                     className="focus:outline-none hover:scale-110 transition-transform duration-200"
                   >
                     <Star
@@ -626,13 +834,18 @@ return "text-orange-600";
                   </button>
                 ))}
               </div>
-              
+
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
-                onClick={() => setReview({ ...review, rating: Math.min(5, review.rating + 1) })}
-                disabled={review.rating >= 5}
+                onClick={() =>
+                  setReview({
+                    ...review,
+                    rating: Math.min(5, review.rating + 1),
+                  })
+                }
+                disabled={reviewBusy || review.rating >= 5}
               >
                 <Plus className="h-4 w-4" />
               </Button>
@@ -641,8 +854,10 @@ return "text-orange-600";
 
           {/* 항목별 평점 */}
           <div className="bg-gray-50 rounded-xl p-6">
-            <h3 className="text-lg font-semibold mb-4 text-gray-900">항목별 평점 <span className="text-gray-500 text-sm">(필수)</span></h3>
-            
+            <h3 className="text-lg font-semibold mb-4 text-gray-900">
+              항목별 평점 <span className="text-gray-500 text-sm">(필수)</span>
+            </h3>
+
             <div className="space-y-6">
               {/* 맛 */}
               <div>
@@ -656,7 +871,10 @@ return "text-orange-600";
                     <button
                       key={option.value}
                       type="button"
-                      onClick={() => handleDetailedRatingChange("taste", option.value)}
+                      onClick={() =>
+                        handleDetailedRatingChange("taste", option.value)
+                      }
+                      disabled={reviewBusy}
                       className={`flex-1 py-2 px-3 rounded-lg border text-sm font-medium transition-colors ${
                         detailedRatings.taste === option.value
                           ? "bg-orange-50 border-[#FF5722] text-[#FF5722]"
@@ -681,7 +899,10 @@ return "text-orange-600";
                     <button
                       key={option.value}
                       type="button"
-                      onClick={() => handleDetailedRatingChange("price", option.value)}
+                      onClick={() =>
+                        handleDetailedRatingChange("price", option.value)
+                      }
+                      disabled={reviewBusy}
                       className={`flex-1 py-2 px-3 rounded-lg border text-sm font-medium transition-colors ${
                         detailedRatings.price === option.value
                           ? "bg-orange-50 border-[#FF5722] text-[#FF5722]"
@@ -706,7 +927,10 @@ return "text-orange-600";
                     <button
                       key={option.value}
                       type="button"
-                      onClick={() => handleDetailedRatingChange("service", option.value)}
+                      onClick={() =>
+                        handleDetailedRatingChange("service", option.value)
+                      }
+                      disabled={reviewBusy}
                       className={`flex-1 py-2 px-3 rounded-lg border text-sm font-medium transition-colors ${
                         detailedRatings.service === option.value
                           ? "bg-orange-50 border-[#FF5722] text-[#FF5722]"
@@ -724,51 +948,78 @@ return "text-orange-600";
           {/* 어떤 음식을 드셨나요? */}
           <div className="border-t pt-6">
             <h3 className="text-lg font-semibold mb-4 text-gray-900">
-              어떤 음식을 드셨나요? <span className="text-gray-500 text-sm">(복수 선택 가능)</span>
+              어떤 음식을 드셨나요?{" "}
+              <span className="text-gray-500 text-sm">(복수 선택 가능)</span>
             </h3>
-            
+
             <div className="space-y-3">
               {/* 가게 메뉴 */}
-              {(storeMenus.length > 0 ? storeMenus : menuOptions).map((menu) => (
-                <div key={menu} className="flex items-center space-x-3 p-3 border rounded-lg hover:bg-gray-50">
-                  <Checkbox 
-                    id={menu}
-                    checked={selectedMenus.includes(menu)}
-                    onCheckedChange={() => toggleMenu(menu)}
-                  />
-                  <Label htmlFor={menu} className="flex-1 cursor-pointer">{menu}</Label>
-                </div>
-              ))}
-              
+              {(storeMenus.length > 0 ? storeMenus : menuOptions).map(
+                (menu) => (
+                  <div
+                    key={menu}
+                    className="flex items-center space-x-3 p-3 border rounded-lg hover:bg-gray-50"
+                  >
+                    <Checkbox
+                      id={menu}
+                      checked={selectedMenus.includes(menu)}
+                      disabled={reviewBusy}
+                      onCheckedChange={() => toggleMenu(menu)}
+                    />
+                    <Label htmlFor={menu} className="flex-1 cursor-pointer">
+                      {menu}
+                    </Label>
+                  </div>
+                ),
+              )}
+
               {/* 커스텀 추가된 메뉴들 */}
-              {customMenuList.map((menu) => (
-                <div key={`custom-${menu}`} className="flex items-center space-x-3 p-3 border rounded-lg hover:bg-gray-50 bg-blue-50">
-                  <Checkbox 
-                    id={`custom-${menu}`}
-                    checked={selectedMenus.includes(menu)}
-                    onCheckedChange={() => toggleMenu(menu)}
-                  />
-                  <Label htmlFor={`custom-${menu}`} className="flex-1 cursor-pointer">
-                    {menu} <span className="text-xs text-blue-600">(추가됨)</span>
-                  </Label>
-                </div>
-              ))}
+              {customMenuList
+                .filter(
+                  (menu) =>
+                    !(
+                      storeMenus.length > 0 ? storeMenus : menuOptions
+                    ).includes(menu),
+                )
+                .map((menu) => (
+                  <div
+                    key={`custom-${menu}`}
+                    className="flex items-center space-x-3 p-3 border rounded-lg hover:bg-gray-50 bg-blue-50"
+                  >
+                    <Checkbox
+                      id={`custom-${menu}`}
+                      checked={selectedMenus.includes(menu)}
+                      disabled={reviewBusy}
+                      onCheckedChange={() => toggleMenu(menu)}
+                    />
+                    <Label
+                      htmlFor={`custom-${menu}`}
+                      className="flex-1 cursor-pointer"
+                    >
+                      {menu}{" "}
+                      <span className="text-xs text-blue-600">(추가됨)</span>
+                    </Label>
+                  </div>
+                ))}
             </div>
 
             {/* 선택된 메뉴 표시 */}
             {selectedMenus.length > 0 && (
               <div className="mt-4 p-3 bg-blue-50 rounded-lg">
-                <p className="text-sm font-medium text-blue-800 mb-2">선택한 메뉴 ({selectedMenus.length}개):</p>
+                <p className="text-sm font-medium text-blue-800 mb-2">
+                  선택한 메뉴 ({selectedMenus.length}개):
+                </p>
                 <div className="flex flex-wrap gap-2">
                   {selectedMenus.map((menu) => (
-                    <span 
-                      key={menu} 
+                    <span
+                      key={menu}
                       className="inline-flex items-center px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full"
                     >
                       {menu}
                       <button
                         type="button"
                         onClick={() => toggleMenu(menu)}
+                        disabled={reviewBusy}
                         className="ml-1 hover:bg-blue-200 rounded-full p-0.5"
                       >
                         <X className="h-3 w-3" />
@@ -778,13 +1029,16 @@ return "text-orange-600";
                 </div>
               </div>
             )}
-            
+
             <div className="mt-4">
-              <p className="mb-2 font-medium">주문했던 메뉴가 없다면 직접 추가해보세요!</p>
+              <p className="mb-2 font-medium">
+                주문했던 메뉴가 없다면 직접 추가해보세요!
+              </p>
               <div className="flex gap-2">
                 <Input
                   placeholder="메뉴명 직접 입력"
                   value={customMenu}
+                  disabled={reviewBusy}
                   onChange={(e) => setCustomMenu(e.target.value)}
                   onKeyDown={(e) => {
                     if (e.key === "Enter") {
@@ -794,10 +1048,11 @@ return "text-orange-600";
                   }}
                   className="flex-1"
                 />
-                <Button 
-                  type="button" 
+                <Button
+                  type="button"
                   className="bg-black text-white hover:bg-gray-800"
                   onClick={handleAddCustomMenu}
+                  disabled={reviewBusy}
                 >
                   추가
                 </Button>
@@ -809,10 +1064,10 @@ return "text-orange-600";
           <div className="border-t pt-6">
             <div className="mb-4">
               <h3 className="text-lg font-semibold text-gray-900">
-                방문 후기 <span className="text-gray-500 text-sm">(선택)</span>
+                방문 후기 <span className="text-gray-500 text-sm">(필수)</span>
               </h3>
             </div>
-            
+
             <div className="bg-gray-50 rounded-lg p-4 mb-4">
               <p className="text-sm text-gray-600 mb-4">
                 음식, 서비스, 분위기, 위생상태 등의 방문 경험을 적어주세요.
@@ -821,11 +1076,17 @@ return "text-orange-600";
                 className="w-full p-3 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent min-h-[120px] bg-white"
                 placeholder="가게에 대한 솔직한 리뷰를 작성해주세요..."
                 value={review.content}
-                onChange={(e) => setReview({ ...review, content: e.target.value })}
+                onChange={(e) =>
+                  setReview({ ...review, content: e.target.value })
+                }
+                disabled={reviewBusy}
+                required
               />
               <div className="flex justify-between items-center mt-2">
                 <div className="flex items-center text-xs text-gray-500">
-                  <span className="w-4 h-4 rounded-full bg-blue-500 text-white text-xs flex items-center justify-center mr-1">i</span>
+                  <span className="w-4 h-4 rounded-full bg-blue-500 text-white text-xs flex items-center justify-center mr-1">
+                    i
+                  </span>
                   {review.content.length}/1000자
                 </div>
               </div>
@@ -835,7 +1096,8 @@ return "text-orange-600";
           {/* 편의시설 키워드 */}
           <div className="bg-gray-50 rounded-xl p-4">
             <h3 className="text-lg font-semibold mb-3 text-gray-900">
-              이 식당은 어떤 <span className="text-blue-600">편의시설</span>이 있었나요? (복수 선택 가능)
+              이 식당은 어떤 <span className="text-blue-600">편의시설</span>이
+              있었나요? (복수 선택 가능)
             </h3>
             <div className="flex flex-wrap gap-2">
               {restaurantKeywords.map((keyword) => (
@@ -848,6 +1110,7 @@ return "text-orange-600";
                       : "bg-white text-gray-600 border-gray-300 hover:bg-gray-50"
                   }`}
                   onClick={() => toggleKeyword(keyword, "restaurant")}
+                  disabled={reviewBusy}
                 >
                   {keyword}
                 </button>
@@ -858,7 +1121,10 @@ return "text-orange-600";
                 placeholder="위 항목에 없는 키워드 직접 입력"
                 className="w-full"
               />
-              <Button type="button" className="mt-2 bg-black text-white hover:bg-gray-800">
+              <Button
+                type="button"
+                className="mt-2 bg-black text-white hover:bg-gray-800"
+              >
                 추가
               </Button>
             </div>
@@ -867,7 +1133,8 @@ return "text-orange-600";
           {/* 음식점 키워드 */}
           <div>
             <h3 className="text-lg font-semibold mb-3 text-gray-900">
-              이 식당은 어떤 <span className="text-blue-600">방문목적</span>에 적합한가요? (복수 선택 가능)
+              이 식당은 어떤 <span className="text-blue-600">방문목적</span>에
+              적합한가요? (복수 선택 가능)
             </h3>
             <div className="flex flex-wrap gap-2 mb-4">
               {atmosphereKeywords.map((keyword) => (
@@ -880,14 +1147,16 @@ return "text-orange-600";
                       : "bg-white text-gray-600 border-gray-300 hover:bg-gray-50"
                   }`}
                   onClick={() => toggleKeyword(keyword, "atmosphere")}
+                  disabled={reviewBusy}
                 >
                   {keyword}
                 </button>
               ))}
             </div>
-            
+
             <h4 className="text-base font-semibold mb-3 text-gray-900">
-              이 식당의 <span className="text-blue-600">분위기</span>를 선택해주세요. (복수 선택 가능)
+              이 식당의 <span className="text-blue-600">분위기</span>를
+              선택해주세요. (복수 선택 가능)
             </h4>
             <div className="flex flex-wrap gap-2">
               {atmosphereDescriptions.map((desc) => (
@@ -900,6 +1169,7 @@ return "text-orange-600";
                       : "bg-white text-gray-600 border-gray-300 hover:bg-gray-50"
                   }`}
                   onClick={() => toggleKeyword(desc, "atmosphere")}
+                  disabled={reviewBusy}
                 >
                   {desc}
                 </button>
@@ -911,35 +1181,41 @@ return "text-orange-600";
           <div className="border-t pt-6">
             <div className="mb-4">
               <h3 className="text-lg font-semibold text-gray-900">
-                음식·인테리어·외관 사진 <span className="text-gray-500 text-sm">(선택)</span>
+                음식·인테리어·외관 사진{" "}
+                <span className="text-gray-500 text-sm">(선택)</span>
               </h3>
             </div>
-            
+
             <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center mb-4">
               <div className="flex flex-col items-center">
                 <ImageIcon className="h-12 w-12 text-gray-400 mb-2" />
-                <p className="text-gray-600 mb-1">본인이 직접 촬영하지 않은 사진</p>
-                <p className="text-sm text-gray-500 mb-4">1000*1000 미만 해상도의 사진은 등록없이 삭제될 수 있습니다.</p>
+                <p className="text-gray-600 mb-1">
+                  본인이 직접 촬영하지 않은 사진
+                </p>
+                <p className="text-sm text-gray-500 mb-4">
+                  1000*1000 미만 해상도의 사진은 등록없이 삭제될 수 있습니다.
+                </p>
                 <Input
                   ref={fileInputRef}
                   type="file"
                   accept="image/jpeg,image/jpg,image/png,image/webp"
                   multiple
                   onChange={handleImageSelect}
+                  disabled={reviewBusy}
                   className="hidden"
                 />
                 <Button
                   type="button"
                   variant="outline"
                   onClick={() => fileInputRef.current?.click()}
-                  disabled={uploadingImages}
+                  disabled={reviewBusy}
                 >
                   <Upload className="h-4 w-4 mr-2" />
                   이미지 선택
                 </Button>
               </div>
             </div>
-            
+
             {imagePreviewUrls.length > 0 && (
               <div className="flex flex-wrap gap-2 mb-4">
                 {imagePreviewUrls.map((url, index) => (
@@ -955,6 +1231,7 @@ return "text-orange-600";
                     <button
                       type="button"
                       onClick={() => handleImageRemove(index)}
+                      disabled={reviewBusy}
                       className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
                     >
                       <X className="h-3 w-3" />
@@ -969,35 +1246,43 @@ return "text-orange-600";
           <div className="border-t pt-6">
             <div className="mb-4">
               <h3 className="text-lg font-semibold text-gray-900">
-                메뉴판·영업시간·주차 사진 <span className="text-gray-500 text-sm">(선택)</span>
+                메뉴판·영업시간·주차 사진{" "}
+                <span className="text-gray-500 text-sm">(선택)</span>
               </h3>
             </div>
-            
+
             <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center mb-4">
               <div className="flex flex-col items-center">
                 <ImageIcon className="h-12 w-12 text-gray-400 mb-2" />
-                <p className="text-gray-600 mb-1">본인이 직접 촬영하지 않은 사진</p>
-                <p className="text-sm text-gray-500 mb-4">1000*1000 미만의 사진은 등록없이 삭제될 수 있습니다.</p>
+                <p className="text-gray-600 mb-1">
+                  본인이 직접 촬영하지 않은 사진
+                </p>
+                <p className="text-sm text-gray-500 mb-4">
+                  1000*1000 미만의 사진은 등록없이 삭제될 수 있습니다.
+                </p>
                 <Input
                   type="file"
                   accept="image/jpeg,image/jpg,image/png,image/webp"
                   multiple
                   onChange={handleMenuImageSelect}
+                  disabled={reviewBusy}
                   className="hidden"
                   id="menu-images"
                 />
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={() => document.getElementById("menu-images")?.click()}
-                  disabled={uploadingImages}
+                  onClick={() =>
+                    document.getElementById("menu-images")?.click()
+                  }
+                  disabled={reviewBusy}
                 >
                   <Upload className="h-4 w-4 mr-2" />
                   이미지 선택
                 </Button>
               </div>
             </div>
-            
+
             {menuImagePreviewUrls.length > 0 && (
               <div className="flex flex-wrap gap-2 mb-4">
                 {menuImagePreviewUrls.map((url, index) => (
@@ -1013,6 +1298,7 @@ return "text-orange-600";
                     <button
                       type="button"
                       onClick={() => handleMenuImageRemove(index)}
+                      disabled={reviewBusy}
                       className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
                     >
                       <X className="h-3 w-3" />
@@ -1022,8 +1308,6 @@ return "text-orange-600";
               </div>
             )}
           </div>
-
-
 
           {/* 액션 버튼 */}
           <div className="flex gap-3 pt-4">
@@ -1039,12 +1323,21 @@ return "text-orange-600";
             <Button
               type="submit"
               className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
-              disabled={submitting || uploadingImages || selectedMenus.length === 0 || review.rating === 0}
-            >
-              {submitting || uploadingImages ? 
-                (uploadingImages ? "업로드 중..." : "저장 중...") : 
-                (existingReview ? "수정 완료" : "평가 완료")
+              disabled={
+                submitting ||
+                uploadingImages ||
+                ((!existingReview || modifiedMetadata.current.has("menus")) &&
+                  selectedMenus.length === 0) ||
+                review.rating === 0
               }
+            >
+              {submitting || uploadingImages
+                ? uploadingImages
+                  ? "업로드 중..."
+                  : "저장 중..."
+                : existingReview
+                  ? "수정 완료"
+                  : "평가 완료"}
             </Button>
           </div>
         </form>

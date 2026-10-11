@@ -38,7 +38,7 @@ import {
   User,
 } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useState, useRef } from "react";
+import { useCallback, useEffect, useState, useRef } from "react";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -82,6 +82,9 @@ export function StoreReviews({
   const [selectedImages, setSelectedImages] = useState<File[]>([]);
   const [imagePreviewUrls, setImagePreviewUrls] = useState<string[]>([]);
   const [uploadingImages, setUploadingImages] = useState(false);
+  const [savingReview, setSavingReview] = useState(false);
+  const submissionInFlight = useRef(false);
+  const uploadedImages = useRef(new Map<File, string>());
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [internalShowWriteForm, setInternalShowWriteForm] = useState(false);
 
@@ -104,9 +107,10 @@ export function StoreReviews({
 
   // 이미지 모달 상태
   const [imageModalOpen, setImageModalOpen] = useState(false);
-  const [selectedImageUrl, setSelectedImageUrl] = useState<string>("");
   const [currentImageIndex, setCurrentImageIndex] = useState<number>(0);
   const [currentReviewImages, setCurrentReviewImages] = useState<string[]>([]);
+  const selectedImageUrl = currentReviewImages[currentImageIndex] || "";
+  const imageCount = currentReviewImages.length;
 
   // 필터링 상태
   const [ratingFilter, setRatingFilter] = useState<string>("all"); // "all", "5", "4", "3", "2", "1"
@@ -131,6 +135,7 @@ export function StoreReviews({
       fetchReviews,
     },
   } = useReviews({ storeId });
+  const reviewBusy = savingReview || submitting || uploadingImages;
 
   // 필터링된 리뷰 계산
   const filteredReviews = allReviews
@@ -218,14 +223,17 @@ export function StoreReviews({
 
   // 이미지 업로드 핸들러
   const uploadImages = async (files: File[]): Promise<string[]> => {
-    if (files.length === 0) {
-      return [];
+    const pendingFiles = files.filter(
+      (file) => !uploadedImages.current.has(file),
+    );
+    if (pendingFiles.length === 0) {
+      return files.map((file) => uploadedImages.current.get(file)!);
     }
 
     setUploadingImages(true);
     try {
       const formData = new FormData();
-      files.forEach((file) => {
+      pendingFiles.forEach((file) => {
         formData.append("images", file);
       });
 
@@ -240,18 +248,19 @@ export function StoreReviews({
       }
 
       const data = await response.json();
-      return data.imageUrls || [];
-    } catch (error) {
-      console.error("이미지 업로드 오류:", error);
-      toast({
-        title: "이미지 업로드 실패",
-        description:
-          error instanceof Error
-            ? error.message
-            : "이미지 업로드 중 오류가 발생했습니다.",
-        variant: "destructive",
+      if (
+        !Array.isArray(data?.imageUrls) ||
+        data.imageUrls.length !== pendingFiles.length ||
+        data.imageUrls.some(
+          (url: unknown) => typeof url !== "string" || !url.trim(),
+        )
+      ) {
+        throw new Error("이미지 업로드에 실패했습니다.");
+      }
+      pendingFiles.forEach((file, index) => {
+        uploadedImages.current.set(file, data.imageUrls[index]);
       });
-      return [];
+      return files.map((file) => uploadedImages.current.get(file)!);
     } finally {
       setUploadingImages(false);
     }
@@ -260,6 +269,10 @@ export function StoreReviews({
   // 리뷰 제출 핸들러
   const handleSubmitReview = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (submissionInFlight.current || submitting || uploadingImages) {
+      return;
+    }
 
     if (userReview.rating < 1 || userReview.rating > 5) {
       toast({
@@ -279,25 +292,31 @@ export function StoreReviews({
       return;
     }
 
-    // 새로 선택된 이미지가 있으면 업로드
-    let finalImageUrls = [...userReview.imageUrls];
-    if (selectedImages.length > 0) {
-      const uploadedUrls = await uploadImages(selectedImages);
-      if (uploadedUrls.length > 0) {
+    submissionInFlight.current = true;
+    setSavingReview(true);
+
+    try {
+      // 새로 선택된 이미지가 있으면 업로드
+      let finalImageUrls = [...userReview.imageUrls];
+      if (selectedImages.length > 0) {
+        const uploadedUrls = await uploadImages(selectedImages);
         finalImageUrls = [...finalImageUrls, ...uploadedUrls];
       }
-    }
 
-    const reviewData = {
-      ...userReview,
-      imageUrls: finalImageUrls,
-    };
+      const reviewData = {
+        ...userReview,
+        imageUrls: finalImageUrls,
+      };
 
-    const success = myReview
-      ? await updateReview(reviewData)
-      : await submitReview(reviewData);
+      const success = myReview
+        ? await updateReview(reviewData)
+        : await submitReview(reviewData);
 
-    if (success) {
+      if (!success) {
+        return;
+      }
+
+      uploadedImages.current.clear();
       // 성공 시 폼 초기화 (새 리뷰인 경우만)
       if (!myReview) {
         setUserReview({ rating: 0, content: "", imageUrls: [] });
@@ -307,11 +326,25 @@ export function StoreReviews({
         setShowWriteForm(false);
       } else {
         // 기존 리뷰 수정의 경우 선택된 이미지만 초기화
+        setUserReview(reviewData);
         setSelectedImages([]);
         // 미리보기를 업데이트된 이미지로 설정
         setImagePreviewUrls(finalImageUrls);
       }
       onReviewChanged?.();
+    } catch (error) {
+      console.error("리뷰 저장 오류:", error);
+      toast({
+        title: "저장 실패",
+        description:
+          error instanceof Error
+            ? error.message
+            : "리뷰 저장 중 오류가 발생했습니다.",
+        variant: "destructive",
+      });
+    } finally {
+      submissionInFlight.current = false;
+      setSavingReview(false);
     }
   };
 
@@ -464,43 +497,32 @@ export function StoreReviews({
   };
 
   // 이미지 클릭 핸들러
-  const handleImageClick = (
-    imageUrl: string,
-    reviewImages: string[],
-    imageIndex: number,
-  ) => {
-    setSelectedImageUrl(imageUrl);
+  const handleImageClick = (reviewImages: string[], imageIndex: number) => {
     setCurrentReviewImages(reviewImages);
     setCurrentImageIndex(imageIndex);
     setImageModalOpen(true);
   };
 
   // 이미지 네비게이션 핸들러
-  const handlePrevImage = () => {
-    const newIndex =
-      currentImageIndex > 0
-        ? currentImageIndex - 1
-        : currentReviewImages.length - 1;
-    setCurrentImageIndex(newIndex);
-    setSelectedImageUrl(currentReviewImages[newIndex]);
-  };
+  const handlePrevImage = useCallback(() => {
+    setCurrentImageIndex((index) =>
+      imageCount > 0 ? (index + imageCount - 1) % imageCount : 0,
+    );
+  }, [imageCount]);
 
-  const handleNextImage = () => {
-    const newIndex =
-      currentImageIndex < currentReviewImages.length - 1
-        ? currentImageIndex + 1
-        : 0;
-    setCurrentImageIndex(newIndex);
-    setSelectedImageUrl(currentReviewImages[newIndex]);
-  };
+  const handleNextImage = useCallback(() => {
+    setCurrentImageIndex((index) =>
+      imageCount > 0 ? (index + 1) % imageCount : 0,
+    );
+  }, [imageCount]);
 
   // 키보드 네비게이션
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (!imageModalOpen) {
-        return;
-      }
+    if (!imageModalOpen) {
+      return;
+    }
 
+    const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "ArrowLeft") {
         handlePrevImage();
       } else if (e.key === "ArrowRight") {
@@ -512,7 +534,7 @@ export function StoreReviews({
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [imageModalOpen, currentImageIndex, currentReviewImages]);
+  }, [imageModalOpen, handlePrevImage, handleNextImage]);
 
   // 신고 핸들러
   const handleReportClick = (reviewId: number) => {
@@ -610,6 +632,7 @@ export function StoreReviews({
                         onClick={() =>
                           setUserReview({ ...userReview, rating: star })
                         }
+                        disabled={reviewBusy}
                         className="focus:outline-none hover:scale-110 transition-transform duration-200"
                         aria-label={`${star} ${t("stars")}`}
                       >
@@ -654,6 +677,7 @@ export function StoreReviews({
                   className="w-full p-3 border rounded-md focus:ring-2 focus:ring-[#FF5722] focus:border-transparent min-h-[150px]"
                   placeholder={t("review_placeholder")}
                   value={userReview.content}
+                  disabled={reviewBusy}
                   onChange={(e) =>
                     setUserReview({
                       ...userReview,
@@ -688,6 +712,7 @@ export function StoreReviews({
                           <button
                             type="button"
                             onClick={() => handleImageRemove(index)}
+                            disabled={reviewBusy}
                             className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
                             aria-label="이미지 제거"
                           >
@@ -708,13 +733,14 @@ export function StoreReviews({
                       accept="image/jpeg,image/jpg,image/png,image/webp"
                       multiple
                       onChange={handleImageSelect}
+                      disabled={reviewBusy}
                       className="hidden"
                     />
                     <Button
                       type="button"
                       variant="outline"
                       onClick={() => fileInputRef.current?.click()}
-                      disabled={uploadingImages}
+                      disabled={reviewBusy}
                       className="w-full border-dashed border-2 hover:border-[#FF5722] hover:bg-orange-50"
                     >
                       <Upload className="h-4 w-4 mr-2" />
@@ -733,9 +759,9 @@ export function StoreReviews({
                 <Button
                   type="submit"
                   className="flex-1 bg-[#FF5722] hover:bg-[#E64A19]"
-                  disabled={submitting || uploadingImages}
+                  disabled={savingReview || submitting || uploadingImages}
                 >
-                  {submitting || uploadingImages
+                  {savingReview || submitting || uploadingImages
                     ? uploadingImages
                       ? "이미지 업로드 중..."
                       : t("processing")
@@ -748,7 +774,7 @@ export function StoreReviews({
                     type="button"
                     variant="outline"
                     onClick={handleDeleteReview}
-                    disabled={submitting || uploadingImages}
+                    disabled={savingReview || submitting || uploadingImages}
                     className="text-red-600 hover:text-red-700"
                   >
                     {t("delete_review")}
@@ -1490,7 +1516,6 @@ export function StoreReviews({
                                 e.stopPropagation();
                                 console.log("Image clicked:", imageUrl);
                                 handleImageClick(
-                                  imageUrl,
                                   review.imageUrls || [],
                                   imageIndex,
                                 );
@@ -1827,7 +1852,6 @@ export function StoreReviews({
                       key={index}
                       onClick={() => {
                         setCurrentImageIndex(index);
-                        setSelectedImageUrl(imageUrl);
                       }}
                       className={`relative w-12 h-12 rounded border-2 overflow-hidden transition-all duration-200 ${
                         index === currentImageIndex

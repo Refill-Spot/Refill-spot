@@ -29,25 +29,6 @@ function AuthPageContent() {
     useAuth();
   const [error, setError] = useState<string | null>(null);
 
-  // 디버깅을 위한 returnUrl 확인
-  useEffect(() => {
-    const returnUrl = searchParams.get("returnUrl");
-    console.log("🔍 로그인 페이지 - returnUrl:", returnUrl);
-    console.log("🔍 로그인 페이지 - 전체 URL:", window.location.href);
-    console.log("🔍 로그인 페이지 - searchParams:", Array.from(searchParams.entries()));
-    
-    // 보안 검사 결과도 로그로 출력
-    if (returnUrl) {
-      const safeReturnUrl = getSafeReturnUrl(returnUrl, "/");
-      console.log("🔒 보안 검사 결과 - safeReturnUrl:", safeReturnUrl);
-      console.log("🔒 보안 검사 - 원본과 동일:", returnUrl === safeReturnUrl);
-      
-      if (returnUrl !== safeReturnUrl) {
-        console.warn("⚠️ 위험한 returnUrl이 차단되었습니다:", returnUrl);
-      }
-    }
-  }, [searchParams]);
-
   // URL 파라미터에서 오류 확인
   useEffect(() => {
     const errorParam = searchParams.get("error");
@@ -80,10 +61,10 @@ function AuthPageContent() {
   // 로그인 폼 핸들러
   const handleLoginChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type, checked } = e.target;
-    setLoginForm({
-      ...loginForm,
+    setLoginForm((prev) => ({
+      ...prev,
       [name]: type === "checkbox" ? checked : value,
-    });
+    }));
   };
 
   // 회원가입 폼 핸들러
@@ -106,12 +87,16 @@ function AuthPageContent() {
   };
 
   useEffect(() => {
-    const { agreeTerms, agreePrivacy, agreeLocation } = registerForm;
-    setRegisterForm((prev) => ({
-      ...prev,
-      agreeAll: agreeTerms && agreePrivacy && agreeLocation,
-    }));
-  }, [registerForm.agreeTerms, registerForm.agreePrivacy, registerForm.agreeLocation]);
+    setRegisterForm((prev) => {
+      const agreeAll =
+        prev.agreeTerms && prev.agreePrivacy && prev.agreeLocation;
+      return prev.agreeAll === agreeAll ? prev : { ...prev, agreeAll };
+    });
+  }, [
+    registerForm.agreeTerms,
+    registerForm.agreePrivacy,
+    registerForm.agreeLocation,
+  ]);
 
   // 로그인 제출
   const handleLoginSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -125,16 +110,14 @@ function AuthPageContent() {
     } else {
       // returnUrl 파라미터 확인하여 안전한 URL로 리다이렉트
       const returnUrl = searchParams.get("returnUrl");
-      console.log("🚀 로그인 성공 - returnUrl:", returnUrl);
-      
+
       const safeReturnUrl = getSafeReturnUrl(returnUrl, "/");
-      console.log("🚀 로그인 성공 - safeReturnUrl:", safeReturnUrl);
-      
+
       toast({
         title: "로그인 성공",
         description: `${safeReturnUrl}로 이동합니다.`,
       });
-      
+
       router.push(safeReturnUrl);
     }
   };
@@ -151,7 +134,11 @@ function AuthPageContent() {
     }
 
     // 약관 동의 확인
-    if (!registerForm.agreeTerms || !registerForm.agreePrivacy || !registerForm.agreeLocation) {
+    if (
+      !registerForm.agreeTerms ||
+      !registerForm.agreePrivacy ||
+      !registerForm.agreeLocation
+    ) {
       setError("모든 필수 약관에 동의해주세요.");
       return;
     }
@@ -273,7 +260,10 @@ function AuthPageContent() {
                       name="remember"
                       checked={loginForm.remember}
                       onCheckedChange={(checked) =>
-                        setLoginForm({ ...loginForm, remember: !!checked })
+                        setLoginForm((prev) => ({
+                          ...prev,
+                          remember: !!checked,
+                        }))
                       }
                     />
                     <Label htmlFor="remember" className="text-sm">
@@ -405,10 +395,10 @@ function AuthPageContent() {
                           name="agreeTerms"
                           checked={registerForm.agreeTerms}
                           onCheckedChange={(checked) =>
-                            setRegisterForm({
-                              ...registerForm,
+                            setRegisterForm((prev) => ({
+                              ...prev,
                               agreeTerms: !!checked,
-                            })
+                            }))
                           }
                         />
                         <Label htmlFor="agree-terms" className="text-sm">
@@ -428,10 +418,10 @@ function AuthPageContent() {
                           name="agreePrivacy"
                           checked={registerForm.agreePrivacy}
                           onCheckedChange={(checked) =>
-                            setRegisterForm({
-                              ...registerForm,
+                            setRegisterForm((prev) => ({
+                              ...prev,
                               agreePrivacy: !!checked,
-                            })
+                            }))
                           }
                         />
                         <Label htmlFor="agree-privacy" className="text-sm">
@@ -451,10 +441,10 @@ function AuthPageContent() {
                           name="agreeLocation"
                           checked={registerForm.agreeLocation}
                           onCheckedChange={(checked) =>
-                            setRegisterForm({
-                              ...registerForm,
+                            setRegisterForm((prev) => ({
+                              ...prev,
                               agreeLocation: !!checked,
-                            })
+                            }))
                           }
                         />
                         <Label htmlFor="agree-location" className="text-sm">

@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 import { File } from "node:buffer";
+import { readFileSync } from "node:fs";
 import { test } from "node:test";
+import { runInNewContext } from "node:vm";
+import { NextRequest, NextResponse } from "next/server";
+import ts from "typescript";
+import * as managedImageUpload from "../lib/managed-image-upload";
 import {
   generateThumbnailUrl,
   getOwnedProfileImagePath,
@@ -444,5 +449,244 @@ test("browser thumbnails preserve Supabase transform URLs without a browser clie
     } else {
       process.env.NEXT_PUBLIC_SUPABASE_URL = previousUrl;
     }
+  }
+});
+
+const reviewUploadBucket = "review-images";
+const reviewUploadBucketUrl = `https://ykztepbfcocxmtotrdbk.supabase.co/storage/v1/object/public/${reviewUploadBucket}`;
+const reviewUploadRouteCode = ts.transpileModule(
+  readFileSync("app/api/reviews/images/upload/route.ts", "utf8"),
+  {
+    compilerOptions: {
+      module: ts.ModuleKind.CommonJS,
+      target: ts.ScriptTarget.ES2022,
+    },
+  },
+).outputText;
+
+type UploadOutcome =
+  "success" | "error" | "error_with_data" | "missing_data" | "throw";
+
+// Execute the actual upload route and real multipart/image validation with
+// isolated identity and Storage mocks. No network or live writes are involved.
+function loadReviewUploadRoute(
+  outcomes: UploadOutcome[] = [],
+  throwFinalizationAt?: number,
+) {
+  const calls = {
+    buckets: [] as string[],
+    uploads: [] as { path: string; file: File; options: unknown }[],
+    urls: [] as string[],
+    removed: [] as string[][],
+  };
+  const storage = {
+    async upload(path: string, file: File, options: unknown) {
+      const index = calls.uploads.length;
+      calls.uploads.push({ path, file, options: structuredClone(options) });
+      const outcome = outcomes[index] ?? "success";
+      if (outcome === "throw") throw new Error("private upload details");
+      return {
+        data:
+          outcome === "success" || outcome === "error_with_data"
+            ? { path }
+            : null,
+        error:
+          outcome === "error" || outcome === "error_with_data"
+            ? new Error("private upload details")
+            : null,
+      };
+    },
+    async remove(paths: string[]) {
+      calls.removed.push([...paths]);
+      throw new Error("Unsafe storage deletion must never be attempted");
+    },
+  };
+  let nextFileId = 0;
+  const reservations = new Map<string, Record<string, string>>();
+  const exported = {} as {
+    POST: (request: NextRequest) => Promise<NextResponse>;
+  };
+  runInNewContext(reviewUploadRouteCode, {
+    exports: exported,
+    process: {
+      env: { SUPABASE_STORAGE_BUCKET_REVIEW_IMAGES: reviewUploadBucket },
+    },
+    console: { error() {} },
+    require(name: string) {
+      if (name === "next/server") return { NextResponse };
+      if (name === "@/lib/managed-image-upload") return managedImageUpload;
+      if (name === "@/lib/image-utils") {
+        return { readImageUploadFormData, validateImageUpload };
+      }
+      if (name === "@/lib/supabase/server") {
+        return {
+          createServerSupabaseClient: async () => ({
+            async rpc(name: string, args: Record<string, string>) {
+              if (name === "reserve_managed_image") {
+                const assetId = `33333333-3333-4333-8333-${String(++nextFileId).padStart(12, "0")}`;
+                const objectPath = `${userId}/managed-${assetId}.${args.p_extension}`;
+                const row = {
+                  asset_id: assetId,
+                  bucket_id: args.p_bucket_id,
+                  object_path: objectPath,
+                  canonical_url: `${reviewUploadBucketUrl}/${objectPath}`,
+                  state: "uploading",
+                };
+                reservations.set(assetId, row);
+                return { data: [row], error: null };
+              }
+              assert.equal(name, "finalize_managed_image");
+              const row = reservations.get(args.p_asset_id);
+              assert.ok(row);
+              calls.urls.push(row.object_path);
+              if (calls.urls.length === throwFinalizationAt) {
+                throw new Error("private finalization details");
+              }
+              return {
+                data: [
+                  { ...row, state: "ready", storage_object_id: row.asset_id },
+                ],
+                error: null,
+              };
+            },
+            auth: {
+              getUser: async () => ({
+                data: { user: { id: userId } },
+                error: null,
+              }),
+            },
+            storage: {
+              from(bucket: string) {
+                calls.buckets.push(bucket);
+                return storage;
+              },
+            },
+          }),
+        };
+      }
+      throw new Error(`Unexpected route dependency: ${name}`);
+    },
+  });
+  return {
+    calls,
+    async invoke(count = 3) {
+      const formData = new FormData();
+      for (let index = 0; index < count; index++) {
+        formData.append(
+          "images",
+          new Blob([jpeg], { type: "image/jpeg" }),
+          `photo-${index}.jpg`,
+        );
+      }
+      const response = await exported.POST(
+        new NextRequest("https://refill.example/api/reviews/images/upload", {
+          method: "POST",
+          body: formData,
+        }),
+      );
+      return { response, body: await response.json() };
+    },
+  };
+}
+
+test("review image route propagates first-upload failures without claiming confirmed uploads", async () => {
+  for (const outcome of [
+    "error",
+    "error_with_data",
+    "missing_data",
+    "throw",
+  ] as const) {
+    const route = loadReviewUploadRoute([outcome]);
+    const { response, body } = await route.invoke();
+    assert.equal(response.status, 500, outcome);
+    assert.equal(Object.hasOwn(body, "imageUrls"), false);
+    assert.equal(Object.hasOwn(body, "imageCleanup"), false);
+    assert.match(body.error, /업로드 요청을 완료하지 못했습니다/);
+    assert.equal(JSON.stringify(body).includes("private"), false);
+    assert.equal(route.calls.uploads.length, 1);
+    assert.deepEqual(route.calls.urls, []);
+    assert.deepEqual(route.calls.removed, []);
+  }
+});
+
+test("review image route defers cleanup when the second upload fails and counts only confirmed uploads", async () => {
+  for (const outcome of ["error", "error_with_data", "missing_data"] as const) {
+    const route = loadReviewUploadRoute(["success", outcome]);
+    const { response, body } = await route.invoke();
+    assert.equal(response.status, 500, outcome);
+    assert.equal(Object.hasOwn(body, "imageUrls"), false);
+    assert.deepEqual(body.imageCleanup, {
+      status: "deferred",
+      count: 1,
+      reason: "cleanup_unconfirmed",
+    });
+    assert.match(body.error, /업로드 요청을 완료하지 못했습니다/);
+    assert.match(body.error, /확인된 이미지 1개의 파일 정리는 보류 중/);
+    assert.match(body.error, /다시 시도/);
+    assert.equal(JSON.stringify(body).includes("private"), false);
+    assert.equal(route.calls.uploads.length, 2);
+    assert.equal(route.calls.urls.length, 1);
+    assert.deepEqual(route.calls.removed, []);
+  }
+});
+
+test("review image route propagates exceptions after success without deleting confirmed objects", async () => {
+  for (const [
+    outcomes,
+    throwPublicUrlAt,
+    confirmedCount,
+    uploadCount,
+    urlCount,
+  ] of [
+    [["success", "throw"], undefined, 1, 2, 1],
+    [["success", "success", "throw"], undefined, 2, 3, 2],
+    [["success"], 1, 1, 1, 1],
+    [["success", "success"], 2, 2, 2, 2],
+  ] as const) {
+    const route = loadReviewUploadRoute([...outcomes], throwPublicUrlAt);
+    const { response, body } = await route.invoke();
+    assert.equal(response.status, 500);
+    assert.equal(Object.hasOwn(body, "imageUrls"), false);
+    assert.deepEqual(body.imageCleanup, {
+      status: "deferred",
+      count: confirmedCount,
+      reason: throwPublicUrlAt
+        ? "managed_finalization_unconfirmed"
+        : "cleanup_unconfirmed",
+    });
+    assert.ok(
+      body.error.includes(
+        `확인된 이미지 ${confirmedCount}개의 파일 정리는 보류 중`,
+      ),
+    );
+    assert.equal(JSON.stringify(body).includes("private"), false);
+    assert.equal(route.calls.uploads.length, uploadCount);
+    assert.equal(route.calls.urls.length, urlCount);
+    assert.deepEqual(route.calls.removed, []);
+  }
+});
+
+test("review image route returns successful URLs only when every upload succeeds", async () => {
+  const route = loadReviewUploadRoute();
+  const { response, body } = await route.invoke();
+  assert.equal(response.status, 200);
+  assert.equal(Object.hasOwn(body, "error"), false);
+  assert.equal(Object.hasOwn(body, "imageCleanup"), false);
+  assert.deepEqual(
+    body.imageUrls,
+    route.calls.uploads.map(({ path }) => `${reviewUploadBucketUrl}/${path}`),
+  );
+  assert.deepEqual(route.calls.buckets, Array(3).fill(reviewUploadBucket));
+  assert.equal(route.calls.uploads.length, 3);
+  assert.equal(new Set(route.calls.urls).size, 3);
+  assert.deepEqual(route.calls.removed, []);
+  for (const upload of route.calls.uploads) {
+    assert.ok(upload.path.startsWith(`${userId}/`));
+    assert.equal(upload.file.type, "image/jpeg");
+    assert.deepEqual(upload.options, {
+      contentType: "image/jpeg",
+      cacheControl: "3600",
+      upsert: false,
+    });
   }
 });

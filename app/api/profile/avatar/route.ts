@@ -4,14 +4,37 @@ import {
   readImageUploadFormData,
   validateImageUpload,
 } from "@/lib/image-utils";
+import {
+  ManagedImageUploadError,
+  uploadManagedImage,
+} from "@/lib/managed-image-upload";
 import { NextRequest, NextResponse } from "next/server";
-import { v4 as uuidv4 } from "uuid";
 
 const PROFILE_IMAGES_BUCKET =
-  process.env.SUPABASE_STORAGE_BUCKET_PROFILE_IMAGES || "image";
+  process.env.SUPABASE_STORAGE_BUCKET_PROFILE_IMAGES || "profile-images";
+
+function getImageCleanup(
+  fileName: string | null,
+  reason:
+    | "cleanup_unconfirmed"
+    | "managed_finalization_unconfirmed" = "cleanup_unconfirmed",
+) {
+  if (!fileName) {
+    return { status: "not_needed" as const, count: 0 };
+  }
+
+  // Only the lifecycle worker may delete a claimed managed object. A route
+  // cannot assert completion; ownership alone never makes a legacy key eligible.
+  return {
+    status: "deferred" as const,
+    count: 1,
+    reason,
+  };
+}
 
 export async function POST(request: NextRequest) {
-  let cleanupUpload: (() => Promise<void>) | null = null;
+  let imageCleanup: ReturnType<typeof getImageCleanup> | undefined =
+    getImageCleanup(null);
   try {
     const supabase = await createServerSupabaseClient();
     const {
@@ -21,7 +44,7 @@ export async function POST(request: NextRequest) {
 
     if (userError || !user) {
       return NextResponse.json(
-        { error: "로그인이 필요합니다." },
+        { error: "로그인이 필요합니다.", imageCleanup },
         { status: 401 },
       );
     }
@@ -34,6 +57,7 @@ export async function POST(request: NextRequest) {
             uploadRequest.error === "body_too_large"
               ? "파일 크기가 너무 큽니다. (최대 5MB)"
               : "올바른 파일 업로드 요청이 필요합니다.",
+          imageCleanup,
         },
         { status: uploadRequest.error === "body_too_large" ? 413 : 400 },
       );
@@ -41,7 +65,7 @@ export async function POST(request: NextRequest) {
     const { formData } = uploadRequest;
     if (formData.getAll("file").length !== 1) {
       return NextResponse.json(
-        { error: "파일은 하나만 선택해야 합니다." },
+        { error: "파일은 하나만 선택해야 합니다.", imageCleanup },
         { status: 400 },
       );
     }
@@ -53,7 +77,10 @@ export async function POST(request: NextRequest) {
           : validation.error === "invalid_size"
             ? "파일 크기는 1바이트 이상 5MB 이하여야 합니다."
             : "지원하지 않는 파일 형식입니다. (jpeg, jpg, png, webp만 가능)";
-      return NextResponse.json({ error: message }, { status: 400 });
+      return NextResponse.json(
+        { error: message, imageCleanup },
+        { status: 400 },
+      );
     }
 
     const { data: profile, error: profileError } = await supabase
@@ -64,13 +91,13 @@ export async function POST(request: NextRequest) {
     if (profileError) {
       console.error("Profile image lookup failed:", profileError);
       return NextResponse.json(
-        { error: "프로필 정보를 가져오지 못했습니다." },
+        { error: "프로필 정보를 가져오지 못했습니다.", imageCleanup },
         { status: 500 },
       );
     }
     if (!profile) {
       return NextResponse.json(
-        { error: "프로필을 찾을 수 없습니다." },
+        { error: "프로필을 찾을 수 없습니다.", imageCleanup },
         { status: 404 },
       );
     }
@@ -81,41 +108,16 @@ export async function POST(request: NextRequest) {
       user.id,
       storage.getPublicUrl("").data.publicUrl,
     );
-    const fileName = `${user.id}/${uuidv4()}.${validation.extension}`;
-    const { data, error } = await storage.upload(fileName, validation.file, {
-      cacheControl: "3600",
-      upsert: false,
-      contentType: validation.contentType,
+    const finalizedImage = await uploadManagedImage(supabase, {
+      ownerId: user.id,
+      bucketId: PROFILE_IMAGES_BUCKET,
+      file: validation.file,
     });
+    const fileName = finalizedImage.object_path;
+    const publicUrl = finalizedImage.canonical_url;
 
-    if (error || !data) {
-      console.error("Profile image upload failed:", error);
-      return NextResponse.json(
-        { error: "프로필 이미지 업로드에 실패했습니다." },
-        { status: 500 },
-      );
-    }
-    cleanupUpload = async () => {
-      try {
-        const { error: cleanupError } = await storage.remove([fileName]);
-        if (cleanupError) {
-          console.error(
-            "Unreferenced profile image cleanup failed:",
-            cleanupError,
-          );
-        }
-      } catch (cleanupError) {
-        console.error(
-          "Unreferenced profile image cleanup failed:",
-          cleanupError,
-        );
-      }
-    };
-
-    const {
-      data: { publicUrl },
-    } = storage.getPublicUrl(fileName);
-
+    // A failed/unknown DB response cannot prove that this upload is detached.
+    imageCleanup = undefined;
     // 다른 요청이 이미 변경한 이미지를 덮어쓰지 않습니다.
     const updateQuery = supabase
       .from("profiles")
@@ -130,51 +132,71 @@ export async function POST(request: NextRequest) {
       .maybeSingle();
 
     if (updateError || !updatedProfile) {
-      await cleanupUpload();
-      cleanupUpload = null;
       if (updateError) {
         console.error("Profile image update failed:", updateError);
+      } else {
+        imageCleanup = getImageCleanup(fileName);
       }
       return NextResponse.json(
         {
           error: updateError
-            ? "프로필 이미지 변경에 실패했습니다."
-            : "프로필 이미지가 변경되었습니다. 다시 시도해 주세요.",
+            ? "프로필 이미지 변경 상태를 확인하지 못했습니다. 새로고침하여 확인해 주세요. 저장소 파일은 삭제하지 않았습니다."
+            : "프로필 이미지가 변경되었거나 프로필을 찾을 수 없습니다. 새로고침하여 확인해 주세요. 업로드 파일의 실제 삭제는 보류되었습니다.",
+          imageCleanup,
         },
         { status: updateError ? 500 : 409 },
       );
     }
-    cleanupUpload = null;
+    imageCleanup = getImageCleanup(
+      oldFileName !== fileName ? oldFileName : null,
+    );
 
-    // 새 이미지가 저장된 후에만 이전 이미지를 삭제합니다.
-    if (oldFileName) {
-      const { error: removeError } = await storage.remove([oldFileName]);
-      if (removeError) {
-        console.error("Previous profile image cleanup failed:", removeError);
-        return NextResponse.json(
-          {
-            error:
-              "프로필 이미지는 변경되었으나 이전 이미지 삭제에 실패했습니다.",
-          },
-          { status: 500 },
-        );
-      }
-    }
-
-    return NextResponse.json({ url: publicUrl });
+    return NextResponse.json({ url: publicUrl, imageCleanup });
   } catch (error) {
-    if (cleanupUpload) {
-      await cleanupUpload();
-    }
     console.error("Profile image upload failed:", error);
+    if (error instanceof ManagedImageUploadError) {
+      imageCleanup =
+        error.uploadState === "confirmed"
+          ? {
+              status: "deferred",
+              count: 1,
+              reason: "managed_finalization_unconfirmed",
+            }
+          : error.uploadState === "unknown"
+            ? undefined
+            : getImageCleanup(null);
+      return NextResponse.json(
+        {
+          error:
+            "관리 이미지 업로드를 완료하지 못했습니다. " +
+            (error.uploadState === "confirmed"
+              ? "업로드가 확인된 파일의 준비 상태를 확인하지 못했습니다. 파일 정리는 보류 중입니다. "
+              : error.uploadState === "unknown"
+                ? "파일의 업로드 상태를 확인하지 못했습니다. "
+                : "업로드를 시작하지 않았습니다. ") +
+            "저장소 파일은 삭제하지 않았습니다. 다시 시도해주세요.",
+          imageCleanup,
+        },
+        { status: 500 },
+      );
+    }
     return NextResponse.json(
-      { error: "프로필 이미지 업로드에 실패했습니다." },
+      {
+        error:
+          "프로필 이미지 변경 상태를 확인하지 못했습니다. 새로고침하여 확인해 주세요. " +
+          (imageCleanup?.status === "deferred"
+            ? "업로드 파일의 실제 삭제는 보류되었습니다."
+            : "저장소 파일은 삭제하지 않았습니다."),
+        imageCleanup,
+      },
       { status: 500 },
     );
   }
 }
 
 export async function DELETE(request: NextRequest) {
+  let imageCleanup: ReturnType<typeof getImageCleanup> | undefined =
+    getImageCleanup(null);
   try {
     const supabase = await createServerSupabaseClient();
     const {
@@ -184,7 +206,7 @@ export async function DELETE(request: NextRequest) {
 
     if (userError || !user) {
       return NextResponse.json(
-        { error: "로그인이 필요합니다." },
+        { error: "로그인이 필요합니다.", imageCleanup },
         { status: 401 },
       );
     }
@@ -197,13 +219,13 @@ export async function DELETE(request: NextRequest) {
     if (profileError) {
       console.error("Profile image lookup failed:", profileError);
       return NextResponse.json(
-        { error: "프로필 정보를 가져오지 못했습니다." },
+        { error: "프로필 정보를 가져오지 못했습니다.", imageCleanup },
         { status: 500 },
       );
     }
     if (!profile) {
       return NextResponse.json(
-        { error: "프로필을 찾을 수 없습니다." },
+        { error: "프로필을 찾을 수 없습니다.", imageCleanup },
         { status: 404 },
       );
     }
@@ -215,7 +237,9 @@ export async function DELETE(request: NextRequest) {
       storage.getPublicUrl("").data.publicUrl,
     );
 
-    // 먼저 프로필 참조를 제거하여 삭제된 파일을 가리키지 않습니다.
+    // Do not report a cleanup outcome until the reference mutation is known.
+    imageCleanup = undefined;
+    // 프로필 참조만 해제하며 저장소 파일은 삭제하지 않습니다.
     const updateQuery = supabase
       .from("profiles")
       .update({ avatar_url: null })
@@ -231,32 +255,31 @@ export async function DELETE(request: NextRequest) {
     if (updateError || !updatedProfile) {
       if (updateError) {
         console.error("Profile image removal failed:", updateError);
+      } else {
+        imageCleanup = getImageCleanup(null);
       }
       return NextResponse.json(
         {
           error: updateError
-            ? "프로필 이미지 삭제에 실패했습니다."
-            : "프로필 이미지가 변경되었습니다. 다시 시도해 주세요.",
+            ? "프로필 이미지 연결 해제 상태를 확인하지 못했습니다. 새로고침하여 확인해 주세요. 저장소 파일은 삭제하지 않았습니다."
+            : "프로필 이미지가 변경되었거나 프로필을 찾을 수 없습니다. 새로고침하여 확인해 주세요.",
+          imageCleanup,
         },
         { status: updateError ? 500 : 409 },
       );
     }
-    if (fileName) {
-      const { error: removeError } = await storage.remove([fileName]);
-      if (removeError) {
-        console.error("Profile image storage removal failed:", removeError);
-        return NextResponse.json(
-          { error: "프로필 이미지는 해제되었으나 파일 삭제에 실패했습니다." },
-          { status: 500 },
-        );
-      }
-    }
-
-    return NextResponse.json({ success: true });
+    return NextResponse.json({
+      success: true,
+      imageCleanup: getImageCleanup(fileName),
+    });
   } catch (error) {
     console.error("Profile image removal failed:", error);
     return NextResponse.json(
-      { error: "프로필 이미지 삭제에 실패했습니다." },
+      {
+        error:
+          "프로필 이미지 연결 해제 상태를 확인하지 못했습니다. 새로고침하여 확인해 주세요. 저장소 파일은 삭제하지 않았습니다.",
+        imageCleanup,
+      },
       { status: 500 },
     );
   }

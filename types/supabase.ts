@@ -1,3 +1,12 @@
+import type {
+  ManagedImageBucket,
+  ManagedImageDeletionAcknowledgement,
+  ManagedImageDeletionClaim,
+  ManagedImageExtension,
+  ManagedImageFinalization,
+  ManagedImageReservation,
+} from "@/lib/image-lifecycle";
+
 export type Json =
   | string
   | number
@@ -409,6 +418,30 @@ export interface Database {
     };
     Views: { [key in never]: never };
     Functions: {
+      reserve_managed_image: {
+        Args: {
+          p_bucket_id: ManagedImageBucket;
+          p_extension: ManagedImageExtension;
+        };
+        Returns: ManagedImageReservation[];
+      };
+      finalize_managed_image: {
+        Args: { p_asset_id: string };
+        Returns: ManagedImageFinalization[];
+      };
+      claim_managed_image_deletions: {
+        Args: { p_limit?: number };
+        Returns: ManagedImageDeletionClaim[];
+      };
+      acknowledge_managed_image_deletion: {
+        Args: {
+          p_asset_id: string;
+          p_lease_token: string;
+          p_deleted: boolean;
+          p_error?: string | null;
+        };
+        Returns: ManagedImageDeletionAcknowledgement[];
+      };
       // These recommendation contracts come from app/api/stores/route.ts.
       get_stores_within_radius: {
         Args: {

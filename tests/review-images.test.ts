@@ -20,6 +20,27 @@ const OTHER_IMAGE = `${BUCKET_URL}/${OTHER_USER_ID}/${FILE_A}`;
 const EXTERNAL_IMAGE = "https://external.example/photo.jpg";
 const PAYLOAD = { rating: 4.5, content: "리뷰 내용", imageUrls: [IMAGE_A] };
 
+test("managed image names retain exact owner, bucket and URL boundaries", () => {
+  const managed = `${BUCKET_URL}/${USER_ID}/managed-${FILE_A}`;
+  assert.equal(
+    reviewImages.getOwnedReviewImagePath(managed, USER_ID, BUCKET_URL),
+    `${USER_ID}/managed-${FILE_A}`,
+  );
+  for (const invalid of [
+    managed.replace(USER_ID, OTHER_USER_ID),
+    managed.replace("managed-", "%6danaged-"),
+    `${managed}?download=1`,
+    `${managed}#fragment`,
+    managed.replace("managed-", "managed-not-a-uuid-"),
+    managed.replace(BUCKET_URL, "https://external.example"),
+  ]) {
+    assert.equal(
+      reviewImages.getOwnedReviewImagePath(invalid, USER_ID, BUCKET_URL),
+      null,
+    );
+  }
+});
+
 type Method = "POST" | "GET" | "DELETE";
 type Review = {
   id: number;
@@ -420,7 +441,7 @@ test("cleanup only accounts for unique owned generated images actually detached"
       USER_ID,
       BUCKET_URL,
     ),
-    { status: "deferred", count: 1, reason: "atomic_cleanup_unavailable" },
+    { status: "deferred", count: 1, reason: "cleanup_unconfirmed" },
   );
   assert.deepEqual(
     reviewImages.getReviewImageCleanup(
@@ -639,7 +660,7 @@ test("edits preserve prior attachments and explicitly defer only owned detached 
   assert.deepEqual(body.imageCleanup, {
     status: "deferred",
     count: 1,
-    reason: "atomic_cleanup_unavailable",
+    reason: "cleanup_unconfirmed",
   });
   const update = calls.queries.find((query) => query.operation === "update");
   assert.deepEqual(update?.filters, [
@@ -733,7 +754,7 @@ test("successful delete reports deferred cleanup and never removes foreign or sh
   assert.deepEqual(body.imageCleanup, {
     status: "deferred",
     count: 2,
-    reason: "atomic_cleanup_unavailable",
+    reason: "cleanup_unconfirmed",
   });
   const deletion = calls.queries.find((query) => query.operation === "delete");
   assert.deepEqual(deletion?.filters, [

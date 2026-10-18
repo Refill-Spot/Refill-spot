@@ -181,7 +181,7 @@ export function getOwnedProfileImagePath(
 
     const fileName = url.pathname.slice(prefix.length);
     if (
-      !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\.(?:jpe?g|png|webp)$/i.test(
+      !/^(?:managed-)?[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\.(?:jpe?g|png|webp)$/i.test(
         fileName,
       )
     ) {

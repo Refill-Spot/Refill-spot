@@ -2,7 +2,7 @@ export const REVIEW_IMAGES_BUCKET =
   process.env.SUPABASE_STORAGE_BUCKET_REVIEW_IMAGES || "review-images";
 
 const GENERATED_IMAGE_NAME =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\.(?:jpg|png|webp)$/;
+  /^(?:managed-)?[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\.(?:jpg|png|webp)$/;
 
 function getUserBucketImagePath(
   imageUrl: unknown,
@@ -153,12 +153,11 @@ export function getReviewImageCleanup(
     return { status: "not_needed" as const, count: 0 };
   }
 
-  // A cookie/RLS-scoped SELECT cannot prove absence of global references, and
-  // SELECT then Storage.remove races with reattachment. Until a DB-coordinated
-  // cleanup protocol protects both, keep the files and report the pending work.
+  // A detached URL alone does not prove a managed claim or physical deletion.
+  // Legacy objects stay protected; managed objects require worker confirmation.
   return {
     status: "deferred" as const,
     count: detached.length,
-    reason: "atomic_cleanup_unavailable" as const,
+    reason: "cleanup_unconfirmed" as const,
   };
 }

@@ -11,76 +11,97 @@ interface ProfileImageUploadProps {
   onUploadComplete?: (url: string) => void;
 }
 
-export function ProfileImageUpload({ onUploadComplete }: ProfileImageUploadProps) {
+export function ProfileImageUpload({
+  onUploadComplete,
+}: ProfileImageUploadProps) {
   const { profile, user } = useAuth();
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
 
-  const handleFileSelect = useCallback(async (file: File) => {
-    if (!file) {
-      return;
-    }
-
-    // 파일 유효성 검사
-    const allowedTypes = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
-    if (!allowedTypes.includes(file.type)) {
-      toast({
-        title: "지원하지 않는 파일 형식",
-        description: "JPEG, PNG, WebP 파일만 업로드 가능합니다.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // 파일 크기 제한 (5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      toast({
-        title: "파일 크기 초과",
-        description: "파일 크기는 5MB 이하여야 합니다.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setIsUploading(true);
-
-    try {
-      const formData = new FormData();
-      formData.append("file", file);
-
-      const response = await fetch("/api/profile/avatar", {
-        method: "POST",
-        body: formData,
-      });
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.error || "업로드 실패");
+  const handleFileSelect = useCallback(
+    async (file: File) => {
+      if (!file) {
+        return;
       }
 
-      toast({
-        title: "프로필 사진 업로드 완료",
-        description: "프로필 사진이 성공적으로 업데이트되었습니다.",
-      });
+      // 파일 유효성 검사
+      const allowedTypes = [
+        "image/jpeg",
+        "image/jpg",
+        "image/png",
+        "image/webp",
+      ];
+      if (!allowedTypes.includes(file.type)) {
+        toast({
+          title: "지원하지 않는 파일 형식",
+          description: "JPEG, PNG, WebP 파일만 업로드 가능합니다.",
+          variant: "destructive",
+        });
+        return;
+      }
 
-      onUploadComplete?.(result.url);
-      
-      // 페이지 새로고침으로 프로필 데이터 갱신
-      window.location.reload();
-    } catch (error: any) {
-      console.error("Upload error:", error);
-      toast({
-        title: "업로드 실패",
-        description: error.message || "프로필 사진 업로드 중 오류가 발생했습니다.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsUploading(false);
-    }
-  }, [toast, onUploadComplete]);
+      // 파일 크기 제한 (5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        toast({
+          title: "파일 크기 초과",
+          description: "파일 크기는 5MB 이하여야 합니다.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      setIsUploading(true);
+      let failureMessage =
+        "프로필 사진 변경 상태를 확인하지 못했습니다. 새로고침하여 확인해 주세요. 저장소 파일은 삭제하지 않았습니다.";
+
+      try {
+        const formData = new FormData();
+        formData.append("file", file);
+
+        const response = await fetch("/api/profile/avatar", {
+          method: "POST",
+          body: formData,
+        });
+
+        const result = await response.json();
+
+        if (!response.ok) {
+          if (typeof result?.error === "string" && result.error) {
+            failureMessage = result.error;
+          }
+          throw new Error(failureMessage);
+        }
+        if (typeof result?.url !== "string" || !result.url.trim()) {
+          throw new Error(failureMessage);
+        }
+
+        toast({
+          title: "프로필 사진 업로드 완료",
+          description:
+            result.imageCleanup?.status === "deferred"
+              ? "프로필 사진 연결이 변경되었습니다. 이전 파일의 실제 삭제는 보류 중입니다."
+              : "프로필 사진 연결이 변경되었습니다.",
+        });
+
+        onUploadComplete?.(result.url);
+
+        // 페이지 새로고침으로 프로필 데이터 갱신
+        window.location.reload();
+      } catch (error: any) {
+        console.error("Upload error:", error);
+        toast({
+          title: "업로드 실패",
+          description: failureMessage,
+          variant: "destructive",
+        });
+      } finally {
+        setIsUploading(false);
+      }
+    },
+    [toast, onUploadComplete],
+  );
 
   const handleDeleteImage = async () => {
     if (!profile?.avatar_url) {
@@ -88,6 +109,8 @@ export function ProfileImageUpload({ onUploadComplete }: ProfileImageUploadProps
     }
 
     setIsUploading(true);
+    let failureMessage =
+      "프로필 사진 연결 해제 상태를 확인하지 못했습니다. 새로고침하여 확인해 주세요. 저장소 파일은 삭제하지 않았습니다.";
 
     try {
       const response = await fetch("/api/profile/avatar", {
@@ -97,12 +120,21 @@ export function ProfileImageUpload({ onUploadComplete }: ProfileImageUploadProps
       const result = await response.json();
 
       if (!response.ok) {
-        throw new Error(result.error || "삭제 실패");
+        if (typeof result?.error === "string" && result.error) {
+          failureMessage = result.error;
+        }
+        throw new Error(failureMessage);
+      }
+      if (result?.success !== true) {
+        throw new Error(failureMessage);
       }
 
       toast({
-        title: "프로필 사진 삭제 완료",
-        description: "프로필 사진이 삭제되었습니다.",
+        title: "프로필 사진 연결 해제 완료",
+        description:
+          result.imageCleanup?.status === "deferred"
+            ? "프로필에서 사진 연결이 해제되었습니다. 파일의 실제 삭제는 보류 중입니다."
+            : "프로필에서 사진 연결이 해제되었습니다.",
       });
 
       // 페이지 새로고침으로 프로필 데이터 갱신
@@ -111,7 +143,7 @@ export function ProfileImageUpload({ onUploadComplete }: ProfileImageUploadProps
       console.error("Delete error:", error);
       toast({
         title: "삭제 실패",
-        description: error.message || "프로필 사진 삭제 중 오류가 발생했습니다.",
+        description: failureMessage,
         variant: "destructive",
       });
     } finally {
@@ -119,15 +151,18 @@ export function ProfileImageUpload({ onUploadComplete }: ProfileImageUploadProps
     }
   };
 
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
+  const handleDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      setIsDragging(false);
 
-    const files = Array.from(e.dataTransfer.files);
-    if (files.length > 0) {
-      handleFileSelect(files[0]);
-    }
-  }, [handleFileSelect]);
+      const files = Array.from(e.dataTransfer.files);
+      if (files.length > 0) {
+        handleFileSelect(files[0]);
+      }
+    },
+    [handleFileSelect],
+  );
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();

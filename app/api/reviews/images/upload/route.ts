@@ -3,15 +3,18 @@ import {
   readImageUploadFormData,
   validateImageUpload,
 } from "@/lib/image-utils";
+import {
+  ManagedImageUploadError,
+  uploadManagedImage,
+} from "@/lib/managed-image-upload";
 import { NextRequest, NextResponse } from "next/server";
-import { v4 as uuidv4 } from "uuid";
 
 const MAX_IMAGES = 5;
 const REVIEW_IMAGES_BUCKET =
   process.env.SUPABASE_STORAGE_BUCKET_REVIEW_IMAGES || "review-images";
 
 export async function POST(request: NextRequest) {
-  let cleanupUploads: (() => Promise<void>) | null = null;
+  let confirmedUploadCount = 0;
   try {
     const supabase = await createServerSupabaseClient();
 
@@ -56,11 +59,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const validatedFiles: {
-      file: File;
-      contentType: string;
-      extension: string;
-    }[] = [];
+    const validatedFiles: File[] = [];
     // 업로드를 시작하기 전에 모든 파일을 검사합니다.
     for (const file of files) {
       const validation = await validateImageUpload(file);
@@ -73,54 +72,20 @@ export async function POST(request: NextRequest) {
               : "JPG, PNG, WebP 형식의 이미지만 업로드할 수 있습니다.";
         return NextResponse.json({ error: message }, { status: 400 });
       }
-      validatedFiles.push(validation);
+      validatedFiles.push(validation.file);
     }
 
     const uploadedUrls: string[] = [];
-    const uploadedPaths: string[] = [];
-    const storage = supabase.storage.from(REVIEW_IMAGES_BUCKET);
-    cleanupUploads = async () => {
-      if (uploadedPaths.length === 0) {
-        return;
-      }
-      try {
-        const { error: cleanupError } = await storage.remove(uploadedPaths);
-        if (cleanupError) {
-          console.error("Review image rollback failed:", cleanupError);
-        }
-      } catch (cleanupError) {
-        console.error("Review image rollback failed:", cleanupError);
-      }
-    };
 
-    // 각 파일을 Supabase Storage에 업로드
-    for (const validation of validatedFiles) {
-      const fileName = `${user.id}/${uuidv4()}.${validation.extension}`;
-      const { data: uploadData, error: uploadError } = await storage.upload(
-        fileName,
-        validation.file,
-        {
-          contentType: validation.contentType,
-          cacheControl: "3600",
-          upsert: false,
-        },
-      );
-
-      if (uploadError || !uploadData) {
-        console.error("이미지 업로드 오류:", uploadError);
-        await cleanupUploads();
-        cleanupUploads = null;
-        return NextResponse.json(
-          { error: "이미지 업로드 중 오류가 발생했습니다." },
-          { status: 500 },
-        );
-      }
-      uploadedPaths.push(fileName);
-
-      // 공개 URL 생성
-      const { data: urlData } = storage.getPublicUrl(fileName);
-
-      uploadedUrls.push(urlData.publicUrl);
+    // 준비 상태와 Storage 메타데이터가 확인된 관리 이미지만 반환합니다.
+    for (const file of validatedFiles) {
+      const finalizedImage = await uploadManagedImage(supabase, {
+        ownerId: user.id,
+        bucketId: REVIEW_IMAGES_BUCKET,
+        file,
+      });
+      confirmedUploadCount++;
+      uploadedUrls.push(finalizedImage.canonical_url);
     }
 
     return NextResponse.json({
@@ -128,12 +93,39 @@ export async function POST(request: NextRequest) {
       imageUrls: uploadedUrls,
     });
   } catch (error) {
-    if (cleanupUploads) {
-      await cleanupUploads();
-    }
     console.error("이미지 업로드 API 오류:", error);
+    const uploadFailure =
+      error instanceof ManagedImageUploadError ? error : null;
+    if (uploadFailure?.uploadState === "confirmed") {
+      confirmedUploadCount++;
+    }
+    // 파일이 확인되었더라도 실제 삭제나 정리 예약을 추정하지 않습니다.
     return NextResponse.json(
-      { error: "서버 오류가 발생했습니다." },
+      {
+        error:
+          "이미지 업로드 요청을 완료하지 못했습니다. " +
+          (confirmedUploadCount > 0
+            ? `업로드가 확인된 이미지 ${confirmedUploadCount}개의 파일 정리는 보류 중입니다. `
+            : "") +
+          (uploadFailure?.uploadState === "unknown"
+            ? "파일의 업로드 상태를 확인하지 못했습니다. "
+            : uploadFailure?.stage === "finalize"
+              ? "관리 이미지의 준비 상태를 확인하지 못했습니다. "
+              : "") +
+          "저장소 파일은 삭제하지 않았습니다. 다시 시도해주세요.",
+        ...(confirmedUploadCount > 0
+          ? {
+              imageCleanup: {
+                status: "deferred",
+                count: confirmedUploadCount,
+                reason:
+                  uploadFailure?.stage === "finalize"
+                    ? "managed_finalization_unconfirmed"
+                    : "cleanup_unconfirmed",
+              },
+            }
+          : {}),
+      },
       { status: 500 },
     );
   }

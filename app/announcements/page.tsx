@@ -1,5 +1,6 @@
 "use client";
 
+import { BrandMark } from "@/components/brand-mark";
 import { useAnnouncements } from "@/hooks/use-announcements";
 import { useTranslation } from "@/hooks/use-translation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,17 +16,11 @@ import { ko } from "date-fns/locale";
 
 export default function AnnouncementsPage() {
   const { t } = useTranslation();
-  const {
-    announcements,
-    loading,
-    error,
-    pagination,
-    setParams,
-    refetch,
-  } = useAnnouncements({
-    page: 1,
-    limit: 10,
-  });
+  const { announcements, loading, error, pagination, setParams, refetch } =
+    useAnnouncements({
+      page: 1,
+      limit: 10,
+    });
 
   const handlePageChange = (page: number) => {
     setParams({ page, limit: 10 });
@@ -40,11 +35,10 @@ export default function AnnouncementsPage() {
     }
   };
 
-
   const truncateContent = (content: string, maxLength: number = 150) => {
     if (content.length <= maxLength) {
-return content;
-}
+      return content;
+    }
     return content.substring(0, maxLength) + "...";
   };
 
@@ -89,9 +83,7 @@ return content;
         <div className="max-w-4xl mx-auto">
           <Alert variant="destructive">
             <AlertCircle className="h-4 w-4" />
-            <AlertDescription>
-              {error}
-            </AlertDescription>
+            <AlertDescription>{error}</AlertDescription>
           </Alert>
           <div className="mt-4 text-center">
             <Button onClick={refetch} variant="outline">
@@ -110,14 +102,21 @@ return content;
           {/* 상단 네비게이션 */}
           <div className="mb-6">
             <div className="flex items-center justify-between mb-4">
-              <Button variant="ghost" asChild className="text-black hover:text-black hover:bg-gray-100">
+              <Button
+                variant="ghost"
+                asChild
+                className="text-black hover:text-black hover:bg-gray-100"
+              >
                 <Link href="/map">
                   <Home className="h-4 w-4 mr-2" />
                   지도로 돌아가기
                 </Link>
               </Button>
               <nav className="text-sm text-muted-foreground">
-                <Link href="/map" className="hover:text-[#FF5722] transition-colors">
+                <Link
+                  href="/map"
+                  className="hover:text-[#FF5722] transition-colors"
+                >
                   홈
                 </Link>
                 <span className="mx-2">/</span>
@@ -128,20 +127,8 @@ return content;
 
           {/* 헤더 */}
           <div className="mb-8 text-center">
-            <div className="w-16 h-16 bg-gradient-to-br from-orange-500 to-red-500 rounded-2xl flex items-center justify-center mb-4 mx-auto">
-              <svg
-                className="w-8 h-8 text-white"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                />
-              </svg>
+            <div className="w-16 h-16 flex items-center justify-center mb-4 mx-auto">
+              <BrandMark size={64} />
             </div>
             <h1 className="text-4xl font-bold mb-3 bg-gradient-to-r from-[#FF5722] to-orange-500 bg-clip-text text-transparent">
               공지사항
@@ -160,9 +147,9 @@ return content;
               <div className="text-muted-foreground text-lg mb-4">
                 공지사항이 없습니다.
               </div>
-              <Button 
-                onClick={refetch} 
-                variant="outline" 
+              <Button
+                onClick={refetch}
+                variant="outline"
                 className="border-[#FF5722] text-[#FF5722] hover:bg-[#FF5722] hover:text-white"
               >
                 새로고침
@@ -171,7 +158,10 @@ return content;
           ) : (
             <div className="space-y-6">
               {announcements.map((announcement) => (
-                <Card key={announcement.id} className="group hover:shadow-lg transition-all duration-300 border-l-4 border-l-[#FF5722] hover:border-l-orange-600 bg-white/80 backdrop-blur-sm">
+                <Card
+                  key={announcement.id}
+                  className="group hover:shadow-lg transition-all duration-300 border-l-4 border-l-[#FF5722] hover:border-l-orange-600 bg-white/80 backdrop-blur-sm"
+                >
                   <CardHeader className="pb-4">
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
@@ -206,9 +196,9 @@ return content;
                     <p className="text-muted-foreground leading-relaxed mb-4">
                       {truncateContent(announcement.content)}
                     </p>
-                    <Button 
-                      asChild 
-                      variant="outline" 
+                    <Button
+                      asChild
+                      variant="outline"
                       size="sm"
                       className="border-[#FF5722] text-[#FF5722] hover:bg-[#FF5722] hover:text-white transition-colors duration-300"
                     >
@@ -235,32 +225,40 @@ return content;
                 >
                   이전
                 </Button>
-                
+
                 <div className="flex items-center gap-1">
                   {/* 페이지 번호 표시 */}
-                  {Array.from({ length: Math.min(5, pagination.totalPages) }, (_, i) => {
-                    const startPage = Math.max(1, pagination.page - 2);
-                    const pageNumber = startPage + i;
-                    
-                    if (pageNumber > pagination.totalPages) {
-return null;
-}
-                    
-                    return (
-                      <Button
-                        key={pageNumber}
-                        variant={pageNumber === pagination.page ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => handlePageChange(pageNumber)}
-                        className={pageNumber === pagination.page 
-                          ? "bg-gradient-to-r from-[#FF5722] to-orange-600 text-white border-0" 
-                          : "border-[#FF5722] text-[#FF5722] hover:bg-[#FF5722] hover:text-white"
-                        }
-                      >
-                        {pageNumber}
-                      </Button>
-                    );
-                  })}
+                  {Array.from(
+                    { length: Math.min(5, pagination.totalPages) },
+                    (_, i) => {
+                      const startPage = Math.max(1, pagination.page - 2);
+                      const pageNumber = startPage + i;
+
+                      if (pageNumber > pagination.totalPages) {
+                        return null;
+                      }
+
+                      return (
+                        <Button
+                          key={pageNumber}
+                          variant={
+                            pageNumber === pagination.page
+                              ? "default"
+                              : "outline"
+                          }
+                          size="sm"
+                          onClick={() => handlePageChange(pageNumber)}
+                          className={
+                            pageNumber === pagination.page
+                              ? "bg-gradient-to-r from-[#FF5722] to-orange-600 text-white border-0"
+                              : "border-[#FF5722] text-[#FF5722] hover:bg-[#FF5722] hover:text-white"
+                          }
+                        >
+                          {pageNumber}
+                        </Button>
+                      );
+                    },
+                  )}
                 </div>
 
                 <Button
@@ -279,8 +277,10 @@ return null;
           {/* 페이지 정보 */}
           {announcements.length > 0 && (
             <div className="mt-4 text-center text-sm text-muted-foreground">
-              전체 {pagination.total}개 중 {((pagination.page - 1) * pagination.limit) + 1}~
-              {Math.min(pagination.page * pagination.limit, pagination.total)}개 표시
+              전체 {pagination.total}개 중{" "}
+              {(pagination.page - 1) * pagination.limit + 1}~
+              {Math.min(pagination.page * pagination.limit, pagination.total)}개
+              표시
             </div>
           )}
         </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import { ExternalRatings } from "@/components/external-ratings";
+import { PlatformViewDialog } from "@/components/platform-view-dialog";
 import { Button } from "@/components/ui/button";
 import {
   Carousel,
@@ -63,6 +64,9 @@ export default function StoreDetails({ storeId }: StoreDetailsProps) {
   const [uploading, setUploading] = useState(false);
   // liveRating 관련 상태들 제거 - 자체 리뷰 시스템 사용
   const [showAllHours, setShowAllHours] = useState(false);
+  const [externalPlatform, setExternalPlatform] = useState<
+    "naver" | "kakao" | null
+  >(null);
   const [photoIndex, setPhotoIndex] = useState<number | null>(null);
   const [failedImages, setFailedImages] = useState<Set<string>>(new Set());
   const photoTriggerRef = useRef<HTMLButtonElement | null>(null);
@@ -617,8 +621,40 @@ export default function StoreDetails({ storeId }: StoreDetailsProps) {
                 <span>자체 리뷰 {reviews.length}개</span>
                 {distanceLabel && <span>{distanceLabel}</span>}
               </div>
-              <section className="mt-3" aria-label="플랫폼별 평점 비교">
+              <section className="mt-3" aria-label="외부 플랫폼 정보">
                 <ExternalRatings ratings={storeData.rating} />
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <Button
+                    size="sm"
+                    className="bg-green-700 text-white hover:bg-green-800"
+                    onClick={() => setExternalPlatform("naver")}
+                  >
+                    <span className="mr-2 font-black" aria-hidden="true">
+                      N
+                    </span>
+                    네이버에서 리뷰 확인
+                  </Button>
+                  <Button
+                    size="sm"
+                    className="bg-[#FEE500] text-gray-950 hover:bg-yellow-300"
+                    onClick={() => setExternalPlatform("kakao")}
+                  >
+                    <MapPin className="mr-2 h-4 w-4" aria-hidden="true" />
+                    카카오맵에서 리뷰 확인
+                  </Button>
+                </div>
+                {externalPlatform && (
+                  <PlatformViewDialog
+                    open
+                    onOpenChange={(open) => {
+                      if (!open) {
+                        setExternalPlatform(null);
+                      }
+                    }}
+                    store={storeData}
+                    platform={externalPlatform}
+                  />
+                )}
               </section>
             </div>
             <Button

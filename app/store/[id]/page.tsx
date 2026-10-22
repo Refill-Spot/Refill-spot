@@ -31,6 +31,7 @@ import { StoreReviews } from "@/components/store-reviews";
 import { ReviewWriteDialog } from "@/components/review-write-dialog";
 import { PlatformViewDialog } from "@/components/platform-view-dialog";
 import { ExternalRatings } from "@/components/external-ratings";
+import { BrandMark } from "@/components/brand-mark";
 import { getUserLocation, isLocationValid } from "@/lib/location-storage";
 import type { LocationResult } from "@/lib/location-search";
 import { Store } from "@/types/store";
@@ -336,21 +337,7 @@ export default function StorePage() {
                 className="flex items-center space-x-2 rounded-md text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 aria-label="Refill Spot 가게 지도"
               >
-                <div className="bg-primary rounded-lg p-2">
-                  <svg
-                    className="w-5 h-5 text-primary-foreground"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                    />
-                  </svg>
-                </div>
+                <BrandMark size={38} className="shrink-0" />
                 <div>
                   <span className="text-base font-semibold text-foreground md:text-lg">
                     Refill Spot
@@ -782,20 +769,22 @@ export default function StorePage() {
                     <Button
                       onClick={() => setShowNaverPlatform(true)}
                       variant="outline"
-                      className="text-foreground"
+                      className="border-green-700 bg-green-700 text-white hover:bg-green-800 hover:text-white"
                       size="sm"
                     >
-                      <Star className="w-4 h-4 mr-2" />
-                      네이버 평점
+                      <span className="mr-2 font-black" aria-hidden="true">
+                        N
+                      </span>
+                      네이버에서 리뷰 확인
                     </Button>
                     <Button
                       onClick={() => setShowKakaoPlatform(true)}
                       variant="outline"
-                      className="text-foreground"
+                      className="border-yellow-400 bg-[#FEE500] text-gray-950 hover:bg-yellow-300 hover:text-gray-950"
                       size="sm"
                     >
-                      <Star className="w-4 h-4 mr-2" />
-                      카카오 평점
+                      <MapPin className="w-4 h-4 mr-2" aria-hidden="true" />
+                      카카오맵에서 리뷰 확인
                     </Button>
                   </div>
                 </div>
@@ -1256,22 +1245,7 @@ export default function StorePage() {
             {/* 로고 및 설명 */}
             <div className="space-y-4">
               <div className="flex items-center space-x-2">
-                <div className="bg-primary rounded-lg p-2">
-                  <svg
-                    className="w-6 h-6 text-primary-foreground"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                    aria-hidden="true"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                    />
-                  </svg>
-                </div>
+                <BrandMark size={40} className="shrink-0" />
                 <div>
                   <h3 className="text-lg font-semibold text-foreground">
                     Refill Spot

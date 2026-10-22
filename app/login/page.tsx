@@ -1,5 +1,6 @@
 "use client";
 
+import { BrandMark } from "@/components/brand-mark";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -180,23 +181,9 @@ function AuthPageContent() {
       <div className="w-full max-w-md">
         <div className="text-center mb-6">
           <div className="flex justify-center mb-2">
-            <div className="bg-[#FF5722] p-3 rounded-full">
-              <svg
-                className="h-8 w-8 text-white"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                />
-              </svg>
-            </div>
+            <BrandMark size={56} />
           </div>
-          <h1 className="text-2xl font-bold text-[#FF5722]">Refill-spot</h1>
+          <h1 className="text-2xl font-bold text-[#FF5722]">Refill Spot</h1>
           <p className="text-gray-500 mt-1">무한리필 가게 찾기</p>
         </div>
 

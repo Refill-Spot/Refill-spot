@@ -1,3 +1,4 @@
+import { BrandMark } from "@/components/brand-mark";
 import { ImageResponse } from "next/og";
 import { NextRequest } from "next/server";
 
@@ -12,100 +13,86 @@ export async function GET(req: NextRequest) {
     const category = searchParams.get("category") || "";
 
     return new ImageResponse(
-      (
+      <div
+        style={{
+          height: "100%",
+          width: "100%",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          backgroundColor: "#ffffff",
+          backgroundImage: "linear-gradient(to bottom right, #FF5722, #FFAB91)",
+        }}
+      >
         <div
           style={{
-            height: "100%",
-            width: "100%",
             display: "flex",
             flexDirection: "column",
             alignItems: "center",
             justifyContent: "center",
-            backgroundColor: "#ffffff",
-            backgroundImage:
-              "linear-gradient(to bottom right, #FF5722, #FFAB91)",
+            backgroundColor: "white",
+            borderRadius: "16px",
+            padding: "32px 64px",
+            boxShadow: "0 8px 16px rgba(0, 0, 0, 0.1)",
+            maxWidth: "80%",
           }}
         >
           <div
             style={{
               display: "flex",
-              flexDirection: "column",
               alignItems: "center",
-              justifyContent: "center",
-              backgroundColor: "white",
-              borderRadius: "16px",
-              padding: "32px 64px",
-              boxShadow: "0 8px 16px rgba(0, 0, 0, 0.1)",
-              maxWidth: "80%",
+              marginBottom: "24px",
             }}
           >
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                marginBottom: "24px",
-              }}
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="48"
-                height="48"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="#FF5722"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                style={{ marginRight: "16px" }}
-              >
-                <path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-              </svg>
-              <span
-                style={{
-                  fontSize: "36px",
-                  fontWeight: "bold",
-                  color: "#FF5722",
-                }}
-              >
-                Refill-spot
-              </span>
+            <div style={{ display: "flex", marginRight: "16px" }}>
+              <BrandMark size={48} />
             </div>
-            <h1
+            <span
               style={{
-                fontSize: "48px",
+                fontSize: "36px",
                 fontWeight: "bold",
-                color: "#333333",
-                margin: "0 0 20px 0",
-                textAlign: "center",
+                color: "#FF5722",
               }}
             >
-              {title}
-            </h1>
-            {category && (
-              <p
-                style={{
-                  fontSize: "24px",
-                  color: "#666666",
-                  margin: "0",
-                  textAlign: "center",
-                }}
-              >
-                {category}
-              </p>
-            )}
+              Refill Spot
+            </span>
+          </div>
+          <h1
+            style={{
+              fontSize: "48px",
+              fontWeight: "bold",
+              color: "#333333",
+              margin: "0 0 20px 0",
+              textAlign: "center",
+            }}
+          >
+            {title}
+          </h1>
+          {category && (
             <p
               style={{
-                fontSize: "20px",
-                color: "#999999",
-                margin: "20px 0 0 0",
+                fontSize: "24px",
+                color: "#666666",
+                margin: "0",
                 textAlign: "center",
               }}
             >
-              무한리필 맛집 찾기 | 리필스팟
+              {category}
             </p>
-          </div>
+          )}
+          <p
+            style={{
+              fontSize: "20px",
+              color: "#999999",
+              margin: "20px 0 0 0",
+              textAlign: "center",
+            }}
+          >
+            무한리필 맛집 찾기 | 리필스팟
+          </p>
         </div>
-      ),
+      </div>,
       {
         width: 1200,
         height: 630,

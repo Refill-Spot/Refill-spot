@@ -3,6 +3,7 @@
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { FormattedStore } from "@/types/store";
 import { mapStoredExternalRatings } from "@/lib/external-ratings";
+import { mapStoreFromDb } from "@/lib/stores";
 
 /**
  * @deprecated 이 함수는 더 이상 사용되지 않습니다.
@@ -83,7 +84,7 @@ export const findNearbyStores = async (
           x: store.position_x,
           y: store.position_y,
         },
-        refillItems: store.refill_items || [],
+        refillItems: mapStoreFromDb(store).refillItems,
         openHours: store.open_hours,
         phoneNumber: store.phone_number,
         imageUrls: store.image_urls || [],

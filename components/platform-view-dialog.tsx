@@ -8,15 +8,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Store } from "@/types/store";
+import type { Store } from "@/types/store";
 import {
   generateNaverMapUrl,
   generateKakaoMapUrl,
 } from "@/lib/map-platform-urls";
-import { externalRatingLabel } from "@/lib/external-ratings";
-import { useState } from "react";
-import { ExternalLink, Loader2, MapPin } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { ExternalLink, MapPin } from "lucide-react";
 
 interface PlatformViewDialogProps {
   open: boolean;
@@ -31,126 +28,75 @@ export function PlatformViewDialog({
   store,
   platform,
 }: PlatformViewDialogProps) {
-  const [loading, setLoading] = useState(true);
-
   const platformConfig = {
     naver: {
       name: "네이버지도",
-      color: "#03C75A",
+      mark: "N",
+      markClassName: "bg-[#087F3E] text-white",
+      cardClassName: "border-[#BDE8CD] bg-[#F2FBF5]",
+      linkClassName: "bg-[#087F3E] text-white hover:bg-[#066632]",
       url: generateNaverMapUrl(store),
-      rating: store.rating.naver,
     },
     kakao: {
       name: "카카오맵",
-      color: "#FEE500",
+      mark: "카카오",
+      markClassName: "bg-[#FEE500] text-[#191919]",
+      cardClassName: "border-[#E8D04C] bg-[#FFFBE5]",
+      linkClassName: "bg-[#FEE500] text-[#191919] hover:bg-[#F0D800]",
       url: generateKakaoMapUrl(store),
-      rating: store.rating.kakao,
     },
   };
 
   const config = platformConfig[platform];
-  const ratingLabel = externalRatingLabel(config.rating);
-
-  const handleOpenExternal = () => {
-    window.open(config.url, "_blank", "noopener,noreferrer");
-  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[95vw] w-[95vw] h-[95vh] flex flex-col p-0">
-        <DialogHeader className="px-6 py-4 border-b">
+      <DialogContent className="w-[92vw] max-w-md max-h-[90vh] overflow-y-auto rounded-2xl p-6">
+        <DialogHeader className="pr-6">
           <DialogTitle className="flex items-center gap-3 text-xl">
-            <div
-              className="p-2 rounded-lg"
-              style={{ backgroundColor: config.color }}
+            <span
+              aria-hidden="true"
+              className={`inline-flex h-11 min-w-11 items-center justify-center rounded-xl px-2 text-sm font-bold ${config.markClassName}`}
             >
-              <MapPin className="w-5 h-5 text-white" />
-            </div>
-            <div>
-              <div className="font-bold">{store.name}</div>
-              <div className="text-sm font-normal text-gray-600 mt-1">
-                {config.name}에서 평점과 리뷰 보기
-              </div>
-            </div>
+              {config.mark}
+            </span>
+            {config.name} 검색 결과
           </DialogTitle>
-          <div className="flex items-center gap-4 mt-3">
-            <div className="flex items-center gap-2 text-sm text-gray-600">
-              <MapPin className="w-4 h-4" />
-              {store.address}
-            </div>
-            <Badge variant="outline" className="flex items-center gap-1">
-              {config.name} · {ratingLabel}
-            </Badge>
-          </div>
+          <DialogDescription>외부 사이트에서 직접 확인</DialogDescription>
         </DialogHeader>
 
-        <div className="flex-1 overflow-hidden">
-          <div className="h-full flex flex-col">
-            <div className="flex items-center justify-between px-4 py-3 border-b bg-gray-50">
-              <div className="flex items-center gap-2">
-                <div
-                  className="w-4 h-4 rounded"
-                  style={{ backgroundColor: config.color }}
-                ></div>
-                <span className="font-semibold text-gray-800">
-                  {config.name}
-                </span>
-                <Badge variant="secondary" className="text-xs">
-                  {ratingLabel}
-                </Badge>
-              </div>
-              <div className="flex gap-2">
-                <Button
-                  onClick={handleOpenExternal}
-                  style={{ backgroundColor: config.color }}
-                  className="text-white hover:opacity-90"
-                  size="sm"
-                >
-                  <ExternalLink className="w-4 h-4 mr-1" />
-                  {config.name}에서 보기
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => onOpenChange(false)}
-                  className="text-gray-600 hover:text-gray-900"
-                >
-                  닫기
-                </Button>
-              </div>
-            </div>
-
-            <div className="flex-1 relative">
-              {loading && (
-                <div className="absolute inset-0 flex items-center justify-center bg-gray-100 z-10">
-                  <div className="text-center">
-                    <Loader2
-                      className="w-8 h-8 animate-spin mx-auto mb-2"
-                      style={{ color: config.color }}
-                    />
-                    <p className="text-sm text-gray-600">
-                      {config.name} 로딩 중...
-                    </p>
-                  </div>
-                </div>
-              )}
-              <iframe
-                src={config.url}
-                className="w-full h-full border-0"
-                onLoad={() => setLoading(false)}
-                title={`${store.name} - ${config.name}`}
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* 하단 도움말 */}
-        <div className="px-6 py-3 border-t bg-gray-50">
-          <p className="text-xs text-gray-600 text-center">
-            외부 사이트 연결은 평점 자동 연동과 별개입니다. 평점과 리뷰의 표시
-            여부는 {config.name} 정책에 따라 다릅니다.
+        <div className={`rounded-xl border p-4 ${config.cardClassName}`}>
+          <p className="break-words font-semibold text-gray-950">
+            {store.name.trim()}
+          </p>
+          <p className="mt-2 flex items-start gap-2 text-sm text-gray-700">
+            <MapPin aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0" />
+            <span className="break-words">
+              {store.address.trim() || "주소 정보 없음"}
+            </span>
           </p>
         </div>
+
+        <div className="space-y-2 text-sm text-muted-foreground">
+          <p>
+            가게명과 주소로 찾은 검색 결과이며, 이 가게로 확인된 상세 페이지가
+            아닙니다. 주소와 지점명을 비교해 같은 가게인지 확인해 주세요.
+          </p>
+          <p>
+            외부 평점은 자동으로 가져오거나 표시하지 않습니다. 평점과 리뷰의
+            제공 여부는 {config.name}에서 직접 확인해 주세요.
+          </p>
+        </div>
+
+        <Button asChild className={config.linkClassName}>
+          <a href={config.url} target="_blank" rel="noopener noreferrer">
+            <ExternalLink aria-hidden="true" className="h-4 w-4" />
+            {config.name} 검색 결과 열기 (새 탭)
+          </a>
+        </Button>
+        <Button variant="outline" onClick={() => onOpenChange(false)}>
+          닫기
+        </Button>
       </DialogContent>
     </Dialog>
   );

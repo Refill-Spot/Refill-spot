@@ -7,7 +7,10 @@ import { z } from "zod";
 const menuItemsSchema = z.array(
   z.object({
     name: z.string(),
-    type: z.string(),
+    // 공백을 제외한 정확한 소문자 내부 출처 값만 숨기고 실제 메뉴 유형은 보존합니다.
+    type: z
+      .string()
+      .transform((type) => (type.trim() === "browser_verified" ? "" : type)),
     order: z.number().finite(),
     price: z.string(),
     price_numeric: z.number().finite(),

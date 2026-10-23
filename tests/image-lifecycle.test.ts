@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { test } from "node:test";
 import {
   getManagedImageCandidateIds,
@@ -49,6 +51,59 @@ const CLAIM = {
 // Pure syntax/protocol tests are not PostgreSQL concurrency evidence. Real SQL
 // tests live in integration/image-lifecycle.test.ts and require an isolated PG
 // container; production Storage API completion semantics remain separate.
+test("quota migration preserves reservation provenance checks and confines changes to admission", () => {
+  const core = readFileSync(
+    resolve("supabase/migrations/202610110005_managed_image_lifecycle.sql"),
+    "utf8",
+  );
+  const migration = readFileSync(
+    resolve(
+      "supabase/migrations/202610110008_bound_managed_image_reservations.sql",
+    ),
+    "utf8",
+  );
+  const reservationBody = (source: string) => {
+    const match = source.match(
+      /function public\.reserve_managed_image\(p_bucket_id text, p_extension text\)[\s\S]*?as \$function\$([\s\S]*?)\$function\$;/,
+    );
+    assert.ok(match);
+    return match[1].trim();
+  };
+  const admission =
+    /\n  insert into public\.managed_image_reservation_owners[\s\S]*?  end if;\n\n/;
+  const updated = reservationBody(migration);
+  const quota = updated.match(admission)?.[0];
+  assert.ok(quota, "Quota must run inside the security-definer RPC");
+  assert.match(quota, /values \(caller_id\)/);
+  assert.match(
+    quota,
+    /on conflict \(owner_id\) do update set owner_id = excluded\.owner_id/,
+  );
+  assert.match(
+    quota,
+    /a\.owner_id = caller_id and a\.state = 'uploading'\) >= 20/,
+  );
+  assert.match(quota, /errcode = '54000'/);
+  assert.ok(updated.indexOf(quota) < updated.indexOf("for attempt in 1..10"));
+  assert.equal(updated.replace(admission, ""), reservationBody(core));
+  assert.match(
+    migration,
+    /alter table public\.managed_image_reservation_owners enable row level security/,
+  );
+  assert.match(
+    migration,
+    /revoke all on public\.managed_image_reservation_owners\s+from public, anon, authenticated, service_role/,
+  );
+  assert.doesNotMatch(
+    migration,
+    /pg_advisory|delete from|create policy|grant /i,
+  );
+  assert.equal(
+    (migration.match(/create or replace function /g) ?? []).length,
+    1,
+  );
+});
+
 test("browser-stripped controls cannot hide managed reference candidates", () => {
   for (const control of ["\t", "\n", "\r"]) {
     for (const alias of [

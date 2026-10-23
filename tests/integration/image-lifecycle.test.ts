@@ -43,6 +43,12 @@ const uploadOperation = readFileSync(
   ),
   "utf8",
 );
+const reservationLimit = readFileSync(
+  resolve(
+    "supabase/migrations/202610110008_bound_managed_image_reservations.sql",
+  ),
+  "utf8",
+);
 const quote = (value: string) => `'${value.replace(/'/g, "''")}'`;
 let rowId = 10;
 
@@ -563,8 +569,19 @@ test(
         from pg_catalog.pg_proc p
         where p.oid = 'public.managed_image_storage_insert_allowed(text,text,text,uuid)'::regprocedure;`;
       const originalInsertFunction = await sql(insertFunctionIdentity);
+      const reservationFunctionIdentity = `select row(p.oid, p.proowner, p.proacl)::text
+        from pg_catalog.pg_proc p
+        where p.oid = 'public.reserve_managed_image(text,text)'::regprocedure;`;
+      const originalReservationFunction = await sql(
+        reservationFunctionIdentity,
+      );
       await sql(uploadOperation);
+      await sql(reservationLimit);
       assert.equal(await sql(insertFunctionIdentity), originalInsertFunction);
+      assert.equal(
+        await sql(reservationFunctionIdentity),
+        originalReservationFunction,
+      );
       assert.equal(
         await sql("select enabled from public.managed_image_control;"),
         "f",
@@ -700,6 +717,7 @@ test(
             "managed_image_references",
             "managed_image_legacy_ids",
             "managed_image_control",
+            "managed_image_reservation_owners",
           ]) {
             await rejected(
               identity("authenticated") + `delete from public.${table};`,
@@ -757,6 +775,157 @@ test(
         values (${quote(LEGACY_ID)}::uuid, ${quote(OWNER)}::uuid, 'review-images', 'jpg', ${quote(LEGACY_PATH)});`,
             /non-legacy/,
           );
+        },
+      );
+
+      await t.test(
+        "reservation quota is per owner across buckets and cannot be bypassed by API roles",
+        async () => {
+          const owner = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
+          const other = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
+          await sql(`${identity("authenticated", owner)}
+            do $test$ begin
+              for i in 1..20 loop
+                perform public.reserve_managed_image(
+                  case when i % 2 = 0 then 'profile-images' else 'review-images' end, 'jpg');
+              end loop;
+            end $test$;`);
+          for (const bucket of ["review-images", "profile-images"]) {
+            await rejected(
+              identity("authenticated", owner) +
+                `select * from public.reserve_managed_image(${quote(bucket)}, 'webp');`,
+              /reservation limit reached/,
+            );
+          }
+          await sql(
+            identity("authenticated", other) +
+              "select * from public.reserve_managed_image('review-images', 'png');",
+          );
+          assert.equal(
+            await sql(`select count(*) from public.managed_image_assets
+            where owner_id = ${quote(owner)}::uuid and state = 'uploading';`),
+            "20",
+          );
+          assert.equal(
+            await sql(`select count(*) from public.managed_image_assets
+            where owner_id = ${quote(other)}::uuid and state = 'uploading';`),
+            "1",
+          );
+          for (const role of [
+            "anon",
+            "authenticated",
+            "service_role",
+          ] as const) {
+            for (const command of [
+              "select * from public.managed_image_reservation_owners for update;",
+              `insert into public.managed_image_reservation_owners values (${quote(owner)}::uuid);`,
+              "update public.managed_image_reservation_owners set owner_id = owner_id;",
+              "truncate public.managed_image_reservation_owners;",
+              `insert into public.managed_image_assets (asset_id, owner_id, bucket_id, extension, object_path)
+                values (gen_random_uuid(), ${quote(owner)}::uuid, 'review-images', 'jpg', 'bypass');`,
+            ]) {
+              await rejected(
+                identity(role, owner) + command,
+                /permission denied/,
+              );
+            }
+          }
+          await rejected(
+            identity("service_role", owner) +
+              "select * from public.reserve_managed_image('review-images', 'jpg');",
+            /permission denied/,
+          );
+          await rejected(
+            identity("authenticated", "") +
+              "select * from public.reserve_managed_image('review-images', 'jpg');",
+            /Authenticated image owner required/,
+          );
+
+          // Finalizing a proven completed upload frees exactly one slot.
+          const [asset] =
+            await jsonRows<ManagedImageReservation>(`select asset_id, bucket_id,
+            object_path, canonical_url, state from public.managed_image_assets
+            where owner_id = ${quote(owner)}::uuid limit 1`);
+          await sql(`${identity("authenticated", owner)} set storage.operation = 'object.upload';
+            insert into storage.objects (bucket_id, name, owner, owner_id, metadata)
+            values (${quote(asset.bucket_id)}, ${quote(asset.object_path)}, ${quote(owner)}::uuid,
+              ${quote(owner)}, '{"mimetype":"image/jpeg","size":128}'::jsonb);
+            select * from public.finalize_managed_image(${quote(asset.asset_id)}::uuid);
+            select * from public.reserve_managed_image('profile-images', 'jpg');`);
+          await rejected(
+            identity("authenticated", owner) +
+              "select * from public.reserve_managed_image('review-images', 'jpg');",
+            /reservation limit reached/,
+          );
+        },
+      );
+
+      await t.test(
+        "concurrent direct RPC admissions serialize and stale snapshots cannot exceed quota",
+        async () => {
+          for (const [isolation, owner, initial, expected] of [
+            [
+              "read committed",
+              "cccccccc-cccc-4ccc-9ccc-cccccccccccc",
+              19,
+              /reservation limit reached/,
+            ],
+            [
+              "repeatable read",
+              "dddddddd-dddd-4ddd-9ddd-dddddddddddd",
+              19,
+              /could not serialize access/,
+            ],
+            [
+              "read committed",
+              "cccccccc-cccc-4ccc-accc-cccccccccccc",
+              0,
+              /reservation limit reached/,
+            ],
+          ] as const) {
+            await sql(`${identity("authenticated", owner)}
+              do $test$ begin for i in 1..${initial} loop
+                perform public.reserve_managed_image('review-images', 'jpg');
+              end loop; end $test$;`);
+            const holder = session(
+              `quota_holder_${isolation.replaceAll(" ", "_")}`,
+            );
+            const name = `quota_waiter_${isolation.replaceAll(" ", "_")}`;
+            const waiter = session(name);
+            try {
+              waiter.send(`begin isolation level ${isolation}; ${identity("authenticated", owner)}
+                select count(*) from public.profiles; select 'quota-snapshot';`);
+              await waiter.marker("quota-snapshot");
+              holder.send(`begin; ${identity("authenticated", owner)}
+                do $test$ begin for i in 1..${20 - initial} loop
+                  perform public.reserve_managed_image('review-images', 'jpg');
+                end loop; end $test$;
+                select 'quota-held';`);
+              await holder.marker("quota-held");
+              waiter.send(
+                "select * from public.reserve_managed_image('profile-images', 'png'); commit;\n\\q",
+              );
+              await waitForLock(name);
+              // A different owner is not blocked by the held admission lock.
+              await sql(
+                identity("authenticated", OTHER) +
+                  "select * from public.reserve_managed_image('review-images', 'jpg');",
+              );
+              holder.send("commit;\n\\q");
+              assert.equal((await holder.done).code, 0);
+              const denied = await waiter.done;
+              assert.notEqual(denied.code, 0);
+              assert.match(denied.stderr, expected);
+              assert.equal(
+                await sql(`select count(*) from public.managed_image_assets
+                where owner_id = ${quote(owner)}::uuid and state = 'uploading';`),
+                "20",
+              );
+            } finally {
+              holder.close();
+              waiter.close();
+            }
+          }
         },
       );
 

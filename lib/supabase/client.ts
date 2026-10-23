@@ -7,6 +7,11 @@ export const createBrowserSupabaseClient = () => {
   return createBrowserClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      // OAuth is exchanged by /auth/callback; recovery by the reset page.
+      // Automatic URL exchange would race those owners and consume PKCE codes.
+      auth: { detectSessionInUrl: false },
+    },
   );
 };
 

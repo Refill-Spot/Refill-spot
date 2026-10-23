@@ -14,9 +14,16 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/use-toast";
 import { supabaseBrowser } from "@/lib/supabase/client";
+import {
+  createPasswordRecovery,
+  INVALID_RECOVERY_LINK,
+  type PasswordRecovery,
+} from "@/lib/password-recovery";
 import { AlertCircle, CheckCircle, Lock } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState, Suspense } from "react";
+
+const initializeRecovery = createPasswordRecovery(supabaseBrowser.auth);
 
 function ResetPasswordContent() {
   const [password, setPassword] = useState("");
@@ -28,34 +35,37 @@ function ResetPasswordContent() {
     score: number;
     message: string;
   }>({ score: 0, message: "" });
-  const [resetCode, setResetCode] = useState<string | null>(null);
+  const [recovery, setRecovery] = useState<PasswordRecovery | null>(null);
+  const [linkError, setLinkError] = useState<string | null>(null);
   const router = useRouter();
   const searchParams = useSearchParams();
   const { toast } = useToast();
 
-  // 페이지 로드시 코드 파라미터 확인 및 자동 로그아웃 처리
-  useEffect(() => {
-    const initializeReset = async () => {
-      const code = searchParams.get("code");
-      
-      if (code) {
-        // 코드가 있으면 즉시 로그아웃하여 자동 로그인 방지
-        try {
-          await supabaseBrowser.auth.signOut();
-          console.log("비밀번호 재설정을 위해 자동 로그아웃 처리됨");
-        } catch (err) {
-          console.error("로그아웃 처리 중 오류:", err);
-        }
-        
-        setResetCode(code);
-      } else {
-        // 코드가 없으면 비밀번호 재설정 링크가 잘못된 것
-        setError("유효하지 않은 비밀번호 재설정 링크입니다.");
-      }
-    };
+  const code = searchParams.get("code");
+  const flowId = searchParams.get("sb_flow_id");
 
-    initializeReset();
-  }, [searchParams]);
+  // Exchange once on arrival, never on form submission or through URL detection.
+  useEffect(() => {
+    let active = true;
+    setRecovery(null);
+    setLinkError(null);
+    setError(null);
+    initializeRecovery(code, flowId).then(
+      (session) => {
+        if (active) {
+          setRecovery(session);
+        }
+      },
+      () => {
+        if (active) {
+          setLinkError(INVALID_RECOVERY_LINK);
+        }
+      },
+    );
+    return () => {
+      active = false;
+    };
+  }, [code, flowId]);
 
   // 비밀번호 강도 체크
   const checkPasswordStrength = (password: string) => {
@@ -105,8 +115,8 @@ function ResetPasswordContent() {
     setLoading(true);
 
     // 코드가 없으면 처리 중단
-    if (!resetCode) {
-      setError("유효하지 않은 비밀번호 재설정 링크입니다.");
+    if (!recovery) {
+      setLinkError(INVALID_RECOVERY_LINK);
       setLoading(false);
       return;
     }
@@ -126,35 +136,25 @@ function ResetPasswordContent() {
     }
 
     try {
-      // 먼저 코드를 사용하여 세션 생성 (이제 로그인됨)
-      const { data: sessionData, error: sessionError } = await supabaseBrowser.auth.exchangeCodeForSession(resetCode);
-      
-      if (sessionError) {
-        throw new Error("비밀번호 재설정 링크가 만료되었거나 유효하지 않습니다.");
-      }
-
-      // 세션이 생성된 후 비밀번호 업데이트
-      const { error: updateError } = await supabaseBrowser.auth.updateUser({
-        password: password,
-      });
-
-      if (updateError) {
-        throw updateError;
-      }
+      await recovery.updatePassword(password);
 
       setSuccess(true);
       toast({
         title: "비밀번호 변경 성공",
-        description: "비밀번호가 성공적으로 변경되었습니다. 새 비밀번호로 로그인되었습니다.",
+        description:
+          "비밀번호가 성공적으로 변경되었습니다. 새 비밀번호로 로그인되었습니다.",
       });
 
       // 3초 후 홈페이지로 이동 (이미 로그인된 상태)
       setTimeout(() => {
         router.push("/");
       }, 3000);
-    } catch (err: any) {
-      console.error("비밀번호 재설정 에러:", err);
-      setError(err.message || "비밀번호 변경 중 오류가 발생했습니다.");
+    } catch (err: unknown) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "비밀번호 변경 중 오류가 발생했습니다.",
+      );
       toast({
         title: "오류",
         description: "비밀번호 변경 중 오류가 발생했습니다.",
@@ -202,12 +202,12 @@ function ResetPasswordContent() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {error && (
+            {(linkError || error) && (
               <Alert variant="destructive">
                 <AlertCircle className="h-4 w-4" />
                 <AlertTitle>오류</AlertTitle>
-                <AlertDescription>{error}</AlertDescription>
-                {error.includes("유효하지 않은") && (
+                <AlertDescription>{linkError || error}</AlertDescription>
+                {(linkError || error === INVALID_RECOVERY_LINK) && (
                   <div className="mt-3">
                     <Button
                       onClick={() => router.push("/forgot-password")}
@@ -228,11 +228,11 @@ function ResetPasswordContent() {
                   비밀번호 변경 완료
                 </AlertTitle>
                 <AlertDescription className="text-green-600">
-                  비밀번호가 성공적으로 변경되었습니다. 새 비밀번호로 로그인되었습니다. 잠시 후 홈페이지로
-                  이동합니다.
+                  비밀번호가 성공적으로 변경되었습니다. 새 비밀번호로
+                  로그인되었습니다. 잠시 후 홈페이지로 이동합니다.
                 </AlertDescription>
               </Alert>
-            ) : resetCode && !error ? (
+            ) : recovery && !linkError ? (
               <form onSubmit={handleResetPassword}>
                 <div className="space-y-4">
                   <div className="space-y-2">
@@ -311,7 +311,8 @@ function ResetPasswordContent() {
                 </div>
               </form>
             ) : (
-              !resetCode && !error && (
+              !recovery &&
+              !linkError && (
                 <div className="text-center text-gray-500">
                   비밀번호 재설정 링크를 확인 중입니다...
                 </div>
@@ -331,7 +332,13 @@ function ResetPasswordContent() {
 
 export default function ResetPasswordPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-[#F5F5F5]">Loading...</div>}>
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-[#F5F5F5]">
+          Loading...
+        </div>
+      }
+    >
       <ResetPasswordContent />
     </Suspense>
   );

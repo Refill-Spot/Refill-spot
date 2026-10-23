@@ -27,6 +27,10 @@ export async function GET(request: NextRequest) {
         // 코드를 URL 파라미터로 전달하여 reset-password 페이지에서 처리
         const resetUrl = new URL("/reset-password", requestUrl.origin);
         resetUrl.searchParams.set("code", code);
+        const flowId = requestUrl.searchParams.get("sb_flow_id");
+        if (flowId) {
+          resetUrl.searchParams.set("sb_flow_id", flowId);
+        }
         const response = NextResponse.redirect(resetUrl);
         response.headers.set("Cache-Control", "private, no-store");
         response.headers.set("Referrer-Policy", "no-referrer");
@@ -70,7 +74,11 @@ export async function GET(request: NextRequest) {
         },
       );
 
-      const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+      const flowId = requestUrl.searchParams.get("sb_flow_id");
+      const { data, error } = await supabase.auth.exchangeCodeForSession(
+        code,
+        flowId ? { flowId } : undefined,
+      );
 
       if (error) {
         console.error("OAuth 콜백 오류:", error);

@@ -69,6 +69,8 @@ export interface Database {
           position_y: number;
           naver_rating: number | null;
           kakao_rating: number | null;
+          naver_place_id: string | null;
+          kakao_place_id: string | null;
           open_hours: string | null;
           refill_items: Json | null;
           created_at: string;
@@ -88,6 +90,8 @@ export interface Database {
           position_y: number;
           naver_rating?: number | null;
           kakao_rating?: number | null;
+          naver_place_id?: string | null;
+          kakao_place_id?: string | null;
           open_hours?: string | null;
           refill_items?: Json[] | null;
           created_at?: string;
@@ -107,6 +111,8 @@ export interface Database {
           position_y?: number;
           naver_rating?: number | null;
           kakao_rating?: number | null;
+          naver_place_id?: string | null;
+          kakao_place_id?: string | null;
           open_hours?: string | null;
           refill_items?: Json[] | null;
           image_urls?: string[] | null;

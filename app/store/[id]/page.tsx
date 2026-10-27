@@ -29,7 +29,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { SearchInput } from "@/components/header/search-input";
 import { StoreReviews } from "@/components/store-reviews";
 import { ReviewWriteDialog } from "@/components/review-write-dialog";
-import { PlatformViewDialog } from "@/components/platform-view-dialog";
+import { PlatformLinks } from "@/components/platform-links";
 import { ExternalRatings } from "@/components/external-ratings";
 import { BrandMark } from "@/components/brand-mark";
 import { getUserLocation, isLocationValid } from "@/lib/location-storage";
@@ -71,8 +71,6 @@ export default function StorePage() {
   const [showReviewDialog, setShowReviewDialog] = useState(false);
   const [refreshReviews, setRefreshReviews] = useState(0);
   const [showAllMenus, setShowAllMenus] = useState(false);
-  const [showNaverPlatform, setShowNaverPlatform] = useState(false);
-  const [showKakaoPlatform, setShowKakaoPlatform] = useState(false);
   const [showLoginAlert, setShowLoginAlert] = useState(false);
   const [photoIndex, setPhotoIndex] = useState<number | null>(null);
   const [failedImages, setFailedImages] = useState<Set<string>>(new Set());
@@ -765,28 +763,7 @@ export default function StorePage() {
                     />
                     운영 정보
                   </CardTitle>
-                  <div className="flex flex-col sm:flex-row gap-2">
-                    <Button
-                      onClick={() => setShowNaverPlatform(true)}
-                      variant="outline"
-                      className="border-green-700 bg-green-700 text-white hover:bg-green-800 hover:text-white"
-                      size="sm"
-                    >
-                      <span className="mr-2 font-black" aria-hidden="true">
-                        N
-                      </span>
-                      네이버에서 리뷰 확인
-                    </Button>
-                    <Button
-                      onClick={() => setShowKakaoPlatform(true)}
-                      variant="outline"
-                      className="border-yellow-400 bg-[#FEE500] text-gray-950 hover:bg-yellow-300 hover:text-gray-950"
-                      size="sm"
-                    >
-                      <MapPin className="w-4 h-4 mr-2" aria-hidden="true" />
-                      카카오맵에서 리뷰 확인
-                    </Button>
-                  </div>
+                  <PlatformLinks store={store} />
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -1399,26 +1376,6 @@ export default function StorePage() {
           storeId={store.id}
           storeName={store.name}
           onReviewSubmitted={handleReviewChanged}
-        />
-      )}
-
-      {/* 네이버 플랫폼 다이얼로그 */}
-      {store && (
-        <PlatformViewDialog
-          open={showNaverPlatform}
-          onOpenChange={setShowNaverPlatform}
-          store={store}
-          platform="naver"
-        />
-      )}
-
-      {/* 카카오 플랫폼 다이얼로그 */}
-      {store && (
-        <PlatformViewDialog
-          open={showKakaoPlatform}
-          onOpenChange={setShowKakaoPlatform}
-          store={store}
-          platform="kakao"
         />
       )}
 

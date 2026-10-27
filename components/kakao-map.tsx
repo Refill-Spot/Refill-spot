@@ -6,6 +6,7 @@ import { useGeolocation } from "@/hooks/use-geolocation";
 import { loadKakaoMaps } from "@/lib/kakao-sdk";
 import { mapLogger } from "@/lib/logger";
 import { reconcileSelectedStore } from "@/lib/map-selection";
+import { getMapPreviewPosition } from "@/lib/map-preview-position";
 import {
   formatStoreDistance,
   getRepresentativeMenu,
@@ -13,7 +14,7 @@ import {
 import { Store } from "@/types/store";
 import { MapPin, X, ExternalLink, Navigation, Phone } from "lucide-react";
 import Link from "next/link";
-import type { Ref } from "react";
+import type { CSSProperties, Ref } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 declare global {
@@ -72,6 +73,8 @@ export default function KakaoMap({
   });
 
   const mapRef = useRef<HTMLDivElement>(null);
+  const previewRef = useRef<HTMLElement>(null);
+  const [previewPosition, setPreviewPosition] = useState({ left: 12, top: 12 });
   const [kakaoMapLoaded, setKakaoMapLoaded] = useState(false);
   const [map, setMap] = useState<any>(null);
   const mapInstanceRef = useRef<any>(null);
@@ -559,6 +562,50 @@ export default function KakaoMap({
   const selectedLng = selectedStore?.position.lng;
 
   useEffect(() => {
+    const container = mapRef.current;
+    const preview = previewRef.current;
+    if (
+      !map ||
+      !container ||
+      !preview ||
+      typeof selectedLat !== "number" ||
+      typeof selectedLng !== "number"
+    ) {
+      return;
+    }
+    const updatePosition = () => {
+      const point = map
+        .getProjection()
+        .containerPointFromCoords(
+          new window.kakao.maps.LatLng(selectedLat, selectedLng),
+        );
+      const position = getMapPreviewPosition(
+        point,
+        { width: container.clientWidth, height: container.clientHeight },
+        { width: preview.offsetWidth, height: preview.offsetHeight },
+      );
+      setPreviewPosition((previous) =>
+        previous.left === position.left && previous.top === position.top
+          ? previous
+          : position,
+      );
+    };
+    updatePosition();
+    window.kakao.maps.event.addListener(map, "bounds_changed", updatePosition);
+    const observer = new ResizeObserver(updatePosition);
+    observer.observe(container);
+    observer.observe(preview);
+    return () => {
+      observer.disconnect();
+      window.kakao.maps.event.removeListener(
+        map,
+        "bounds_changed",
+        updatePosition,
+      );
+    };
+  }, [map, selectedId, selectedLat, selectedLng]);
+
+  useEffect(() => {
     updateMarkerSelection();
   }, [map, selectedId, updateMarkerSelection]);
 
@@ -951,21 +998,34 @@ export default function KakaoMap({
       {/* 선택된 가게의 간결한 지도 미리보기 */}
       {selectedStore && (
         <section
+          ref={previewRef}
           aria-labelledby="map-store-preview-title"
-          className="absolute bottom-2 right-2 z-20 max-h-[calc(100%_-_1rem)] w-[calc(100%_-_4.5rem)] max-w-[16rem] overflow-y-auto rounded-md border border-border bg-card p-3 text-card-foreground shadow-sm"
+          style={
+            {
+              "--preview-left": `${previewPosition.left}px`,
+              "--preview-top": `${previewPosition.top}px`,
+            } as CSSProperties
+          }
+          className="absolute bottom-3 left-3 right-3 z-20 max-h-[45%] overflow-y-auto rounded-2xl border border-border/60 bg-card p-5 text-card-foreground shadow-[0_8px_30px_-10px_rgba(0,0,0,0.2)] md:bottom-auto md:left-[var(--preview-left)] md:right-auto md:top-[var(--preview-top)] md:max-h-[calc(100%_-_1.5rem)] md:w-80 md:max-w-[calc(100%_-_1.5rem)]"
+          onKeyDown={(event) => {
+            if (event.key === "Escape") {
+              event.stopPropagation();
+              selectStore(null);
+            }
+          }}
         >
           <div className="flex items-start justify-between gap-2">
             <h3
               ref={previewTitleRef}
               id="map-store-preview-title"
               tabIndex={-1}
-              className="line-clamp-2 text-sm font-semibold leading-5"
+              className="line-clamp-2 text-base font-semibold leading-6 tracking-tight"
             >
               {selectedStore.name}
             </h3>
             <button
               type="button"
-              className="-mr-1 -mt-1 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-sm text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="-mr-3 -mt-3 flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               onClick={() => selectStore(null)}
               aria-label="가게 미리보기 닫기"
             >
@@ -974,8 +1034,8 @@ export default function KakaoMap({
           </div>
 
           {selectedMenu ? (
-            <div className="mt-1.5 flex items-start justify-between gap-2 text-xs leading-5">
-              <p className="min-w-0 break-words">
+            <div className="mt-2 flex items-start justify-between gap-4 text-sm leading-6">
+              <p className="min-w-0 break-words text-muted-foreground">
                 {selectedMenu.name}
                 {selectedMenu.type && (
                   <span className="ml-1 text-muted-foreground">
@@ -983,12 +1043,12 @@ export default function KakaoMap({
                   </span>
                 )}
               </p>
-              <strong className="max-w-[45%] flex-shrink-0 break-words text-right font-semibold tabular-nums">
+              <strong className="max-w-[45%] flex-shrink-0 break-words text-right font-medium tabular-nums">
                 {selectedMenu.price?.trim() || "가격 미등록"}
               </strong>
             </div>
           ) : (
-            <p className="mt-1.5 text-xs text-muted-foreground">
+            <p className="mt-2 text-sm leading-6 text-muted-foreground">
               {selectedStore.categories.slice(0, 2).join(" · ")}
               {selectedStore.categories.length > 0 && " · "}
               메뉴·가격 미등록
@@ -996,7 +1056,7 @@ export default function KakaoMap({
           )}
 
           <address
-            className="mt-1.5 line-clamp-2 text-xs not-italic leading-4 text-muted-foreground"
+            className="mt-2 line-clamp-2 text-xs not-italic leading-5 text-muted-foreground"
             title={selectedStore.address}
           >
             {selectedStore.address}
@@ -1005,14 +1065,14 @@ export default function KakaoMap({
 
           <nav
             aria-label={`${selectedStore.name} 바로가기`}
-            className="mt-2 flex flex-wrap items-center gap-x-3 border-t border-border pt-1 text-xs font-medium"
+            className="mt-4 flex flex-wrap items-center gap-1 border-t border-border/50 pt-3 text-sm font-medium"
           >
             <Link
               href={`/store/${selectedStore.id}`}
               target="_blank"
               rel="noopener noreferrer"
               aria-label={`${selectedStore.name} 상세 보기 (새 탭)`}
-              className="inline-flex min-h-8 items-center gap-1 rounded-sm hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-primary/10 px-3 text-primary transition-colors hover:bg-primary/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
               상세 보기
@@ -1021,7 +1081,7 @@ export default function KakaoMap({
               href={directionsUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex min-h-8 items-center gap-1 rounded-sm hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl px-3 text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               <Navigation className="h-3.5 w-3.5" aria-hidden="true" />
               길찾기
@@ -1030,7 +1090,7 @@ export default function KakaoMap({
             {selectedStore.phoneNumber?.trim() && (
               <a
                 href={`tel:${selectedStore.phoneNumber}`}
-                className="inline-flex min-h-8 items-center gap-1 rounded-sm hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-xl px-3 text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 aria-label={`${selectedStore.name} 전화 ${selectedStore.phoneNumber}`}
               >
                 <Phone className="h-3.5 w-3.5" aria-hidden="true" />
@@ -1054,7 +1114,7 @@ export default function KakaoMap({
       )}
 
       {/* 지도 컨트롤 */}
-      <div className="absolute bottom-4 left-4 flex flex-col gap-2 z-10">
+      <div className="absolute top-4 left-4 flex flex-col gap-2 z-10 md:top-auto md:bottom-4">
         <Button
           variant="secondary"
           size="icon"

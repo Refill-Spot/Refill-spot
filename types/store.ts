@@ -10,6 +10,8 @@ export interface StoreFromDb {
   distance?: number | null;
   naver_rating: number | null;
   kakao_rating: number | null;
+  naver_place_id?: string | null;
+  kakao_place_id?: string | null;
   position_lat: number;
   position_lng: number;
   position_x: number;
@@ -34,6 +36,8 @@ export interface Store {
   distance?: string | null; // 문자열 형태의 거리 (예: "1.2km") 또는 null
   categories: string[];
   rating: ExternalRatings;
+  naverPlaceId?: string | null;
+  kakaoPlaceId?: string | null;
   // 자체 리뷰 시스템 평점
   avgRating?: number; // 평균 평점 (1-5점)
   reviewCount?: number; // 리뷰 개수

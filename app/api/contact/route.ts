@@ -4,7 +4,11 @@ import { apiResponse } from "@/lib/api-response";
 import { checkAdminAccessForAPI } from "@/lib/auth-utils";
 import { apiLogger } from "@/lib/logger";
 import type { Database } from "@/types/supabase";
-import { contactQuerySchema, contactSubmissionSchema } from "@/lib/validations";
+import {
+  buildContactMessage,
+  contactQuerySchema,
+  contactSubmissionSchema,
+} from "@/lib/validations";
 
 type ContactInsert = Database["public"]["Tables"]["contacts"]["Insert"];
 
@@ -19,7 +23,7 @@ export async function POST(request: NextRequest) {
         400,
       );
     }
-    const { type, name, email, phone, storeName, storeAddress, message } =
+    const { type, name, email, phone, storeName, storeAddress } =
       validation.data;
 
     const supabase = createRouteHandlerSupabaseClient(request);
@@ -32,7 +36,7 @@ export async function POST(request: NextRequest) {
       phone: phone || null,
       store_name: storeName || null,
       store_address: storeAddress || null,
-      message,
+      message: buildContactMessage(validation.data),
       status: "pending",
     };
 
@@ -47,7 +51,10 @@ export async function POST(request: NextRequest) {
 
     return apiResponse.success(
       {
-        message: "문의가 성공적으로 접수되었습니다.",
+        message:
+          type === "store_registration"
+            ? "제보가 검토 대기로 접수되었습니다. 검토 후 반영하며, 즉시 등록·수정되지 않습니다."
+            : "문의가 성공적으로 접수되었습니다.",
       },
       201,
     );

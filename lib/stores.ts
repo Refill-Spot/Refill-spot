@@ -55,6 +55,8 @@ export function mapStoreFromDb(
       distance === null || distance === undefined ? null : String(distance),
     categories,
     rating: mapStoredExternalRatings(store),
+    naverPlaceId: store.naver_place_id ?? null,
+    kakaoPlaceId: store.kakao_place_id ?? null,
     avgRating: avgRating || undefined,
     reviewCount: reviewCount || undefined,
     position: {
